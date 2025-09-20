@@ -1340,7 +1340,7 @@ async function createRoute() {
 async function loadCheckpoints() {
     try {
         const checkpoints = await firebaseService.getAllCheckpoints();
-        const list = document.getElementById('checkpoints-list');
+        const list = document.getElementById('checkpoints-management-list');
         
         if (checkpoints.length === 0) {
             list.innerHTML = '<p style="text-align: center; color: #666;">Aucun checkpoint créé</p>';
@@ -1366,7 +1366,7 @@ async function loadCheckpoints() {
 async function loadRoutes() {
     try {
         const routes = await firebaseService.getAllRoutes();
-        const list = document.getElementById('routes-list');
+        const list = document.getElementById('routes-management-list');
         
         if (routes.length === 0) {
             list.innerHTML = '<p style="text-align: center; color: #666;">Aucun parcours créé</p>';

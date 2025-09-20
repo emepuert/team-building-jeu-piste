@@ -66,6 +66,41 @@ let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
 let selectedTeam = null; // Équipe sélectionnée
 
+// Fonction pour décoder une polyline encodée
+function decodePolyline(encoded) {
+    const poly = [];
+    let index = 0;
+    const len = encoded.length;
+    let lat = 0;
+    let lng = 0;
+
+    while (index < len) {
+        let b;
+        let shift = 0;
+        let result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lat += dlat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
+        lng += dlng;
+
+        poly.push([lng / 1e5, lat / 1e5]);
+    }
+    return poly;
+}
+
 // Configuration des équipes
 const TEAMS = {
     team1: {
@@ -782,21 +817,39 @@ async function calculateRoute(from, toCheckpoint) {
             console.log('🛣️ Route data:', route);
             
             // Vérifier si on a une géométrie valide
-            if (route.geometry && route.geometry.coordinates) {
-                // Créer un GeoJSON à partir des coordonnées de la route
-                const routeGeoJSON = {
-                    type: "Feature",
-                    geometry: {
-                        type: "LineString",
-                        coordinates: route.geometry.coordinates
-                    },
-                    properties: route
-                };
+            if (route.geometry) {
+                let routeGeoJSON;
+                
+                // Si c'est une chaîne encodée (polyline), on la décode
+                if (typeof route.geometry === 'string') {
+                    console.log('🔄 Décodage de la polyline...');
+                    const coordinates = decodePolyline(route.geometry);
+                    routeGeoJSON = {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: coordinates
+                        },
+                        properties: route
+                    };
+                } else if (route.geometry.coordinates) {
+                    // Si c'est déjà un GeoJSON
+                    routeGeoJSON = {
+                        type: "Feature",
+                        geometry: {
+                            type: "LineString",
+                            coordinates: route.geometry.coordinates
+                        },
+                        properties: route
+                    };
+                }
                 
                 console.log('📍 GeoJSON créé:', routeGeoJSON);
                 
-                // Afficher la route sur la carte
-                currentRoute = L.geoJSON(routeGeoJSON, {
+                // Vérifier que le GeoJSON a été créé correctement
+                if (routeGeoJSON && routeGeoJSON.geometry && routeGeoJSON.geometry.coordinates) {
+                    // Afficher la route sur la carte
+                    currentRoute = L.geoJSON(routeGeoJSON, {
                     style: {
                         color: getTeamColor(),
                         weight: 5,
@@ -814,8 +867,12 @@ async function calculateRoute(from, toCheckpoint) {
                     displayBasicNavigation(route.summary);
                 }
                 
-                console.log('✅ Itinéraire calculé et affiché');
-                showNotification('🧭 Itinéraire GPS calculé !');
+                    console.log('✅ Itinéraire calculé et affiché');
+                    showNotification('🧭 Itinéraire GPS calculé !');
+                } else {
+                    console.error('❌ Impossible de créer le GeoJSON:', routeGeoJSON);
+                    showNotification('Erreur: Format de route invalide', 'error');
+                }
             } else {
                 console.error('❌ Pas de géométrie dans la route:', route);
                 showNotification('Erreur: Pas de géométrie de route', 'error');

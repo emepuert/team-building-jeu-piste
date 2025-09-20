@@ -64,6 +64,31 @@ let checkpointMarkers = [];
 let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
+let selectedTeam = null; // Équipe sélectionnée
+
+// Configuration des équipes
+const TEAMS = {
+    team1: {
+        name: "🔴 Équipe Rouge",
+        color: "#e74c3c",
+        route: [1, 2] // Ordre des checkpoints pour cette équipe
+    },
+    team2: {
+        name: "🔵 Équipe Bleue", 
+        color: "#3498db",
+        route: [2, 1] // Ordre différent pour cette équipe
+    },
+    team3: {
+        name: "🟢 Équipe Verte",
+        color: "#27ae60", 
+        route: [1, 2] // Même que rouge pour l'instant
+    },
+    team4: {
+        name: "🟡 Équipe Jaune",
+        color: "#f1c40f",
+        route: [2, 1] // Même que bleue pour l'instant
+    }
+};
 
 // Initialisation de l'application
 document.addEventListener('DOMContentLoaded', function() {
@@ -71,8 +96,71 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    console.log('🚀 Initialisation du jeu de piste Turin...');
+    console.log('🚀 Initialisation du jeu de piste...');
     
+    // Vérifier si une équipe est déjà sélectionnée
+    checkTeamSelection();
+}
+
+function checkTeamSelection() {
+    // Vérifier le localStorage pour une équipe existante
+    const savedTeam = localStorage.getItem('selectedTeam');
+    
+    if (savedTeam && TEAMS[savedTeam]) {
+        // Équipe déjà sélectionnée
+        selectedTeam = savedTeam;
+        showTeamInfo();
+        startGame();
+    } else {
+        // Pas d'équipe sélectionnée, afficher le modal
+        showTeamSelectionModal();
+    }
+}
+
+function showTeamSelectionModal() {
+    const modal = document.getElementById('team-selection-modal');
+    modal.style.display = 'block';
+    
+    // Configurer les événements de sélection d'équipe
+    setupTeamSelectionEvents();
+}
+
+function setupTeamSelectionEvents() {
+    const teamSelect = document.getElementById('team-select');
+    const confirmBtn = document.getElementById('confirm-team-btn');
+    
+    teamSelect.addEventListener('change', function() {
+        confirmBtn.disabled = !this.value;
+    });
+    
+    confirmBtn.addEventListener('click', function() {
+        const selectedValue = teamSelect.value;
+        if (selectedValue && TEAMS[selectedValue]) {
+            // Sauvegarder l'équipe dans localStorage
+            localStorage.setItem('selectedTeam', selectedValue);
+            selectedTeam = selectedValue;
+            
+            // Cacher le modal et commencer le jeu
+            document.getElementById('team-selection-modal').style.display = 'none';
+            showTeamInfo();
+            startGame();
+            
+            showNotification(`Bienvenue dans ${TEAMS[selectedValue].name} !`);
+        }
+    });
+}
+
+function showTeamInfo() {
+    const teamInfo = document.getElementById('team-info');
+    const currentTeamSpan = document.getElementById('current-team');
+    
+    if (selectedTeam && TEAMS[selectedTeam]) {
+        currentTeamSpan.textContent = TEAMS[selectedTeam].name;
+        teamInfo.style.display = 'block';
+    }
+}
+
+function startGame() {
     // Initialiser la carte
     initializeMap();
     
@@ -164,6 +252,30 @@ function getNextAccessibleCheckpoint() {
         const isAccessible = !cp.locked || isUnlocked;
         return !isFound && isAccessible;
     });
+}
+
+function getNextCheckpointForTeam() {
+    if (!selectedTeam || !TEAMS[selectedTeam]) return null;
+    
+    const teamRoute = TEAMS[selectedTeam].route;
+    const nonLobbyFound = foundCheckpoints.filter(id => {
+        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    });
+    
+    // Déterminer quel est le prochain checkpoint dans l'ordre de l'équipe
+    const nextIndex = nonLobbyFound.length;
+    
+    if (nextIndex < teamRoute.length) {
+        return teamRoute[nextIndex];
+    }
+    
+    return null; // Tous les checkpoints sont terminés
+}
+
+function getTeamColor() {
+    if (!selectedTeam || !TEAMS[selectedTeam]) return '#3498db';
+    return TEAMS[selectedTeam].color;
 }
 
 function onLocationUpdate(position) {
@@ -278,13 +390,18 @@ function addCheckpointsToMap() {
         
         // Ajouter le bouton GPS pour les points débloqués (pas encore trouvés) OU pour le lobby
         if (userPosition && (!isFound || checkpoint.isLobby)) {
-            const buttonText = checkpoint.isLobby ? '🧭 GPS vers Premier Défi' : '🧭 Calculer l\'itinéraire GPS';
-            const targetId = checkpoint.isLobby ? 1 : checkpoint.id; // Si lobby, GPS vers le premier défi
+            let buttonText = '🧭 Calculer l\'itinéraire GPS';
+            let targetId = checkpoint.id;
+            
+            if (checkpoint.isLobby) {
+                buttonText = '🧭 GPS vers Premier Défi';
+                targetId = getNextCheckpointForTeam() || 1; // Premier checkpoint selon l'équipe
+            }
             
             popupContent += `
                 <br>
                 <button onclick="calculateRouteFromPopup(${targetId})" 
-                        style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                        style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
                                color: white; border: none; padding: 0.5rem 1rem; 
                                border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
                                margin-top: 0.5rem;">
@@ -398,9 +515,12 @@ function foundCheckpoint(checkpoint) {
     if (!checkpoint.isLobby) {
         showClue(checkpoint.clue);
     } else {
-        // Pour le lobby, débloquer directement le premier défi
+        // Pour le lobby, débloquer le premier checkpoint selon l'équipe
         setTimeout(() => {
-            unlockCheckpoint(1);
+            const firstCheckpointId = getNextCheckpointForTeam();
+            if (firstCheckpointId) {
+                unlockCheckpoint(firstCheckpointId);
+            }
         }, 1000);
     }
     
@@ -483,17 +603,22 @@ function checkRiddleAnswer() {
         feedback.innerHTML = '🎉 Correct ! Le deuxième point est maintenant débloqué !';
         feedback.className = 'success';
         
-        // Débloquer le deuxième point
-        unlockCheckpoint(2);
+        // Débloquer le prochain point selon l'équipe
+        const nextCheckpointId = getNextCheckpointForTeam();
+        if (nextCheckpointId) {
+            unlockCheckpoint(nextCheckpointId);
+        }
         
         setTimeout(() => {
             document.getElementById('riddle-modal').style.display = 'none';
-            showNotification('🎯 Deuxième point débloqué ! Navigation GPS activée.');
+            showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
             
             // Zoomer sur le nouveau point débloqué
-            const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === 2);
-            if (unlockedCheckpoint) {
-                centerMapOnCheckpoint(unlockedCheckpoint);
+            if (nextCheckpointId) {
+                const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                if (unlockedCheckpoint) {
+                    centerMapOnCheckpoint(unlockedCheckpoint);
+                }
             }
         }, 2000);
         

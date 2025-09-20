@@ -9,8 +9,32 @@
 </head>
 <body>
     <div id="app">
+        <!-- Modal de sélection d'équipe -->
+        <div id="team-selection-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>🏆 Sélection d'Équipe</h2>
+                <p>Choisissez votre équipe pour commencer l'aventure :</p>
+                <div id="team-selection-container">
+                    <select id="team-select">
+                        <option value="">-- Choisir une équipe --</option>
+                        <option value="team1">🔴 Équipe Rouge</option>
+                        <option value="team2">🔵 Équipe Bleue</option>
+                        <option value="team3">🟢 Équipe Verte</option>
+                        <option value="team4">🟡 Équipe Jaune</option>
+                    </select>
+                    <button id="confirm-team-btn" disabled>Confirmer l'équipe</button>
+                </div>
+                <p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">
+                    ⚠️ Attention : Une fois l'équipe choisie, vous ne pourrez plus la changer !
+                </p>
+            </div>
+        </div>
+
         <header>
             <h1>🎯 Jeu de Piste - Test</h1>
+            <div id="team-info" style="display: none;">
+                <span id="current-team"></span>
+            </div>
             <div id="status">Localisation en cours...</div>
         </header>
         

@@ -140,12 +140,6 @@ function onLocationSuccess(position) {
     checkProximityToCheckpoints();
     updateHint();
     
-    // Calculer l'itinéraire vers le premier point accessible
-    const nextCheckpoint = getNextAccessibleCheckpoint();
-    if (nextCheckpoint) {
-        calculateRoute(userPosition, nextCheckpoint);
-    }
-    
     showNotification('Position détectée avec succès !');
 }
 
@@ -479,11 +473,6 @@ function centerMapOnCheckpoint(checkpoint) {
         duration: 2 // 2 secondes d'animation
     });
     
-    // Calculer et afficher l'itinéraire vers ce point
-    if (userPosition) {
-        calculateRoute(userPosition, checkpoint);
-    }
-    
     // Optionnel : faire clignoter le marqueur
     setTimeout(() => {
         const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
@@ -496,6 +485,12 @@ function centerMapOnCheckpoint(checkpoint) {
 async function calculateRoute(from, toCheckpoint) {
     console.log(`🗺️ Calcul de l'itinéraire vers ${toCheckpoint.name}`);
     
+    // Afficher un indicateur de chargement
+    const gpsBtn = document.getElementById('gps-route-btn');
+    const originalText = gpsBtn.textContent;
+    gpsBtn.textContent = '⏳ Calcul en cours...';
+    gpsBtn.disabled = true;
+    
     try {
         // Supprimer l'ancienne route
         if (currentRoute) {
@@ -506,6 +501,8 @@ async function calculateRoute(from, toCheckpoint) {
         // Coordonnées au format [longitude, latitude] pour ORS
         const start = [from.lng, from.lat];
         const end = [toCheckpoint.coordinates[1], toCheckpoint.coordinates[0]];
+        
+        console.log('📍 Coordonnées:', { start, end });
         
         // Appel à l'API OpenRouteService
         const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
@@ -523,11 +520,16 @@ async function calculateRoute(from, toCheckpoint) {
             })
         });
         
+        console.log('📡 Réponse ORS:', response.status);
+        
         if (!response.ok) {
-            throw new Error(`Erreur ORS: ${response.status}`);
+            const errorText = await response.text();
+            console.error('❌ Erreur ORS:', errorText);
+            throw new Error(`Erreur ORS: ${response.status} - ${errorText}`);
         }
         
         const data = await response.json();
+        console.log('📊 Données reçues:', data);
         
         if (data.features && data.features.length > 0) {
             const route = data.features[0];
@@ -547,11 +549,19 @@ async function calculateRoute(from, toCheckpoint) {
             displayNavigationInstructions(instructions, route.properties.summary);
             
             console.log('✅ Itinéraire calculé et affiché');
+            showNotification('🧭 Itinéraire GPS calculé !');
+            
+            // Cacher le bouton GPS une fois la route affichée
+            gpsBtn.style.display = 'none';
         }
         
     } catch (error) {
         console.error('❌ Erreur lors du calcul de l\'itinéraire:', error);
-        showNotification('Impossible de calculer l\'itinéraire', 'error');
+        showNotification('Impossible de calculer l\'itinéraire GPS', 'error');
+        
+        // Restaurer le bouton
+        gpsBtn.textContent = originalText;
+        gpsBtn.disabled = false;
     }
 }
 
@@ -600,14 +610,17 @@ function updateProgress() {
 
 function updateHint() {
     const hintText = document.getElementById('hint-text');
+    const gpsBtn = document.getElementById('gps-route-btn');
     
     if (!userPosition) {
         hintText.textContent = 'Trouvez votre position pour commencer l\'aventure !';
+        gpsBtn.style.display = 'none';
         return;
     }
     
     if (foundCheckpoints.length === GAME_CONFIG.checkpoints.length) {
         hintText.textContent = '🎉 Félicitations ! Vous avez terminé le jeu de piste !';
+        gpsBtn.style.display = 'none';
         return;
     }
     
@@ -633,6 +646,11 @@ function updateHint() {
                 (distance/1000).toFixed(1) + ' km' : 
                 Math.round(distance) + ' m'}</small>
         `;
+        
+        // Afficher le bouton GPS
+        gpsBtn.style.display = 'block';
+        gpsBtn.onclick = () => calculateRoute(userPosition, nextCheckpoint);
+        
     } else {
         // Tous les checkpoints débloqués sont trouvés, mais il y en a peut-être des verrouillés
         const lockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => 
@@ -642,6 +660,8 @@ function updateHint() {
         if (lockedCheckpoint) {
             hintText.innerHTML = `<strong>${lockedCheckpoint.hint}</strong>`;
         }
+        
+        gpsBtn.style.display = 'none';
     }
 }
 

@@ -116,6 +116,30 @@ main {
     padding: 1rem;
     color: #856404;
     font-style: italic;
+    margin-bottom: 1rem;
+}
+
+#gps-route-btn {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin: 0;
+    width: 100%;
+}
+
+#gps-route-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+}
+
+#gps-route-btn:active {
+    transform: translateY(0);
 }
 
 /* Styles pour les marqueurs personnalisés */

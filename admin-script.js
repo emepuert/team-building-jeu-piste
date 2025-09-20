@@ -3,42 +3,73 @@ console.log('🔧 Admin Script chargé');
 
 // Variables globales
 let firebaseService = null;
+let firebaseAuth = null;
 let isAuthenticated = false;
+let currentUser = null;
 let teamsData = [];
 let validationsData = [];
 
-// Mot de passe admin (à changer en production !)
-const ADMIN_PASSWORD = 'admin2024';
+// Configuration admin - Emails autorisés
+const ADMIN_CONFIG = {
+    authorizedEmails: [
+        'votre.email@gmail.com', // ← Remplacez par votre email !
+        // 'autre.admin@gmail.com' // Autres admins si besoin
+    ]
+};
 
 // Initialisation de l'admin
 function initializeAdmin() {
     console.log('🚀 Initialisation interface admin...');
     
-    // Initialiser Firebase Service
-    if (window.firebaseService) {
+    // Initialiser Firebase Service et Auth
+    if (window.firebaseService && window.firebaseAuth) {
         firebaseService = window.firebaseService;
-        console.log('✅ Firebase Service initialisé pour admin');
+        firebaseAuth = window.firebaseAuth;
+        console.log('✅ Firebase Service et Auth initialisés pour admin');
+        
+        // Écouter les changements d'authentification
+        setupAuthStateListener();
     } else {
-        console.error('❌ Firebase Service non disponible');
+        console.error('❌ Firebase Service ou Auth non disponible');
         return;
     }
-    
-    // Vérifier l'authentification
-    checkAuthentication();
     
     // Configurer les événements
     setupAuthEvents();
 }
 
-// Vérification de l'authentification
-function checkAuthentication() {
-    const savedAuth = localStorage.getItem('admin_authenticated');
-    if (savedAuth === 'true') {
-        isAuthenticated = true;
-        showAdminInterface();
-    } else {
-        showAuthModal();
-    }
+// Écouter les changements d'état d'authentification
+function setupAuthStateListener() {
+    if (!firebaseAuth) return;
+    
+    // Import dynamique des fonctions Firebase Auth
+    import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js')
+        .then(({ onAuthStateChanged }) => {
+            onAuthStateChanged(firebaseAuth, (user) => {
+                if (user && isAuthorizedEmail(user.email)) {
+                    // Utilisateur connecté et autorisé
+                    currentUser = user;
+                    isAuthenticated = true;
+                    showAdminInterface();
+                    console.log('✅ Admin connecté:', user.email);
+                } else if (user) {
+                    // Utilisateur connecté mais non autorisé
+                    console.warn('🚨 Email non autorisé:', user.email);
+                    handleLogout();
+                    showAuthError('Email non autorisé pour l\'administration');
+                } else {
+                    // Utilisateur déconnecté
+                    currentUser = null;
+                    isAuthenticated = false;
+                    showAuthModal();
+                }
+            });
+        });
+}
+
+// Vérifier si l'email est autorisé
+function isAuthorizedEmail(email) {
+    return ADMIN_CONFIG.authorizedEmails.includes(email);
 }
 
 // Afficher le modal d'authentification
@@ -67,43 +98,120 @@ function showAdminInterface() {
 
 // Configuration des événements d'authentification
 function setupAuthEvents() {
+    const emailInput = document.getElementById('admin-email');
     const passwordInput = document.getElementById('admin-password');
     const loginBtn = document.getElementById('admin-login-btn');
     const logoutBtn = document.getElementById('logout-btn');
     
     // Connexion
     loginBtn.addEventListener('click', handleLogin);
-    passwordInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleLogin();
+    
+    // Connexion avec Enter
+    [emailInput, passwordInput].forEach(input => {
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
     });
     
     // Déconnexion
     logoutBtn.addEventListener('click', handleLogout);
 }
 
-// Gestion de la connexion
-function handleLogin() {
+// Gestion de la connexion Firebase
+async function handleLogin() {
+    const email = document.getElementById('admin-email').value.trim();
     const password = document.getElementById('admin-password').value;
     const errorDiv = document.getElementById('auth-error');
+    const loadingDiv = document.getElementById('auth-loading');
     
-    if (password === ADMIN_PASSWORD) {
-        isAuthenticated = true;
-        localStorage.setItem('admin_authenticated', 'true');
-        showAdminInterface();
-    } else {
-        errorDiv.textContent = 'Mot de passe incorrect';
-        errorDiv.style.display = 'block';
-        document.getElementById('admin-password').value = '';
+    // Validation basique
+    if (!email || !password) {
+        showAuthError('Veuillez remplir tous les champs');
+        return;
+    }
+    
+    // Vérifier si l'email est autorisé
+    if (!isAuthorizedEmail(email)) {
+        showAuthError('Email non autorisé pour l\'administration');
+        return;
+    }
+    
+    try {
+        // Afficher le loading
+        errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
+        
+        // Import dynamique de signInWithEmailAndPassword
+        const { signInWithEmailAndPassword } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        
+        // Connexion Firebase
+        const userCredential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        console.log('✅ Connexion Firebase réussie:', userCredential.user.email);
+        
+        // Le reste est géré par onAuthStateChanged
+        
+    } catch (error) {
+        console.error('❌ Erreur de connexion:', error);
+        
+        let errorMessage = 'Erreur de connexion';
+        switch (error.code) {
+            case 'auth/user-not-found':
+                errorMessage = 'Utilisateur non trouvé';
+                break;
+            case 'auth/wrong-password':
+                errorMessage = 'Mot de passe incorrect';
+                break;
+            case 'auth/invalid-email':
+                errorMessage = 'Email invalide';
+                break;
+            case 'auth/too-many-requests':
+                errorMessage = 'Trop de tentatives. Réessayez plus tard.';
+                break;
+            default:
+                errorMessage = error.message;
+        }
+        
+        showAuthError(errorMessage);
+        
+        // Log des tentatives de connexion (sécurité)
+        console.warn('🚨 Tentative de connexion admin échouée:', {
+            email,
+            error: error.code,
+            timestamp: new Date().toISOString()
+        });
+        
+    } finally {
+        loadingDiv.style.display = 'none';
     }
 }
 
-// Gestion de la déconnexion
-function handleLogout() {
-    isAuthenticated = false;
-    localStorage.removeItem('admin_authenticated');
-    document.getElementById('admin-interface').style.display = 'none';
-    showAuthModal();
-    showNotification('👋 Déconnexion réussie', 'info');
+// Afficher une erreur d'authentification
+function showAuthError(message) {
+    const errorDiv = document.getElementById('auth-error');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    
+    // Vider les champs
+    document.getElementById('admin-email').value = '';
+    document.getElementById('admin-password').value = '';
+}
+
+// Gestion de la déconnexion Firebase
+async function handleLogout() {
+    try {
+        // Import dynamique de signOut
+        const { signOut } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js');
+        
+        await signOut(firebaseAuth);
+        console.log('✅ Déconnexion Firebase réussie');
+        
+        // Le reste est géré par onAuthStateChanged
+        showNotification('👋 Déconnexion réussie', 'info');
+        
+    } catch (error) {
+        console.error('❌ Erreur de déconnexion:', error);
+        showNotification('Erreur lors de la déconnexion', 'error');
+    }
 }
 
 // Configuration des événements de l'interface admin

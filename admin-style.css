@@ -15,6 +15,13 @@ body {
     color: #260806;
 }
 
+/* Empêcher le scroll en arrière-plan quand modal ouvert */
+body.modal-open {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
 #admin-app {
     min-height: 100vh;
     display: flex;
@@ -32,23 +39,30 @@ body {
     height: 100%;
     background-color: rgba(38, 8, 6, 0.8);
     backdrop-filter: blur(10px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 1rem;
+    box-sizing: border-box;
 }
 
 .modal-content {
     background-color: #f6f8f9;
     margin: auto;
-    padding: 2.5rem;
+    padding: 2rem;
     border-radius: 25px;
     width: 90%;
     max-width: 400px;
     text-align: center;
     border: 2px solid rgba(241, 255, 51, 0.3);
     box-shadow: 0 15px 40px rgba(38, 8, 6, 0.2);
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    align-self: center;
 }
 
 .modal-content h2 {
     color: #260806;
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     font-weight: 600;
     margin-bottom: 1rem;
     letter-spacing: 1px;
@@ -56,11 +70,11 @@ body {
 
 .modal-content input {
     width: 100%;
-    padding: 1rem;
+    padding: 0.8rem;
     border: 2px solid rgba(38, 8, 6, 0.2);
     border-radius: 15px;
-    font-size: 1rem;
-    margin: 1rem 0;
+    font-size: 0.9rem;
+    margin: 0.8rem 0;
     font-family: "Oswald", sans-serif;
 }
 
@@ -75,9 +89,9 @@ body {
     border: 2px solid rgba(241, 255, 51, 0.3);
     font-family: "Oswald", sans-serif;
     font-weight: 500;
-    padding: 1rem 2rem;
+    padding: 0.8rem 1.5rem;
     border-radius: 25px;
-    font-size: 1rem;
+    font-size: 0.9rem;
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -100,7 +114,7 @@ body {
 header {
     background: rgba(246, 248, 249, 0.95);
     backdrop-filter: blur(15px);
-    padding: 1.5rem;
+    padding: 1.2rem;
     border-bottom: 2px solid rgba(241, 255, 51, 0.3);
     display: flex;
     justify-content: space-between;
@@ -110,7 +124,7 @@ header {
 
 header h1 {
     color: #260806;
-    font-size: 1.8rem;
+    font-size: 1.5rem;
     font-weight: 600;
     letter-spacing: 1px;
 }
@@ -162,7 +176,7 @@ section {
 
 section h2 {
     color: #260806;
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 500;
     margin-bottom: 1rem;
     letter-spacing: 0.5px;
@@ -269,8 +283,51 @@ section h2 {
 .reset-btn { background: #e74c3c; color: white; }
 .reset-btn:hover { background: #c0392b; }
 
-.info-btn { background: #3498db; color: white; }
-.info-btn:hover { background: #2980b9; }
+/* Bouton info stylisé */
+.info-btn {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 15px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+
+.info-btn:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+}
+
+.info-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.3);
+}
+
+/* Effet de brillance sur le bouton info */
+.info-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.info-btn:hover::before {
+    left: 100%;
+}
 
 /* Validations */
 .validation-card {
@@ -564,7 +621,9 @@ section h2 {
     max-width: 1200px !important;
     width: 95vw !important;
     max-height: 90vh !important;
-    overflow: hidden;
+    overflow-y: auto;
+    align-self: flex-start;
+    margin-top: 2rem;
 }
 
 .checkpoint-form-container {
@@ -756,7 +815,9 @@ section h2 {
     max-width: 1400px !important;
     width: 95vw !important;
     max-height: 90vh !important;
-    overflow: hidden;
+    overflow-y: auto;
+    align-self: flex-start;
+    margin-top: 2rem;
 }
 
 .routes-map-container {

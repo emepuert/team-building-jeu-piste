@@ -678,6 +678,7 @@ async function showCreateTeamModal() {
     // Charger les parcours disponibles
     await loadRouteSelectOptions();
     document.getElementById('create-team-modal').style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 async function loadRouteSelectOptions() {
@@ -712,17 +713,20 @@ async function loadRouteSelectOptions() {
 function hideCreateTeamModal() {
     document.getElementById('create-team-modal').style.display = 'none';
     document.getElementById('create-team-form').reset();
+    document.body.classList.remove('modal-open');
 }
 
 function showCreateUserModal() {
     // Mettre à jour la liste des équipes disponibles
     updateTeamSelectOptions();
     document.getElementById('create-user-modal').style.display = 'flex';
+    document.body.classList.add('modal-open');
 }
 
 function hideCreateUserModal() {
     document.getElementById('create-user-modal').style.display = 'none';
     document.getElementById('create-user-form').reset();
+    document.body.classList.remove('modal-open');
 }
 
 function updateTeamSelectOptions() {
@@ -941,6 +945,7 @@ let selectedCoordinates = null;
 
 function showCreateCheckpointModal() {
     document.getElementById('create-checkpoint-modal').style.display = 'block';
+    document.body.classList.add('modal-open');
     
     // Initialiser la carte après un court délai pour s'assurer que le modal est visible
     setTimeout(() => {
@@ -950,6 +955,7 @@ function showCreateCheckpointModal() {
 
 function hideCreateCheckpointModal() {
     document.getElementById('create-checkpoint-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
     
     // Détruire la carte pour éviter les conflits
     if (checkpointMap) {
@@ -1256,12 +1262,14 @@ async function createCheckpoint() {
 function showCreateRouteModal() {
     loadCheckpointsForRoute();
     document.getElementById('create-route-modal').style.display = 'block';
+    document.body.classList.add('modal-open');
 }
 
 function hideCreateRouteModal() {
     document.getElementById('create-route-modal').style.display = 'none';
     document.getElementById('route-name').value = '';
     document.getElementById('checkpoint-order-list').innerHTML = '';
+    document.body.classList.remove('modal-open');
 }
 
 async function loadCheckpointsForRoute() {
@@ -1454,6 +1462,7 @@ const routeColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1a
 
 async function showRoutesMapModal() {
     document.getElementById('routes-map-modal').style.display = 'block';
+    document.body.classList.add('modal-open');
     
     // Initialiser la carte après un court délai
     setTimeout(() => {
@@ -1463,6 +1472,7 @@ async function showRoutesMapModal() {
 
 function hideRoutesMapModal() {
     document.getElementById('routes-map-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
     
     // Détruire la carte pour éviter les conflits
     if (routesVisualizationMap) {

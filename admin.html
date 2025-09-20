@@ -72,6 +72,28 @@
                     </div>
                 </section>
 
+                <!-- Gestion des équipes -->
+                <section class="teams-management">
+                    <h2>🏆 Gestion des Équipes</h2>
+                    <div class="management-header">
+                        <button id="create-team-btn" class="success-btn">➕ Créer une équipe</button>
+                    </div>
+                    <div id="teams-management-list">
+                        <p class="no-data">Aucune équipe créée</p>
+                    </div>
+                </section>
+
+                <!-- Gestion des utilisateurs -->
+                <section class="users-management">
+                    <h2>👤 Gestion des Utilisateurs</h2>
+                    <div class="management-header">
+                        <button id="create-user-btn" class="success-btn">➕ Créer un utilisateur</button>
+                    </div>
+                    <div id="users-management-list">
+                        <p class="no-data">Aucun utilisateur créé</p>
+                    </div>
+                </section>
+
                 <!-- Actions rapides -->
                 <section class="quick-actions">
                     <h2>⚡ Actions rapides</h2>
@@ -86,6 +108,45 @@
 
         <!-- Notifications -->
         <div id="admin-notifications"></div>
+
+        <!-- Modal création équipe -->
+        <div id="create-team-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>🏆 Créer une Équipe</h2>
+                <form id="create-team-form">
+                    <input type="text" id="team-name" placeholder="Nom de l'équipe" required>
+                    <input type="color" id="team-color" value="#e74c3c" title="Couleur de l'équipe">
+                    <select id="team-route" required>
+                        <option value="">-- Parcours --</option>
+                        <option value="0,1,2">Standard (Lobby → Point 1 → Point 2)</option>
+                        <option value="0,2,1">Inversé (Lobby → Point 2 → Point 1)</option>
+                    </select>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-team-btn" class="cancel-btn">Annuler</button>
+                        <button type="submit" class="success-btn">Créer l'équipe</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal création utilisateur -->
+        <div id="create-user-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>👤 Créer un Utilisateur</h2>
+                <form id="create-user-form">
+                    <input type="text" id="user-name" placeholder="Nom du joueur" required>
+                    <input type="text" id="user-id-input" placeholder="Identifiant (ex: joueur1)" required>
+                    <input type="password" id="user-password-input" placeholder="Mot de passe" required>
+                    <select id="user-team" required>
+                        <option value="">-- Choisir une équipe --</option>
+                    </select>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-user-btn" class="cancel-btn">Annuler</button>
+                        <button type="submit" class="success-btn">Créer l'utilisateur</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Firebase SDK -->

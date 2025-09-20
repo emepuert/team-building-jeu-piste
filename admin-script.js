@@ -8,11 +8,13 @@ let isAuthenticated = false;
 let currentUser = null;
 let teamsData = [];
 let validationsData = [];
+let usersData = [];
+let managementTeamsData = [];
 
 // Configuration admin - Emails autorisés
 const ADMIN_CONFIG = {
     authorizedEmails: [
-        'VOTRE_VRAI_EMAIL@gmail.com', // ← Remplacez par l'email que vous avez créé dans Firebase !
+        'tran@go-inicio.com'
         // 'autre.admin@gmail.com' // Autres admins si besoin
     ]
 };
@@ -92,6 +94,9 @@ function showAdminInterface() {
     
     // Configurer les événements de l'interface
     setupAdminEvents();
+    
+    // Charger les données de gestion
+    loadManagementData();
     
     showNotification('✅ Connexion admin réussie', 'success');
 }
@@ -220,6 +225,13 @@ function setupAdminEvents() {
     document.getElementById('reset-all-teams').addEventListener('click', resetAllTeams);
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
+    
+    // Gestion équipes et utilisateurs
+    document.getElementById('create-team-btn').addEventListener('click', showCreateTeamModal);
+    document.getElementById('create-user-btn').addEventListener('click', showCreateUserModal);
+    
+    // Modals
+    setupModalEvents();
 }
 
 // Synchronisation temps réel
@@ -496,5 +508,245 @@ window.resetTeam = resetTeam;
 window.approveValidation = approveValidation;
 window.rejectValidation = rejectValidation;
 window.showTeamDetails = showTeamDetails;
+window.deleteTeam = deleteTeam;
+window.deleteUser = deleteUser;
+window.resetUser = resetUser;
 
-console.log('✅ Admin Script initialisé');
+    console.log('✅ Admin Script initialisé');
+
+// ===== GESTION DES MODALS =====
+
+function setupModalEvents() {
+    // Modal création équipe
+    document.getElementById('cancel-team-btn').addEventListener('click', hideCreateTeamModal);
+    document.getElementById('create-team-form').addEventListener('submit', handleCreateTeam);
+    
+    // Modal création utilisateur
+    document.getElementById('cancel-user-btn').addEventListener('click', hideCreateUserModal);
+    document.getElementById('create-user-form').addEventListener('submit', handleCreateUser);
+}
+
+function showCreateTeamModal() {
+    document.getElementById('create-team-modal').style.display = 'flex';
+}
+
+function hideCreateTeamModal() {
+    document.getElementById('create-team-modal').style.display = 'none';
+    document.getElementById('create-team-form').reset();
+}
+
+function showCreateUserModal() {
+    // Mettre à jour la liste des équipes disponibles
+    updateTeamSelectOptions();
+    document.getElementById('create-user-modal').style.display = 'flex';
+}
+
+function hideCreateUserModal() {
+    document.getElementById('create-user-modal').style.display = 'none';
+    document.getElementById('create-user-form').reset();
+}
+
+function updateTeamSelectOptions() {
+    const teamSelect = document.getElementById('user-team');
+    teamSelect.innerHTML = '<option value="">-- Choisir une équipe --</option>';
+    
+    managementTeamsData.forEach(team => {
+        const option = document.createElement('option');
+        option.value = team.id;
+        option.textContent = team.name;
+        teamSelect.appendChild(option);
+    });
+}
+
+// ===== CRÉATION D'ÉQUIPES =====
+
+async function handleCreateTeam(e) {
+    e.preventDefault();
+    
+    const teamName = document.getElementById('team-name').value.trim();
+    const teamColor = document.getElementById('team-color').value;
+    const teamRoute = document.getElementById('team-route').value.split(',').map(Number);
+    
+    if (!teamName || !teamRoute.length) {
+        showNotification('Veuillez remplir tous les champs', 'error');
+        return;
+    }
+    
+    try {
+        const teamData = {
+            name: teamName,
+            color: teamColor,
+            route: teamRoute
+        };
+        
+        const teamId = await firebaseService.createTeam(teamData);
+        console.log('✅ Équipe créée:', teamId);
+        
+        hideCreateTeamModal();
+        showNotification(`Équipe "${teamName}" créée avec succès !`, 'success');
+        
+        // Actualiser la liste
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur création équipe:', error);
+        showNotification('Erreur lors de la création de l\'équipe', 'error');
+    }
+}
+
+// ===== CRÉATION D'UTILISATEURS =====
+
+async function handleCreateUser(e) {
+    e.preventDefault();
+    
+    const userName = document.getElementById('user-name').value.trim();
+    const userId = document.getElementById('user-id-input').value.trim();
+    const userPassword = document.getElementById('user-password-input').value;
+    const teamId = document.getElementById('user-team').value;
+    
+    if (!userName || !userId || !userPassword || !teamId) {
+        showNotification('Veuillez remplir tous les champs', 'error');
+        return;
+    }
+    
+    try {
+        // Vérifier si l'ID utilisateur existe déjà
+        const existingUser = await firebaseService.getUser(userId);
+        if (existingUser) {
+            showNotification('Cet identifiant existe déjà', 'error');
+            return;
+        }
+        
+        // Récupérer les infos de l'équipe
+        const team = managementTeamsData.find(t => t.id === teamId);
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        const userData = {
+            userId: userId,
+            name: userName,
+            password: userPassword,
+            teamId: teamId,
+            teamName: team.name
+        };
+        
+        await firebaseService.createUser(userData);
+        console.log('✅ Utilisateur créé:', userId);
+        
+        hideCreateUserModal();
+        showNotification(`Utilisateur "${userName}" créé avec succès !`, 'success');
+        
+        // Actualiser la liste
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur création utilisateur:', error);
+        showNotification('Erreur lors de la création de l\'utilisateur', 'error');
+    }
+}
+
+// ===== CHARGEMENT DES DONNÉES DE GESTION =====
+
+async function loadManagementData() {
+    try {
+        // Charger les équipes pour la gestion
+        managementTeamsData = await firebaseService.getAllTeams();
+        updateTeamsManagementDisplay();
+        
+        // Charger les utilisateurs
+        usersData = await firebaseService.getAllUsers();
+        updateUsersManagementDisplay();
+        
+    } catch (error) {
+        console.error('❌ Erreur chargement données gestion:', error);
+    }
+}
+
+function updateTeamsManagementDisplay() {
+    const container = document.getElementById('teams-management-list');
+    
+    if (managementTeamsData.length === 0) {
+        container.innerHTML = '<p class="no-data">Aucune équipe créée</p>';
+        return;
+    }
+    
+    container.innerHTML = managementTeamsData.map(team => `
+        <div class="management-item">
+            <div class="management-item-info">
+                <h4 style="color: ${team.color};">${team.name}</h4>
+                <p><strong>Parcours:</strong> ${team.route.join(' → ')}</p>
+                <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
+            </div>
+            <div class="management-actions">
+                <button class="delete-btn" onclick="deleteTeam('${team.id}')">🗑️ Supprimer</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateUsersManagementDisplay() {
+    const container = document.getElementById('users-management-list');
+    
+    if (usersData.length === 0) {
+        container.innerHTML = '<p class="no-data">Aucun utilisateur créé</p>';
+        return;
+    }
+    
+    container.innerHTML = usersData.map(user => `
+        <div class="management-item">
+            <div class="management-item-info">
+                <h4>${user.name}</h4>
+                <p><strong>ID:</strong> ${user.userId}</p>
+                <p><strong>Équipe:</strong> ${user.teamName}</p>
+                <p><strong>Progression:</strong> ${user.foundCheckpoints?.length || 0} points trouvés</p>
+            </div>
+            <div class="management-actions">
+                <button class="reset-btn" onclick="resetUser('${user.userId}')">🔄 Reset</button>
+                <button class="delete-btn" onclick="deleteUser('${user.userId}')">🗑️ Supprimer</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// ===== ACTIONS DE GESTION =====
+
+async function deleteTeam(teamId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) return;
+    
+    try {
+        await firebaseService.deleteTeam(teamId);
+        showNotification('Équipe supprimée', 'success');
+        loadManagementData();
+    } catch (error) {
+        console.error('❌ Erreur suppression équipe:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+    }
+}
+
+async function deleteUser(userId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
+    
+    try {
+        await firebaseService.deleteUser(userId);
+        showNotification('Utilisateur supprimé', 'success');
+        loadManagementData();
+    } catch (error) {
+        console.error('❌ Erreur suppression utilisateur:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+    }
+}
+
+async function resetUser(userId) {
+    if (!confirm('Êtes-vous sûr de vouloir reset cet utilisateur ?')) return;
+    
+    try {
+        await firebaseService.resetUser(userId);
+        showNotification('Utilisateur reseté', 'success');
+        loadManagementData();
+    } catch (error) {
+        console.error('❌ Erreur reset utilisateur:', error);
+        showNotification('Erreur lors du reset', 'error');
+    }
+}

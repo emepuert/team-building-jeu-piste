@@ -64,7 +64,7 @@ let checkpointMarkers = [];
 let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
-let selectedTeam = null; // Équipe sélectionnée
+let currentUser = null; // Utilisateur connecté
 let currentTeamId = null; // ID unique de l'équipe dans Firebase
 let currentDestination = null; // Destination actuelle pour recalcul auto
 let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les spams
@@ -145,70 +145,164 @@ function initializeApp() {
         console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
     }
     
-    // Vérifier si une équipe est déjà sélectionnée
-    checkTeamSelection();
+    // Vérifier si un utilisateur est connecté
+    checkUserLogin();
     
     // Initialiser les checkpoints dans Firebase
     initializeCheckpointsInFirebase();
 }
 
-function checkTeamSelection() {
-    // Désactivation temporaire du localStorage pour les tests
-    // const savedTeam = localStorage.getItem('selectedTeam');
+function checkUserLogin() {
+    // Vérifier si un utilisateur est déjà connecté
+    const savedUserId = localStorage.getItem('currentUserId');
     
-    // if (savedTeam && TEAMS[savedTeam]) {
-    //     // Équipe déjà sélectionnée
-    //     selectedTeam = savedTeam;
-    //     showTeamInfo();
-    //     startGame();
-    // } else {
-        // Pas d'équipe sélectionnée, afficher le modal
-        showTeamSelectionModal();
-    // }
+    if (savedUserId) {
+        // Utilisateur déjà connecté, charger ses données
+        loadUserData(savedUserId);
+    } else {
+        // Pas d'utilisateur connecté, afficher le modal de connexion
+        showUserLoginModal();
+    }
 }
 
-function showTeamSelectionModal() {
-    const modal = document.getElementById('team-selection-modal');
+function showUserLoginModal() {
+    const modal = document.getElementById('user-login-modal');
     modal.style.display = 'block';
     
-    // Configurer les événements de sélection d'équipe
-    setupTeamSelectionEvents();
+    // Configurer les événements de connexion
+    setupLoginEvents();
 }
 
-function setupTeamSelectionEvents() {
-    const teamSelect = document.getElementById('team-select');
-    const confirmBtn = document.getElementById('confirm-team-btn');
+function setupLoginEvents() {
+    const userIdInput = document.getElementById('user-id');
+    const passwordInput = document.getElementById('user-password');
+    const loginBtn = document.getElementById('login-btn');
     
-    teamSelect.addEventListener('change', function() {
-        confirmBtn.disabled = !this.value;
-    });
+    // Activer/désactiver le bouton selon les champs
+    function updateLoginButton() {
+        const hasUserId = userIdInput.value.trim().length > 0;
+        const hasPassword = passwordInput.value.length > 0;
+        loginBtn.disabled = !(hasUserId && hasPassword);
+    }
     
-    confirmBtn.addEventListener('click', async function() {
-        const selectedValue = teamSelect.value;
-        if (selectedValue && TEAMS[selectedValue]) {
-            // Créer une équipe dans Firebase
-            const teamData = {
-                name: TEAMS[selectedValue].name,
-                color: TEAMS[selectedValue].color,
-                route: TEAMS[selectedValue].route
-            };
-            
-            try {
-                currentTeamId = await firebaseService.createTeam(teamData);
-                console.log(`✅ Équipe créée dans Firebase avec ID: ${currentTeamId}`);
-                
-                // Cacher le modal et commencer le jeu
-                document.getElementById('team-selection-modal').style.display = 'none';
-                showTeamInfo();
-                startGame();
-                
-                showNotification(`Bienvenue dans ${TEAMS[selectedValue].name} !`);
-            } catch (error) {
-                console.error('❌ Erreur lors de la création de l\'équipe dans Firebase:', error);
-                showNotification('Erreur lors de la création de l\'équipe. Veuillez réessayer.', 'error');
+    userIdInput.addEventListener('input', updateLoginButton);
+    passwordInput.addEventListener('input', updateLoginButton);
+    
+    // Connexion avec Enter
+    [userIdInput, passwordInput].forEach(input => {
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !loginBtn.disabled) {
+                handleUserLogin();
             }
-        }
+        });
     });
+    
+    // Connexion avec le bouton
+    loginBtn.addEventListener('click', handleUserLogin);
+}
+
+// Gestion de la connexion utilisateur
+async function handleUserLogin() {
+    const userId = document.getElementById('user-id').value.trim();
+    const password = document.getElementById('user-password').value;
+    const errorDiv = document.getElementById('login-error');
+    const loadingDiv = document.getElementById('login-loading');
+    
+    try {
+        // Afficher le loading
+        errorDiv.style.display = 'none';
+        loadingDiv.style.display = 'block';
+        
+        // Vérifier les identifiants dans Firebase
+        const user = await firebaseService.authenticateUser(userId, password);
+        
+        if (user) {
+            // Connexion réussie
+            currentUser = user;
+            localStorage.setItem('currentUserId', userId);
+            
+            // Cacher le modal et démarrer le jeu
+            document.getElementById('user-login-modal').style.display = 'none';
+            
+            // Charger les données de l'utilisateur
+            await loadUserGameData();
+            
+            showNotification(`Bienvenue ${user.name} ! Équipe ${user.teamName}`, 'success');
+            
+        } else {
+            showLoginError('Identifiants incorrects');
+        }
+        
+    } catch (error) {
+        console.error('❌ Erreur de connexion:', error);
+        showLoginError('Erreur de connexion. Veuillez réessayer.');
+    } finally {
+        loadingDiv.style.display = 'none';
+    }
+}
+
+// Charger les données utilisateur depuis Firebase
+async function loadUserData(userId) {
+    try {
+        const user = await firebaseService.getUser(userId);
+        if (user) {
+            currentUser = user;
+            await loadUserGameData();
+        } else {
+            // Utilisateur non trouvé, déconnecter
+            localStorage.removeItem('currentUserId');
+            showUserLoginModal();
+        }
+    } catch (error) {
+        console.error('❌ Erreur chargement utilisateur:', error);
+        localStorage.removeItem('currentUserId');
+        showUserLoginModal();
+    }
+}
+
+// Charger les données de jeu de l'utilisateur
+async function loadUserGameData() {
+    if (!currentUser) return;
+    
+    // Récupérer l'équipe de l'utilisateur
+    const team = await firebaseService.getTeam(currentUser.teamId);
+    if (team) {
+        currentTeamId = currentUser.teamId;
+        
+        // Restaurer la progression
+        foundCheckpoints = currentUser.foundCheckpoints || [];
+        unlockedCheckpoints = currentUser.unlockedCheckpoints || [0];
+        
+        // Afficher les infos de l'équipe
+        showUserInfo();
+        
+        // Démarrer le jeu
+        startGame();
+        
+        console.log(`✅ Utilisateur ${currentUser.name} connecté - Équipe ${team.name}`);
+    }
+}
+
+// Afficher les informations utilisateur
+function showUserInfo() {
+    const teamInfo = document.getElementById('team-info');
+    const currentTeamSpan = document.getElementById('current-team');
+    
+    if (currentUser && teamInfo && currentTeamSpan) {
+        currentTeamSpan.textContent = `${currentUser.name} - ${currentUser.teamName}`;
+        teamInfo.style.display = 'block';
+    }
+}
+
+// Afficher une erreur de connexion
+function showLoginError(message) {
+    const errorDiv = document.getElementById('login-error');
+    errorDiv.textContent = message;
+    errorDiv.style.display = 'block';
+    
+    // Vider les champs
+    document.getElementById('user-id').value = '';
+    document.getElementById('user-password').value = '';
 }
 
 function showTeamInfo() {

@@ -33,12 +33,43 @@ header {
     border-bottom: 2px solid rgba(241, 255, 51, 0.3);
 }
 
+.header-content {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
 header h1 {
     color: #260806;
     font-size: 1.8rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin: 0;
     letter-spacing: 1px;
+}
+
+.admin-link {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    text-decoration: none;
+    color: rgba(38, 8, 6, 0.4);
+    transition: all 0.3s ease;
+    padding: 0.8rem;
+    border-radius: 12px;
+    background: transparent;
+    border: none;
+    opacity: 0.7;
+}
+
+.admin-link:hover {
+    color: #260806;
+    background: rgba(38, 8, 6, 0.05);
+    opacity: 1;
+    transform: translateY(-50%) rotate(90deg);
+    box-shadow: 0 2px 8px rgba(38, 8, 6, 0.1);
 }
 
 #status {
@@ -173,6 +204,74 @@ main {
     outline: none;
     border-color: #3498db;
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+/* Styles pour la connexion utilisateur */
+#login-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+#user-id, #user-password {
+    padding: 1rem;
+    border: 2px solid rgba(38, 8, 6, 0.2);
+    border-radius: 15px;
+    font-size: 1rem;
+    font-family: "Oswald", sans-serif;
+    font-weight: 400;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+#user-id:focus, #user-password:focus {
+    outline: none;
+    border-color: #f1ff33;
+    box-shadow: 0 0 0 3px rgba(241, 255, 51, 0.1);
+}
+
+#login-btn {
+    background: #260806;
+    color: #f1ff33;
+    border: 2px solid rgba(241, 255, 51, 0.3);
+    font-family: "Oswald", sans-serif;
+    font-weight: 500;
+    padding: 1rem 2rem;
+    border-radius: 25px;
+    font-size: 1rem;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#login-btn:hover:not(:disabled) {
+    background: #f1ff33;
+    color: #260806;
+}
+
+#login-btn:disabled {
+    background: rgba(38, 8, 6, 0.3);
+    color: rgba(241, 255, 51, 0.5);
+    cursor: not-allowed;
+}
+
+.admin-access {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(38, 8, 6, 0.1);
+    text-align: center;
+}
+
+.admin-link-modal {
+    color: rgba(38, 8, 6, 0.6);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: color 0.2s ease;
+}
+
+.admin-link-modal:hover {
+    color: #260806;
 }
 
 #confirm-team-btn {

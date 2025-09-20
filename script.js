@@ -782,9 +782,17 @@ function foundCheckpoint(checkpoint) {
     } else {
         // Pour le lobby, débloquer le premier checkpoint selon l'équipe
         setTimeout(() => {
+            console.log('🏠 Lobby trouvé, recherche du premier checkpoint...');
+            console.log('👤 currentUser:', currentUser);
+            console.log('🛤️ teamRoute:', currentUser?.teamRoute);
+            
             const firstCheckpointId = getNextCheckpointForTeam();
+            console.log('🎯 Premier checkpoint ID:', firstCheckpointId);
+            
             if (firstCheckpointId) {
                 unlockCheckpoint(firstCheckpointId);
+            } else {
+                console.log('❌ Aucun checkpoint à débloquer trouvé');
             }
         }, 1000);
     }

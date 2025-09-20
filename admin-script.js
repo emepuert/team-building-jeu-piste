@@ -249,13 +249,13 @@ function startRealtimeSync() {
         updateStats();
     });
     
-    // Écouter les validations en attente
-    firebaseService.onValidationRequests((validations) => {
-        console.log('⏳ Validations en attente:', validations);
-        validationsData = validations;
-        updateValidationsDisplay();
-        updateStats();
-    });
+    // Écouter les validations en attente (temporairement désactivé - problème d'index Firebase)
+    // firebaseService.onValidationRequests((validations) => {
+    //     console.log('⏳ Validations en attente:', validations);
+    //     validationsData = validations;
+    //     updateValidationsDisplay();
+    //     updateStats();
+    // });
 }
 
 // Mise à jour de l'affichage des équipes
@@ -278,7 +278,7 @@ function updateTeamsDisplay() {
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${getTeamProgress(team)}%"></div>
                 </div>
-                <small>${team.foundCheckpoints.length} / ${team.route.length} points trouvés</small>
+                <small>${team.foundCheckpoints.filter(id => id !== 0).length} / ${team.route.filter(id => id !== 0).length} défis résolus</small>
             </div>
             
             <div class="team-info">
@@ -361,7 +361,12 @@ function getTeamStatusText(team) {
 }
 
 function getTeamProgress(team) {
-    return Math.round((team.foundCheckpoints.length / team.route.length) * 100);
+    // Exclure le lobby (ID 0) du calcul de progression
+    const nonLobbyFound = team.foundCheckpoints.filter(id => id !== 0);
+    const nonLobbyTotal = team.route.filter(id => id !== 0).length;
+    
+    if (nonLobbyTotal === 0) return 0;
+    return Math.round((nonLobbyFound.length / nonLobbyTotal) * 100);
 }
 
 function getCurrentCheckpointName(team) {

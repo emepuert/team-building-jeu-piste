@@ -242,6 +242,15 @@ class FirebaseService {
             ...updates,
             updatedAt: serverTimestamp()
         });
+        
+        // Mettre à jour aussi l'équipe si l'utilisateur a une équipe
+        const user = await this.getUser(userId);
+        if (user && user.teamId && updates.foundCheckpoints) {
+            await this.updateTeamProgress(user.teamId, {
+                foundCheckpoints: updates.foundCheckpoints,
+                unlockedCheckpoints: updates.unlockedCheckpoints || []
+            });
+        }
     }
 
     // Écouter les changements d'un utilisateur

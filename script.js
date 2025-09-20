@@ -1208,6 +1208,10 @@ function showSuccessModal() {
     
     modal.style.display = 'block';
     console.log(`🏆 Modal de succès affiché pour l'équipe ${currentUser?.teamName}`);
+    console.log('📋 Contenu du modal:', {
+        message: messageEl.textContent,
+        teamInfo: teamInfoEl.textContent
+    });
 }
 
 function updateUI() {

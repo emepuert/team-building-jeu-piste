@@ -444,10 +444,31 @@ function unlockCheckpoint(checkpointId) {
             color: '#3498db',
             fillColor: '#3498db'
         });
+        
+        // Centrer la carte sur le nouveau point débloqué
+        centerMapOnCheckpoint(checkpoint);
     }
     
     updateHint();
     console.log(`🔓 Checkpoint ${checkpointId} débloqué !`);
+}
+
+function centerMapOnCheckpoint(checkpoint) {
+    console.log(`🎯 Centrage de la carte sur ${checkpoint.name}`);
+    
+    // Animation fluide vers le nouveau point
+    map.flyTo(checkpoint.coordinates, GAME_CONFIG.zoom, {
+        animate: true,
+        duration: 2 // 2 secondes d'animation
+    });
+    
+    // Optionnel : faire clignoter le marqueur
+    setTimeout(() => {
+        const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
+        if (markerData) {
+            markerData.marker.openPopup();
+        }
+    }, 2500); // Ouvrir le popup après l'animation
 }
 
 function showSuccessModal() {
@@ -545,10 +566,6 @@ function setupEventListeners() {
         restartGame();
     });
     
-    // Bouton pour forcer la géolocalisation
-    document.getElementById('request-location-btn').addEventListener('click', () => {
-        requestGeolocation();
-    });
     
     // Événements pour la modal d'énigme
     document.getElementById('riddle-submit').addEventListener('click', () => {

@@ -40,29 +40,6 @@ header h1 {
     font-size: 0.9rem;
 }
 
-#request-location-btn {
-    margin-top: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    background: #e74c3c;
-    animation: pulse-button 2s infinite;
-}
-
-#request-location-btn:hover {
-    background: #c0392b;
-}
-
-@keyframes pulse-button {
-    0% {
-        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
-    }
-}
 
 main {
     flex: 1;

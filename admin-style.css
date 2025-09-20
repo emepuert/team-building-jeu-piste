@@ -444,25 +444,25 @@ section h2 {
     background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
     color: white;
     border: none;
-    padding: 1.2rem 2.5rem;
-    border-radius: 25px;
+    padding: 0.8rem 1.5rem;
+    border-radius: 15px;
     font-family: "Oswald", sans-serif;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
-    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     border: 2px solid transparent;
 }
 
 #create-checkpoint-btn:hover,
 #create-route-btn:hover {
-    transform: translateY(-3px) scale(1.02);
-    box-shadow: 0 10px 30px rgba(52, 152, 219, 0.4);
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
     background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
     border-color: rgba(255, 255, 255, 0.2);
 }
@@ -494,15 +494,15 @@ section h2 {
 /* Icônes spéciales pour ces boutons */
 #create-checkpoint-btn::after {
     content: '📍';
-    margin-left: 0.8rem;
-    font-size: 1.4em;
+    margin-left: 0.5rem;
+    font-size: 1.2em;
     animation: bounce 2s infinite;
 }
 
 #create-route-btn::after {
     content: '🛤️';
-    margin-left: 0.8rem;
-    font-size: 1.4em;
+    margin-left: 0.5rem;
+    font-size: 1.2em;
     animation: bounce 2s infinite 0.5s;
 }
 

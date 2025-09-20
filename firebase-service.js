@@ -310,6 +310,100 @@ class FirebaseService {
             throw error;
         }
     }
+
+    // ===== GESTION DES CHECKPOINTS =====
+    async createCheckpoint(checkpointData) {
+        try {
+            const docRef = await addDoc(collection(this.db, DB_COLLECTIONS.CHECKPOINTS), {
+                ...checkpointData,
+                id: Date.now(), // ID unique basé sur timestamp
+                createdAt: new Date()
+            });
+            console.log('✅ Checkpoint créé:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('❌ Erreur création checkpoint:', error);
+            throw error;
+        }
+    }
+
+    async getAllCheckpoints() {
+        try {
+            const querySnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.CHECKPOINTS));
+            return querySnapshot.docs.map(doc => ({
+                firebaseId: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            console.error('❌ Erreur récupération checkpoints:', error);
+            throw error;
+        }
+    }
+
+    async deleteCheckpoint(checkpointId) {
+        try {
+            const q = query(
+                collection(this.db, DB_COLLECTIONS.CHECKPOINTS),
+                where('id', '==', parseInt(checkpointId))
+            );
+            const querySnapshot = await getDocs(q);
+            
+            for (const doc of querySnapshot.docs) {
+                await deleteDoc(doc.ref);
+            }
+            console.log('✅ Checkpoint supprimé:', checkpointId);
+        } catch (error) {
+            console.error('❌ Erreur suppression checkpoint:', error);
+            throw error;
+        }
+    }
+
+    // ===== GESTION DES PARCOURS =====
+    async createRoute(routeData) {
+        try {
+            const docRef = await addDoc(collection(this.db, 'routes'), {
+                ...routeData,
+                id: Date.now(),
+                createdAt: new Date()
+            });
+            console.log('✅ Parcours créé:', docRef.id);
+            return docRef.id;
+        } catch (error) {
+            console.error('❌ Erreur création parcours:', error);
+            throw error;
+        }
+    }
+
+    async getAllRoutes() {
+        try {
+            const querySnapshot = await getDocs(collection(this.db, 'routes'));
+            return querySnapshot.docs.map(doc => ({
+                firebaseId: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            console.error('❌ Erreur récupération parcours:', error);
+            throw error;
+        }
+    }
+
+    async deleteRoute(routeId) {
+        try {
+            const q = query(
+                collection(this.db, 'routes'),
+                where('id', '==', parseInt(routeId))
+            );
+            const querySnapshot = await getDocs(q);
+            
+            for (const doc of querySnapshot.docs) {
+                await deleteDoc(doc.ref);
+            }
+            console.log('✅ Parcours supprimé:', routeId);
+        } catch (error) {
+            console.error('❌ Erreur suppression parcours:', error);
+            throw error;
+        }
+    }
 }
 
 // Exporter la classe

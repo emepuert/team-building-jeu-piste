@@ -231,6 +231,10 @@ function setupAdminEvents() {
     document.getElementById('create-team-btn').addEventListener('click', showCreateTeamModal);
     document.getElementById('create-user-btn').addEventListener('click', showCreateUserModal);
     
+    // Gestion checkpoints et parcours
+    document.getElementById('create-checkpoint-btn').addEventListener('click', showCreateCheckpointModal);
+    document.getElementById('create-route-btn').addEventListener('click', showCreateRouteModal);
+    
     // Modals
     setupModalEvents();
 }
@@ -638,6 +642,20 @@ function setupModalEvents() {
     // Modal création utilisateur
     document.getElementById('cancel-user-btn').addEventListener('click', hideCreateUserModal);
     document.getElementById('create-user-form').addEventListener('submit', handleCreateUser);
+    
+    // Modal création checkpoint
+    document.getElementById('cancel-checkpoint-btn').addEventListener('click', hideCreateCheckpointModal);
+    document.getElementById('create-checkpoint-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        createCheckpoint();
+    });
+    
+    // Modal création parcours
+    document.getElementById('cancel-route-btn').addEventListener('click', hideCreateRouteModal);
+    document.getElementById('create-route-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        createRoute();
+    });
 }
 
 function showCreateTeamModal() {
@@ -773,6 +791,10 @@ async function loadManagementData() {
         usersData = await firebaseService.getAllUsers();
         updateUsersManagementDisplay();
         
+        // Charger les checkpoints et parcours
+        loadCheckpoints();
+        loadRoutes();
+        
     } catch (error) {
         console.error('❌ Erreur chargement données gestion:', error);
     }
@@ -862,5 +884,265 @@ async function resetUser(userId) {
     } catch (error) {
         console.error('❌ Erreur reset utilisateur:', error);
         showNotification('Erreur lors du reset', 'error');
+    }
+}
+
+// ===== GESTION DES CHECKPOINTS =====
+function showCreateCheckpointModal() {
+    document.getElementById('create-checkpoint-modal').style.display = 'block';
+}
+
+function hideCreateCheckpointModal() {
+    document.getElementById('create-checkpoint-modal').style.display = 'none';
+    // Reset form
+    document.getElementById('checkpoint-name').value = '';
+    document.getElementById('checkpoint-emoji').value = '';
+    document.getElementById('checkpoint-lat').value = '';
+    document.getElementById('checkpoint-lng').value = '';
+    document.getElementById('checkpoint-type').value = 'enigma';
+    document.getElementById('checkpoint-hint').value = '';
+    document.getElementById('checkpoint-clue').value = '';
+    document.getElementById('checkpoint-answer').value = '';
+}
+
+async function createCheckpoint() {
+    const name = document.getElementById('checkpoint-name').value.trim();
+    const emoji = document.getElementById('checkpoint-emoji').value.trim();
+    const lat = parseFloat(document.getElementById('checkpoint-lat').value);
+    const lng = parseFloat(document.getElementById('checkpoint-lng').value);
+    const type = document.getElementById('checkpoint-type').value;
+    const hint = document.getElementById('checkpoint-hint').value.trim();
+    const clue = document.getElementById('checkpoint-clue').value.trim();
+    const answer = document.getElementById('checkpoint-answer').value.trim();
+
+    if (!name || !emoji || isNaN(lat) || isNaN(lng) || !hint || !clue) {
+        showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+    }
+
+    try {
+        const checkpointData = {
+            name,
+            emoji,
+            coordinates: [lat, lng],
+            type,
+            isLobby: type === 'lobby',
+            locked: type !== 'lobby',
+            hint,
+            clue: {
+                title: `${name} découvert !`,
+                text: clue,
+                riddle: type === 'enigma' && answer ? {
+                    question: clue,
+                    answer: answer.toLowerCase(),
+                    hint: hint
+                } : null
+            },
+            createdAt: new Date()
+        };
+
+        await firebaseService.createCheckpoint(checkpointData);
+        showNotification('Checkpoint créé avec succès', 'success');
+        hideCreateCheckpointModal();
+        loadCheckpoints();
+    } catch (error) {
+        console.error('❌ Erreur création checkpoint:', error);
+        showNotification('Erreur lors de la création', 'error');
+    }
+}
+
+// ===== GESTION DES PARCOURS =====
+function showCreateRouteModal() {
+    loadCheckpointsForRoute();
+    document.getElementById('create-route-modal').style.display = 'block';
+}
+
+function hideCreateRouteModal() {
+    document.getElementById('create-route-modal').style.display = 'none';
+    document.getElementById('route-name').value = '';
+    document.getElementById('checkpoint-order-list').innerHTML = '';
+}
+
+async function loadCheckpointsForRoute() {
+    try {
+        const checkpoints = await firebaseService.getAllCheckpoints();
+        const orderList = document.getElementById('checkpoint-order-list');
+        
+        if (checkpoints.length === 0) {
+            orderList.innerHTML = '<p style="text-align: center; color: #666;">Créez d\'abord des checkpoints</p>';
+            return;
+        }
+
+        orderList.innerHTML = '';
+        checkpoints.forEach(checkpoint => {
+            const item = document.createElement('div');
+            item.className = 'checkpoint-order-item';
+            item.draggable = true;
+            item.dataset.checkpointId = checkpoint.id;
+            item.innerHTML = `
+                <span class="drag-handle">⋮⋮</span>
+                <span class="checkpoint-info">${checkpoint.emoji} ${checkpoint.name}</span>
+                <span class="checkpoint-type">${checkpoint.type}</span>
+            `;
+            orderList.appendChild(item);
+        });
+
+        // Ajouter la fonctionnalité drag & drop
+        setupDragAndDrop();
+    } catch (error) {
+        console.error('❌ Erreur chargement checkpoints:', error);
+    }
+}
+
+function setupDragAndDrop() {
+    const items = document.querySelectorAll('.checkpoint-order-item');
+    const container = document.getElementById('checkpoint-order-list');
+
+    items.forEach(item => {
+        item.addEventListener('dragstart', e => {
+            e.dataTransfer.setData('text/plain', item.dataset.checkpointId);
+            item.classList.add('dragging');
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+        });
+    });
+
+    container.addEventListener('dragover', e => {
+        e.preventDefault();
+        const dragging = document.querySelector('.dragging');
+        const afterElement = getDragAfterElement(container, e.clientY);
+        
+        if (afterElement == null) {
+            container.appendChild(dragging);
+        } else {
+            container.insertBefore(dragging, afterElement);
+        }
+    });
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.checkpoint-order-item:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+async function createRoute() {
+    const name = document.getElementById('route-name').value.trim();
+    const orderItems = document.querySelectorAll('.checkpoint-order-item');
+    
+    if (!name) {
+        showNotification('Veuillez entrer un nom de parcours', 'error');
+        return;
+    }
+
+    if (orderItems.length === 0) {
+        showNotification('Aucun checkpoint disponible', 'error');
+        return;
+    }
+
+    const route = Array.from(orderItems).map(item => parseInt(item.dataset.checkpointId));
+
+    try {
+        const routeData = {
+            name,
+            route,
+            createdAt: new Date()
+        };
+
+        await firebaseService.createRoute(routeData);
+        showNotification('Parcours créé avec succès', 'success');
+        hideCreateRouteModal();
+        loadRoutes();
+    } catch (error) {
+        console.error('❌ Erreur création parcours:', error);
+        showNotification('Erreur lors de la création', 'error');
+    }
+}
+
+// ===== CHARGEMENT DES DONNÉES =====
+async function loadCheckpoints() {
+    try {
+        const checkpoints = await firebaseService.getAllCheckpoints();
+        const list = document.getElementById('checkpoints-list');
+        
+        if (checkpoints.length === 0) {
+            list.innerHTML = '<p style="text-align: center; color: #666;">Aucun checkpoint créé</p>';
+            return;
+        }
+
+        list.innerHTML = checkpoints.map(checkpoint => `
+            <div class="management-item">
+                <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
+                <p><strong>Type:</strong> ${checkpoint.type}</p>
+                <p><strong>Coordonnées:</strong> ${checkpoint.coordinates[0]}, ${checkpoint.coordinates[1]}</p>
+                <p><strong>Indice:</strong> ${checkpoint.hint}</p>
+                <div class="item-actions">
+                    <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('❌ Erreur chargement checkpoints:', error);
+    }
+}
+
+async function loadRoutes() {
+    try {
+        const routes = await firebaseService.getAllRoutes();
+        const list = document.getElementById('routes-list');
+        
+        if (routes.length === 0) {
+            list.innerHTML = '<p style="text-align: center; color: #666;">Aucun parcours créé</p>';
+            return;
+        }
+
+        list.innerHTML = routes.map(route => `
+            <div class="management-item">
+                <h4>🛤️ ${route.name}</h4>
+                <p><strong>Ordre:</strong> ${route.route.join(' → ')}</p>
+                <div class="item-actions">
+                    <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('❌ Erreur chargement parcours:', error);
+    }
+}
+
+async function deleteCheckpoint(checkpointId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce checkpoint ?')) return;
+    
+    try {
+        await firebaseService.deleteCheckpoint(checkpointId);
+        showNotification('Checkpoint supprimé', 'success');
+        loadCheckpoints();
+    } catch (error) {
+        console.error('❌ Erreur suppression checkpoint:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+    }
+}
+
+async function deleteRoute(routeId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce parcours ?')) return;
+    
+    try {
+        await firebaseService.deleteRoute(routeId);
+        showNotification('Parcours supprimé', 'success');
+        loadRoutes();
+    } catch (error) {
+        console.error('❌ Erreur suppression parcours:', error);
+        showNotification('Erreur lors de la suppression', 'error');
     }
 }

@@ -293,6 +293,9 @@ function updateTeamsDisplay() {
                 <button class="reset-btn" onclick="resetTeam('${team.id}')">
                     🔄 Reset équipe
                 </button>
+                <button class="warning-btn" onclick="resetTeamProgression('${team.id}')">
+                    🏠 Reset → Lobby
+                </button>
                 <button class="info-btn" onclick="showTeamDetails('${team.id}')">
                     📊 Détails
                 </button>
@@ -510,6 +513,54 @@ async function resetAllProgressions() {
     }
 }
 
+async function resetTeamProgression(teamId) {
+    const team = managementTeamsData.find(t => t.id === teamId);
+    if (!team) {
+        showNotification('Équipe non trouvée', 'error');
+        return;
+    }
+    
+    if (!confirm(`🏠 Remettre l'équipe "${team.name}" au lobby ? Cela va effacer sa progression actuelle.`)) {
+        return;
+    }
+    
+    try {
+        console.log(`🔄 Reset progression équipe: ${team.name} (${teamId})`);
+        showNotification(`🔄 Reset de l'équipe "${team.name}" en cours...`, 'info');
+        
+        // Reset l'équipe
+        await firebaseService.resetTeam(teamId);
+        console.log(`✅ Équipe ${team.name} resetée`);
+        
+        // Reset tous les utilisateurs de cette équipe
+        const teamUsers = usersData.filter(user => user.teamId === teamId);
+        console.log(`👤 Reset de ${teamUsers.length} utilisateurs de l'équipe...`);
+        
+        for (const user of teamUsers) {
+            console.log(`🔄 Reset utilisateur: ${user.name} (${user.userId})`);
+            await firebaseService.resetUser(user.userId);
+            console.log(`✅ Utilisateur ${user.name} reseté`);
+        }
+        
+        // Vider le localStorage pour cette équipe (si des utilisateurs sont connectés)
+        console.log('🗑️ Nettoyage localStorage...');
+        if (typeof(Storage) !== "undefined") {
+            localStorage.removeItem('currentUserId');
+            console.log('✅ localStorage nettoyé');
+        }
+        
+        console.log(`🎉 Reset équipe "${team.name}" terminé`);
+        showNotification(`✅ Équipe "${team.name}" remise au lobby ! Les joueurs doivent recharger la page.`, 'success');
+        
+        // Actualiser les données
+        loadManagementData();
+        
+    } catch (error) {
+        console.error(`❌ Erreur reset équipe ${team.name}:`, error);
+        showNotification(`Erreur lors du reset de l'équipe "${team.name}"`, 'error');
+    }
+}
+
 function exportData() {
     const data = {
         teams: teamsData,
@@ -567,6 +618,7 @@ function showNotification(message, type = 'info') {
 window.initializeAdmin = initializeAdmin;
 window.unlockNextCheckpoint = unlockNextCheckpoint;
 window.resetTeam = resetTeam;
+window.resetTeamProgression = resetTeamProgression;
 window.approveValidation = approveValidation;
 window.rejectValidation = rejectValidation;
 window.showTeamDetails = showTeamDetails;

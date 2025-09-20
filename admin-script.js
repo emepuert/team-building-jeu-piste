@@ -12,7 +12,7 @@ let validationsData = [];
 // Configuration admin - Emails autorisés
 const ADMIN_CONFIG = {
     authorizedEmails: [
-        'votre.email@gmail.com', // ← Remplacez par votre email !
+        'VOTRE_VRAI_EMAIL@gmail.com', // ← Remplacez par l'email que vous avez créé dans Firebase !
         // 'autre.admin@gmail.com' // Autres admins si besoin
     ]
 };

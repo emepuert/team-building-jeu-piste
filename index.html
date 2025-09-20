@@ -107,6 +107,32 @@
     </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Firebase v9 SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { firebaseConfig } from './firebase-config.js';
+        import FirebaseService from './firebase-service.js';
+        
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const firebaseService = new FirebaseService(db);
+        
+        // Exposer globalement pour script.js
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseService = firebaseService;
+        
+        // Initialiser l'application une fois Firebase prêt
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.initializeApp) {
+                window.initializeApp();
+            }
+        });
+    </script>
+    
     <script src="script.js"></script>
 </body>
 </html>

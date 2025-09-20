@@ -65,8 +65,10 @@ let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
 let selectedTeam = null; // Équipe sélectionnée
+let currentTeamId = null; // ID unique de l'équipe dans Firebase
 let currentDestination = null; // Destination actuelle pour recalcul auto
 let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les spams
+let firebaseService = null; // Service Firebase
 
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
@@ -135,8 +137,19 @@ document.addEventListener('DOMContentLoaded', function() {
 function initializeApp() {
     console.log('🚀 Initialisation du jeu de piste...');
     
+    // Initialiser Firebase Service
+    if (window.firebaseService) {
+        firebaseService = window.firebaseService;
+        console.log('✅ Firebase Service initialisé');
+    } else {
+        console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
+    }
+    
     // Vérifier si une équipe est déjà sélectionnée
     checkTeamSelection();
+    
+    // Initialiser les checkpoints dans Firebase
+    initializeCheckpointsInFirebase();
 }
 
 function checkTeamSelection() {
@@ -170,19 +183,30 @@ function setupTeamSelectionEvents() {
         confirmBtn.disabled = !this.value;
     });
     
-    confirmBtn.addEventListener('click', function() {
+    confirmBtn.addEventListener('click', async function() {
         const selectedValue = teamSelect.value;
         if (selectedValue && TEAMS[selectedValue]) {
-            // Désactivation temporaire du localStorage pour les tests
-            // localStorage.setItem('selectedTeam', selectedValue);
-            selectedTeam = selectedValue;
+            // Créer une équipe dans Firebase
+            const teamData = {
+                name: TEAMS[selectedValue].name,
+                color: TEAMS[selectedValue].color,
+                route: TEAMS[selectedValue].route
+            };
             
-            // Cacher le modal et commencer le jeu
-            document.getElementById('team-selection-modal').style.display = 'none';
-            showTeamInfo();
-            startGame();
-            
-            showNotification(`Bienvenue dans ${TEAMS[selectedValue].name} !`);
+            try {
+                currentTeamId = await firebaseService.createTeam(teamData);
+                console.log(`✅ Équipe créée dans Firebase avec ID: ${currentTeamId}`);
+                
+                // Cacher le modal et commencer le jeu
+                document.getElementById('team-selection-modal').style.display = 'none';
+                showTeamInfo();
+                startGame();
+                
+                showNotification(`Bienvenue dans ${TEAMS[selectedValue].name} !`);
+            } catch (error) {
+                console.error('❌ Erreur lors de la création de l\'équipe dans Firebase:', error);
+                showNotification('Erreur lors de la création de l\'équipe. Veuillez réessayer.', 'error');
+            }
         }
     });
 }
@@ -1250,5 +1274,53 @@ function calculateRouteFromPopup(checkpointId) {
 // Exposer les fonctions pour les tests et les popups
 window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
+
+async function initializeCheckpointsInFirebase() {
+    if (!firebaseService) {
+        console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
+        return;
+    }
+    
+    try {
+        await firebaseService.initializeCheckpoints(GAME_CONFIG.checkpoints);
+        console.log('✅ Checkpoints initialisés dans Firebase');
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'initialisation des checkpoints dans Firebase:', error);
+    }
+}
+
+// Synchronisation temps réel des équipes
+function syncTeamData() {
+    if (!firebaseService || !currentTeamId) return;
+    
+    firebaseService.onTeamChange(currentTeamId, (teamData) => {
+        console.log('🔄 Mise à jour des données de l\'équipe:', teamData);
+        // Mettre à jour l'état local avec les données de l'équipe
+        selectedTeam = teamData.name;
+        unlockedCheckpoints = teamData.unlockedCheckpoints;
+        foundCheckpoints = teamData.foundCheckpoints;
+        
+        // Mettre à jour l'interface utilisateur
+        showTeamInfo();
+        updateProgress();
+    });
+}
+
+// Synchronisation temps réel des checkpoints
+function syncCheckpoints() {
+    if (!firebaseService) return;
+    
+    firebaseService.getCheckpoints().then((checkpoints) => {
+        console.log('🔄 Checkpoints synchronisés:', checkpoints);
+        GAME_CONFIG.checkpoints = checkpoints;
+        addCheckpointsToMap();
+    }).catch((error) => {
+        console.error('❌ Erreur lors de la synchronisation des checkpoints:', error);
+    });
+}
+
+// Appeler la synchronisation après l'initialisation
+syncTeamData();
+syncCheckpoints();
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

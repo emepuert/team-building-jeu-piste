@@ -650,6 +650,18 @@ function setupModalEvents() {
         createCheckpoint();
     });
     
+    // Recherche d'adresse
+    document.getElementById('search-btn').addEventListener('click', searchAddress);
+    document.getElementById('address-search').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchAddress();
+        }
+    });
+    
+    // Changement de type de checkpoint
+    document.getElementById('checkpoint-type').addEventListener('change', updateDynamicContent);
+    
     // Modal création parcours
     document.getElementById('cancel-route-btn').addEventListener('click', hideCreateRouteModal);
     document.getElementById('create-route-form').addEventListener('submit', (e) => {
@@ -888,21 +900,214 @@ async function resetUser(userId) {
 }
 
 // ===== GESTION DES CHECKPOINTS =====
+let checkpointMap = null;
+let checkpointMarker = null;
+let selectedCoordinates = null;
+
 function showCreateCheckpointModal() {
     document.getElementById('create-checkpoint-modal').style.display = 'block';
+    
+    // Initialiser la carte après un court délai pour s'assurer que le modal est visible
+    setTimeout(() => {
+        initializeCheckpointMap();
+    }, 100);
 }
 
 function hideCreateCheckpointModal() {
     document.getElementById('create-checkpoint-modal').style.display = 'none';
+    
+    // Détruire la carte pour éviter les conflits
+    if (checkpointMap) {
+        checkpointMap.remove();
+        checkpointMap = null;
+        checkpointMarker = null;
+        selectedCoordinates = null;
+    }
+    
     // Reset form
     document.getElementById('checkpoint-name').value = '';
     document.getElementById('checkpoint-emoji').value = '';
     document.getElementById('checkpoint-lat').value = '';
     document.getElementById('checkpoint-lng').value = '';
-    document.getElementById('checkpoint-type').value = 'enigma';
-    document.getElementById('checkpoint-hint').value = '';
-    document.getElementById('checkpoint-clue').value = '';
-    document.getElementById('checkpoint-answer').value = '';
+    document.getElementById('checkpoint-type').value = '';
+    document.getElementById('address-search').value = '';
+    document.getElementById('dynamic-content').innerHTML = '<p class="content-instruction">Sélectionnez un type de checkpoint pour voir les options</p>';
+}
+
+function initializeCheckpointMap() {
+    // Détruire la carte existante si elle existe
+    if (checkpointMap) {
+        checkpointMap.remove();
+    }
+    
+    // Coordonnées par défaut (Luxembourg)
+    const defaultCoords = [49.6116, 6.1319];
+    
+    // Créer la carte
+    checkpointMap = L.map('checkpoint-map').setView(defaultCoords, 13);
+    
+    // Ajouter les tuiles OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(checkpointMap);
+    
+    // Gérer les clics sur la carte
+    checkpointMap.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+        
+        // Supprimer le marqueur existant
+        if (checkpointMarker) {
+            checkpointMap.removeLayer(checkpointMarker);
+        }
+        
+        // Ajouter un nouveau marqueur
+        checkpointMarker = L.marker([lat, lng]).addTo(checkpointMap);
+        
+        // Mettre à jour les coordonnées
+        selectedCoordinates = { lat, lng };
+        document.getElementById('checkpoint-lat').value = lat.toFixed(8);
+        document.getElementById('checkpoint-lng').value = lng.toFixed(8);
+        
+        console.log('📍 Coordonnées sélectionnées:', lat, lng);
+    });
+    
+    // Forcer le redimensionnement de la carte
+    setTimeout(() => {
+        checkpointMap.invalidateSize();
+    }, 200);
+}
+
+async function searchAddress() {
+    const address = document.getElementById('address-search').value.trim();
+    if (!address) {
+        showNotification('Veuillez entrer une adresse', 'error');
+        return;
+    }
+    
+    try {
+        // Utiliser l'API Nominatim d'OpenStreetMap pour la géocodage
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+        const data = await response.json();
+        
+        if (data.length === 0) {
+            showNotification('Adresse non trouvée', 'error');
+            return;
+        }
+        
+        const result = data[0];
+        const lat = parseFloat(result.lat);
+        const lng = parseFloat(result.lon);
+        
+        // Centrer la carte sur l'adresse trouvée
+        checkpointMap.setView([lat, lng], 16);
+        
+        // Supprimer le marqueur existant
+        if (checkpointMarker) {
+            checkpointMap.removeLayer(checkpointMarker);
+        }
+        
+        // Ajouter un marqueur à l'adresse trouvée
+        checkpointMarker = L.marker([lat, lng]).addTo(checkpointMap);
+        
+        // Mettre à jour les coordonnées
+        selectedCoordinates = { lat, lng };
+        document.getElementById('checkpoint-lat').value = lat.toFixed(8);
+        document.getElementById('checkpoint-lng').value = lng.toFixed(8);
+        
+        showNotification(`Adresse trouvée: ${result.display_name}`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Erreur recherche adresse:', error);
+        showNotification('Erreur lors de la recherche', 'error');
+    }
+}
+
+function updateDynamicContent() {
+    const type = document.getElementById('checkpoint-type').value;
+    const dynamicContent = document.getElementById('dynamic-content');
+    
+    if (!type) {
+        dynamicContent.innerHTML = '<p class="content-instruction">Sélectionnez un type de checkpoint pour voir les options</p>';
+        return;
+    }
+    
+    let content = '<div class="dynamic-fields">';
+    
+    switch (type) {
+        case 'lobby':
+            content += `
+                <div>
+                    <label class="field-label">Message d'accueil :</label>
+                    <textarea id="lobby-message" placeholder="Bienvenue au point de rassemblement ! Utilisez le GPS pour commencer votre aventure." rows="3"></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'enigma':
+            content += `
+                <div>
+                    <label class="field-label">Question de l'énigme :</label>
+                    <textarea id="enigma-question" placeholder="Posez votre énigme ici..." rows="3" required></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponse attendue :</label>
+                    <input type="text" id="enigma-answer" placeholder="Réponse exacte (insensible à la casse)" required>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="enigma-success" placeholder="Bravo ! Vous avez résolu l'énigme !" rows="2"></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'photo':
+            content += `
+                <div>
+                    <label class="field-label">Instructions pour la photo :</label>
+                    <textarea id="photo-instructions" placeholder="Prenez une photo de... et envoyez-la via WhatsApp" rows="3" required></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Numéro WhatsApp admin :</label>
+                    <input type="tel" id="photo-whatsapp" placeholder="+352 XX XX XX XX" required>
+                </div>
+            `;
+            break;
+            
+        case 'info':
+            content += `
+                <div>
+                    <label class="field-label">Information à trouver :</label>
+                    <textarea id="info-question" placeholder="Quelle est la date inscrite sur la statue ?" rows="2" required></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponse attendue :</label>
+                    <input type="text" id="info-answer" placeholder="Réponse exacte" required>
+                </div>
+                <div>
+                    <label class="field-label">Aide/Localisation :</label>
+                    <textarea id="info-help" placeholder="Cherchez près de l'entrée principale..." rows="2"></textarea>
+                </div>
+            `;
+            break;
+            
+        case 'final':
+            content += `
+                <div>
+                    <label class="field-label">Message de félicitations :</label>
+                    <textarea id="final-message" placeholder="Félicitations ! Vous avez terminé le jeu de piste !" rows="3"></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Instructions finales :</label>
+                    <textarea id="final-instructions" placeholder="Rendez-vous au point de rassemblement pour la suite..." rows="2"></textarea>
+                </div>
+            `;
+            break;
+    }
+    
+    content += '</div>';
+    dynamicContent.innerHTML = content;
 }
 
 async function createCheckpoint() {
@@ -911,16 +1116,86 @@ async function createCheckpoint() {
     const lat = parseFloat(document.getElementById('checkpoint-lat').value);
     const lng = parseFloat(document.getElementById('checkpoint-lng').value);
     const type = document.getElementById('checkpoint-type').value;
-    const hint = document.getElementById('checkpoint-hint').value.trim();
-    const clue = document.getElementById('checkpoint-clue').value.trim();
-    const answer = document.getElementById('checkpoint-answer').value.trim();
 
-    if (!name || !emoji || isNaN(lat) || isNaN(lng) || !hint || !clue) {
+    if (!name || !emoji || isNaN(lat) || isNaN(lng) || !type) {
         showNotification('Veuillez remplir tous les champs obligatoires', 'error');
         return;
     }
 
     try {
+        let clueData = {
+            title: `${name} découvert !`,
+            text: '',
+            riddle: null
+        };
+
+        // Construire les données selon le type
+        switch (type) {
+            case 'lobby':
+                const lobbyMessage = document.getElementById('lobby-message')?.value || 'Bienvenue au point de rassemblement !';
+                clueData.text = lobbyMessage;
+                break;
+                
+            case 'enigma':
+                const enigmaQuestion = document.getElementById('enigma-question')?.value.trim();
+                const enigmaAnswer = document.getElementById('enigma-answer')?.value.trim();
+                const enigmaSuccess = document.getElementById('enigma-success')?.value.trim() || 'Bravo ! Énigme résolue !';
+                
+                if (!enigmaQuestion || !enigmaAnswer) {
+                    showNotification('Veuillez remplir la question et la réponse de l\'énigme', 'error');
+                    return;
+                }
+                
+                clueData.text = enigmaSuccess;
+                clueData.riddle = {
+                    question: enigmaQuestion,
+                    answer: enigmaAnswer.toLowerCase(),
+                    hint: `Résolvez l'énigme pour débloquer le prochain point`
+                };
+                break;
+                
+            case 'photo':
+                const photoInstructions = document.getElementById('photo-instructions')?.value.trim();
+                const photoWhatsapp = document.getElementById('photo-whatsapp')?.value.trim();
+                
+                if (!photoInstructions || !photoWhatsapp) {
+                    showNotification('Veuillez remplir les instructions et le numéro WhatsApp', 'error');
+                    return;
+                }
+                
+                clueData.text = photoInstructions;
+                clueData.whatsapp = photoWhatsapp;
+                break;
+                
+            case 'info':
+                const infoQuestion = document.getElementById('info-question')?.value.trim();
+                const infoAnswer = document.getElementById('info-answer')?.value.trim();
+                const infoHelp = document.getElementById('info-help')?.value.trim();
+                
+                if (!infoQuestion || !infoAnswer) {
+                    showNotification('Veuillez remplir la question et la réponse', 'error');
+                    return;
+                }
+                
+                clueData.text = infoHelp || 'Trouvez l\'information demandée';
+                clueData.riddle = {
+                    question: infoQuestion,
+                    answer: infoAnswer.toLowerCase(),
+                    hint: infoHelp || 'Cherchez autour de vous'
+                };
+                break;
+                
+            case 'final':
+                const finalMessage = document.getElementById('final-message')?.value.trim() || 'Félicitations !';
+                const finalInstructions = document.getElementById('final-instructions')?.value.trim();
+                
+                clueData.text = finalMessage;
+                if (finalInstructions) {
+                    clueData.instructions = finalInstructions;
+                }
+                break;
+        }
+
         const checkpointData = {
             name,
             emoji,
@@ -928,16 +1203,7 @@ async function createCheckpoint() {
             type,
             isLobby: type === 'lobby',
             locked: type !== 'lobby',
-            hint,
-            clue: {
-                title: `${name} découvert !`,
-                text: clue,
-                riddle: type === 'enigma' && answer ? {
-                    question: clue,
-                    answer: answer.toLowerCase(),
-                    hint: hint
-                } : null
-            },
+            clue: clueData,
             createdAt: new Date()
         };
 

@@ -7,6 +7,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS pour la carte -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <link rel="stylesheet" href="admin-style.css">
 </head>
 <body>
@@ -173,31 +177,54 @@
 
         <!-- Modal création checkpoint -->
         <div id="create-checkpoint-modal" class="modal" style="display: none;">
-            <div class="modal-content">
+            <div class="modal-content checkpoint-modal">
                 <h2>📍 Créer un Checkpoint</h2>
-                <form id="create-checkpoint-form">
-                    <input type="text" id="checkpoint-name" placeholder="Nom du checkpoint" required>
-                    <input type="text" id="checkpoint-emoji" placeholder="Emoji (ex: 🏛️)" required>
-                    <div class="coordinate-inputs">
-                        <input type="number" id="checkpoint-lat" placeholder="Latitude" step="any" required>
-                        <input type="number" id="checkpoint-lng" placeholder="Longitude" step="any" required>
+                <div class="checkpoint-form-container">
+                    <!-- Carte interactive -->
+                    <div class="map-section">
+                        <div class="search-container">
+                            <input type="text" id="address-search" placeholder="🔍 Rechercher une adresse...">
+                            <button type="button" id="search-btn">Rechercher</button>
+                        </div>
+                        <div id="checkpoint-map"></div>
+                        <p class="map-instruction">📍 Cliquez sur la carte pour sélectionner les coordonnées</p>
                     </div>
-                    <select id="checkpoint-type" required>
-                        <option value="">-- Type de checkpoint --</option>
-                        <option value="lobby">🏠 Lobby (point de départ)</option>
-                        <option value="enigma">🧩 Énigme</option>
-                        <option value="photo">📸 Photo à prendre</option>
-                        <option value="info">ℹ️ Information à trouver</option>
-                        <option value="final">🏆 Point final</option>
-                    </select>
-                    <textarea id="checkpoint-hint" placeholder="Indice pour trouver ce checkpoint" rows="3"></textarea>
-                    <textarea id="checkpoint-clue" placeholder="Contenu de l'indice/énigme" rows="3"></textarea>
-                    <input type="text" id="checkpoint-answer" placeholder="Réponse (si énigme)">
-                    <div class="modal-actions">
-                        <button type="button" id="cancel-checkpoint-btn" class="cancel-btn">Annuler</button>
-                        <button type="submit" class="success-btn">Créer le checkpoint</button>
+                    
+                    <!-- Formulaire -->
+                    <div class="form-section">
+                        <form id="create-checkpoint-form">
+                            <input type="text" id="checkpoint-name" placeholder="Nom du checkpoint" required>
+                            <input type="text" id="checkpoint-emoji" placeholder="Emoji (ex: 🏛️)" required>
+                            
+                            <div class="coordinate-display">
+                                <label>Coordonnées sélectionnées :</label>
+                                <div class="coordinate-inputs">
+                                    <input type="number" id="checkpoint-lat" placeholder="Latitude" step="any" required readonly>
+                                    <input type="number" id="checkpoint-lng" placeholder="Longitude" step="any" required readonly>
+                                </div>
+                            </div>
+                            
+                            <select id="checkpoint-type" required>
+                                <option value="">-- Type de checkpoint --</option>
+                                <option value="lobby">🏠 Lobby (point de départ)</option>
+                                <option value="enigma">🧩 Énigme</option>
+                                <option value="photo">📸 Photo à prendre</option>
+                                <option value="info">ℹ️ Information à trouver</option>
+                                <option value="final">🏆 Point final</option>
+                            </select>
+                            
+                            <!-- Contenu dynamique selon le type -->
+                            <div id="dynamic-content">
+                                <p class="content-instruction">Sélectionnez un type de checkpoint pour voir les options</p>
+                            </div>
+                            
+                            <div class="modal-actions">
+                                <button type="button" id="cancel-checkpoint-btn" class="cancel-btn">Annuler</button>
+                                <button type="submit" class="success-btn">Créer le checkpoint</button>
+                            </div>
+                        </form>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
 
@@ -221,6 +248,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Leaflet JS pour la carte -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- Firebase SDK -->
     <script type="module">

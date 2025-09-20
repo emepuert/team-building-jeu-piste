@@ -269,6 +269,10 @@ async function loadUserGameData() {
     if (team) {
         currentTeamId = currentUser.teamId;
         
+        // Ajouter les données de l'équipe à currentUser
+        currentUser.teamRoute = team.route;
+        currentUser.teamColor = team.color;
+        
         // Restaurer la progression
         foundCheckpoints = currentUser.foundCheckpoints || [];
         unlockedCheckpoints = currentUser.unlockedCheckpoints || [0];
@@ -309,8 +313,8 @@ function showTeamInfo() {
     const teamInfo = document.getElementById('team-info');
     const currentTeamSpan = document.getElementById('current-team');
     
-    if (selectedTeam && TEAMS[selectedTeam]) {
-        currentTeamSpan.textContent = TEAMS[selectedTeam].name;
+    if (currentUser && currentUser.teamName) {
+        currentTeamSpan.textContent = currentUser.teamName;
         teamInfo.style.display = 'block';
     }
 }
@@ -410,9 +414,9 @@ function getNextAccessibleCheckpoint() {
 }
 
 function getNextCheckpointForTeam() {
-    if (!selectedTeam || !TEAMS[selectedTeam]) return null;
+    if (!currentUser || !currentUser.teamRoute) return null;
     
-    const teamRoute = TEAMS[selectedTeam].route;
+    const teamRoute = currentUser.teamRoute;
     const nonLobbyFound = foundCheckpoints.filter(id => {
         const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
         return cp && !cp.isLobby;
@@ -429,8 +433,7 @@ function getNextCheckpointForTeam() {
 }
 
 function getTeamColor() {
-    if (!selectedTeam || !TEAMS[selectedTeam]) return '#3498db';
-    return TEAMS[selectedTeam].color;
+    return currentUser?.teamColor || '#3498db';
 }
 
 // Fonction pour mettre à jour la progression sur la route (grignotage + recalcul auto)
@@ -1390,7 +1393,7 @@ function syncTeamData() {
     firebaseService.onTeamChange(currentTeamId, (teamData) => {
         console.log('🔄 Mise à jour des données de l\'équipe:', teamData);
         // Mettre à jour l'état local avec les données de l'équipe
-        selectedTeam = teamData.name;
+        // selectedTeam n'est plus utilisé, on utilise currentUser
         unlockedCheckpoints = teamData.unlockedCheckpoints;
         foundCheckpoints = teamData.foundCheckpoints;
         

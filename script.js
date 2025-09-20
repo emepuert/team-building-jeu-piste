@@ -313,6 +313,66 @@ function getTeamColor() {
     return TEAMS[selectedTeam].color;
 }
 
+// Fonction pour mettre à jour la progression sur la route (grignotage)
+function updateRouteProgress() {
+    if (!currentRoute || !userPosition) return;
+    
+    const userLatLng = L.latLng(userPosition.lat, userPosition.lng);
+    const progressThreshold = 20; // Distance en mètres pour considérer qu'on a "mangé" un segment
+    
+    // Récupérer les coordonnées de la route
+    const routeCoords = [];
+    currentRoute.eachLayer(function(layer) {
+        if (layer.feature && layer.feature.geometry && layer.feature.geometry.coordinates) {
+            layer.feature.geometry.coordinates.forEach(coord => {
+                routeCoords.push(L.latLng(coord[1], coord[0])); // Inverser lng/lat
+            });
+        }
+    });
+    
+    if (routeCoords.length === 0) return;
+    
+    // Trouver le point le plus proche sur la route
+    let closestDistance = Infinity;
+    let closestIndex = 0;
+    
+    routeCoords.forEach((coord, index) => {
+        const distance = userLatLng.distanceTo(coord);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+        }
+    });
+    
+    // Si on est assez proche, "manger" la partie de route déjà parcourue
+    if (closestDistance < progressThreshold && closestIndex > 0) {
+        const remainingCoords = routeCoords.slice(closestIndex);
+        
+        if (remainingCoords.length > 1) {
+            // Supprimer l'ancienne route
+            map.removeLayer(currentRoute);
+            
+            // Créer une nouvelle route avec seulement la partie restante
+            const remainingGeoJSON = {
+                type: "Feature",
+                geometry: {
+                    type: "LineString",
+                    coordinates: remainingCoords.map(coord => [coord.lng, coord.lat])
+                }
+            };
+            
+            currentRoute = L.geoJSON(remainingGeoJSON, {
+                style: {
+                    color: getTeamColor(),
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: '10, 5'
+                }
+            }).addTo(map);
+        }
+    }
+}
+
 function onLocationUpdate(position) {
     userPosition = {
         lat: position.coords.latitude,
@@ -323,6 +383,11 @@ function onLocationUpdate(position) {
     updateUserMarker();
     updateCoordinatesDisplay();
     checkProximityToCheckpoints();
+    
+    // Mettre à jour la route si elle existe (grignotage)
+    if (currentRoute) {
+        updateRouteProgress();
+    }
 }
 
 function onLocationError(error) {
@@ -428,9 +493,9 @@ function addCheckpointsToMap() {
             let buttonText = '🧭 Calculer l\'itinéraire GPS';
             let targetId = checkpoint.id;
             
+            // Tous les points (y compris le lobby) ont un bouton GPS vers eux-mêmes
             if (checkpoint.isLobby) {
-                buttonText = '🧭 GPS vers Premier Défi';
-                targetId = getNextCheckpointForTeam() || 1; // Premier checkpoint selon l'équipe
+                buttonText = '🧭 GPS vers Lobby';
             }
             
             popupContent += `
@@ -518,12 +583,12 @@ function foundCheckpoint(checkpoint) {
                     <p><em>${checkpoint.hint}</em></p>
                     <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
                     <br>
-                    <button onclick="calculateRouteFromPopup(1)" 
-                            style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                    <button onclick="calculateRouteFromPopup(0)" 
+                            style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
                                    color: white; border: none; padding: 0.5rem 1rem; 
                                    border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
                                    margin-top: 0.5rem;">
-                        🧭 GPS vers Premier Défi
+                        🧭 GPS vers Lobby
                     </button>
                 </div>
             `;

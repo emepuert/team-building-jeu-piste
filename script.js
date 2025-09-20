@@ -456,7 +456,12 @@ function getTeamColor() {
 
 // Fonction pour mettre à jour la progression sur la route (grignotage + recalcul auto)
 function updateRouteProgress() {
-    if (!currentRoute || !userPosition) return;
+    if (!currentRoute || !userPosition) {
+        console.log('⚠️ updateRouteProgress: pas de route ou position', {currentRoute: !!currentRoute, userPosition: !!userPosition});
+        return;
+    }
+    
+    console.log('🔄 Mise à jour progression GPS...');
     
     const userLatLng = L.latLng(userPosition.lat, userPosition.lng);
     const progressThreshold = 20; // Distance en mètres pour considérer qu'on a "mangé" un segment
@@ -799,6 +804,15 @@ function foundCheckpoint(checkpoint) {
         }, 1000);
     }
     
+    // Sauvegarder la progression dans Firebase
+    if (firebaseService && currentUser) {
+        firebaseService.updateUserProgress(currentUser.userId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        console.log('💾 Progression sauvegardée:', {foundCheckpoints, unlockedCheckpoints});
+    }
+    
     // Mettre à jour l'interface
     updateUI();
     
@@ -974,6 +988,15 @@ function unlockCheckpoint(checkpointId) {
         
         // Centrer la carte sur le nouveau point débloqué
         centerMapOnCheckpoint(checkpoint);
+    }
+    
+    // Sauvegarder la progression dans Firebase
+    if (firebaseService && currentUser) {
+        firebaseService.updateUserProgress(currentUser.userId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        console.log('💾 Progression sauvegardée après débloquage:', {foundCheckpoints, unlockedCheckpoints});
     }
     
     updateHint();

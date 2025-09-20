@@ -152,10 +152,10 @@ class FirebaseService {
     
     // Écouter toutes les équipes (pour l'admin)
     onAllTeamsChange(callback) {
+        // Pour l'admin, récupérer toutes les équipes sans filtre de session
         const q = query(
             collection(this.db, DB_COLLECTIONS.TEAMS),
-            where('sessionId', '==', this.currentGameSession),
-            orderBy('createdAt', 'asc')
+            orderBy('createdAt', 'desc')
         );
         
         return onSnapshot(q, (snapshot) => {

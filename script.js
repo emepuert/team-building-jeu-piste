@@ -95,12 +95,10 @@ function requestGeolocation() {
     if (!navigator.geolocation) {
         showNotification('Géolocalisation non supportée par votre navigateur', 'error');
         updateStatus('Géolocalisation non disponible');
-        showLocationButton();
         return;
     }
     
     updateStatus('Localisation en cours...');
-    hideLocationButton();
     
     const options = {
         enableHighAccuracy: true,
@@ -122,15 +120,6 @@ function requestGeolocation() {
     );
 }
 
-function showLocationButton() {
-    const button = document.getElementById('request-location-btn');
-    button.style.display = 'block';
-}
-
-function hideLocationButton() {
-    const button = document.getElementById('request-location-btn');
-    button.style.display = 'none';
-}
 
 function onLocationSuccess(position) {
     console.log('✅ Position obtenue:', position.coords);
@@ -168,16 +157,13 @@ function onLocationError(error) {
     let message = 'Erreur de géolocalisation';
     switch(error.code) {
         case error.PERMISSION_DENIED:
-            message = 'Géolocalisation refusée. Cliquez sur le bouton pour réessayer.';
-            showLocationButton();
+            message = 'Géolocalisation refusée. Veuillez autoriser l\'accès à votre position.';
             break;
         case error.POSITION_UNAVAILABLE:
             message = 'Position indisponible. Vérifiez votre connexion.';
-            showLocationButton();
             break;
         case error.TIMEOUT:
-            message = 'Délai de géolocalisation dépassé. Réessayez.';
-            showLocationButton();
+            message = 'Délai de géolocalisation dépassé.';
             break;
     }
     

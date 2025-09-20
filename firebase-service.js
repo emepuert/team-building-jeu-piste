@@ -177,12 +177,19 @@ class FirebaseService {
 
     // Reset une équipe (admin)
     async resetTeam(teamId) {
-        await this.updateTeamProgress(teamId, {
-            currentCheckpoint: 0,
-            foundCheckpoints: [],
-            unlockedCheckpoints: [0],
-            status: 'active'
-        });
+        console.log(`🔄 Firebase: Reset équipe ${teamId}`);
+        try {
+            await this.updateTeamProgress(teamId, {
+                currentCheckpoint: 0,
+                foundCheckpoints: [],
+                unlockedCheckpoints: [0],
+                status: 'active'
+            });
+            console.log(`✅ Firebase: Équipe ${teamId} resetée avec succès`);
+        } catch (error) {
+            console.error(`❌ Firebase: Erreur reset équipe ${teamId}:`, error);
+            throw error;
+        }
     }
 
     // Obtenir toutes les équipes (pour l'admin)
@@ -289,12 +296,19 @@ class FirebaseService {
 
     // Reset un utilisateur (admin)
     async resetUser(userId) {
-        await this.updateUserProgress(userId, {
-            foundCheckpoints: [],
-            unlockedCheckpoints: [0],
-            currentCheckpoint: 0,
-            status: 'active'
-        });
+        console.log(`🔄 Firebase: Reset utilisateur ${userId}`);
+        try {
+            await this.updateUserProgress(userId, {
+                foundCheckpoints: [],
+                unlockedCheckpoints: [0],
+                currentCheckpoint: 0,
+                status: 'active'
+            });
+            console.log(`✅ Firebase: Utilisateur ${userId} reseté avec succès`);
+        } catch (error) {
+            console.error(`❌ Firebase: Erreur reset utilisateur ${userId}:`, error);
+            throw error;
+        }
     }
 }
 

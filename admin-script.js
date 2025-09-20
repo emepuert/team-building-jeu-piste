@@ -455,27 +455,43 @@ async function resetAllTeams() {
 }
 
 async function resetAllProgressions() {
-    if (!confirm('🏠 Remettre toutes les équipes au lobby ? Cela va effacer toute la progression actuelle.')) return;
+    console.log('🔄 Début resetAllProgressions');
+    console.log('📊 managementTeamsData:', managementTeamsData);
+    console.log('👥 usersData:', usersData);
+    
+    if (!confirm('🏠 Remettre toutes les équipes au lobby ? Cela va effacer toute la progression actuelle.')) {
+        console.log('❌ Reset annulé par l\'utilisateur');
+        return;
+    }
     
     try {
         showNotification('🔄 Reset des progressions en cours...', 'info');
+        console.log('🚀 Début du reset...');
         
         let resetCount = 0;
         
         // Reset chaque équipe
+        console.log(`🏆 Reset de ${managementTeamsData.length} équipes...`);
         for (const team of managementTeamsData) {
+            console.log(`🔄 Reset équipe: ${team.name} (${team.id})`);
             await firebaseService.resetTeam(team.id);
             resetCount++;
+            console.log(`✅ Équipe ${team.name} resetée`);
         }
         
         // Reset tous les utilisateurs
+        console.log(`👤 Reset de ${usersData.length} utilisateurs...`);
         for (const user of usersData) {
+            console.log(`🔄 Reset utilisateur: ${user.name} (${user.userId})`);
             await firebaseService.resetUser(user.userId);
+            console.log(`✅ Utilisateur ${user.name} reseté`);
         }
         
+        console.log(`🎉 Reset terminé: ${resetCount} équipes`);
         showNotification(`✅ ${resetCount} équipes remises au lobby !`, 'success');
         
         // Actualiser les données
+        console.log('🔄 Actualisation des données...');
         loadManagementData();
         
     } catch (error) {

@@ -553,6 +553,54 @@ section h2 {
     background: linear-gradient(135deg, #e6f52e 0%, #f1ff33 100%);
 }
 
+/* Inputs spéciaux pour les checkpoints */
+.coordinate-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.modal form textarea {
+    padding: 1rem;
+    border: 2px solid rgba(38, 8, 6, 0.2);
+    border-radius: 15px;
+    font-size: 1rem;
+    font-family: "Oswald", sans-serif;
+    background: white;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    resize: vertical;
+}
+
+.modal form textarea:focus {
+    outline: none;
+    border-color: #f1ff33;
+    box-shadow: 0 0 10px rgba(241, 255, 51, 0.3);
+}
+
+#checkpoint-order-list {
+    border: 2px dashed rgba(38, 8, 6, 0.2);
+    border-radius: 15px;
+    padding: 1rem;
+    min-height: 100px;
+    background: rgba(246, 248, 249, 0.5);
+}
+
+.checkpoint-order-item {
+    background: white;
+    border: 1px solid rgba(38, 8, 6, 0.2);
+    border-radius: 10px;
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: move;
+}
+
+.checkpoint-order-item:hover {
+    background: rgba(241, 255, 51, 0.1);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header {

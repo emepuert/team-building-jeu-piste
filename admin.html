@@ -94,6 +94,28 @@
                     </div>
                 </section>
 
+                <!-- Gestion des checkpoints -->
+                <section class="checkpoints-management">
+                    <h2>📍 Gestion des Checkpoints</h2>
+                    <div class="management-header">
+                        <button id="create-checkpoint-btn" class="success-btn">➕ Créer un checkpoint</button>
+                    </div>
+                    <div id="checkpoints-management-list">
+                        <p class="no-data">Aucun checkpoint créé</p>
+                    </div>
+                </section>
+
+                <!-- Gestion des parcours -->
+                <section class="routes-management">
+                    <h2>🛤️ Gestion des Parcours</h2>
+                    <div class="management-header">
+                        <button id="create-route-btn" class="success-btn">➕ Créer un parcours</button>
+                    </div>
+                    <div id="routes-management-list">
+                        <p class="no-data">Aucun parcours défini</p>
+                    </div>
+                </section>
+
                 <!-- Actions rapides -->
                 <section class="quick-actions">
                     <h2>⚡ Actions rapides</h2>
@@ -144,6 +166,56 @@
                     <div class="modal-actions">
                         <button type="button" id="cancel-user-btn" class="cancel-btn">Annuler</button>
                         <button type="submit" class="success-btn">Créer l'utilisateur</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal création checkpoint -->
+        <div id="create-checkpoint-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>📍 Créer un Checkpoint</h2>
+                <form id="create-checkpoint-form">
+                    <input type="text" id="checkpoint-name" placeholder="Nom du checkpoint" required>
+                    <input type="text" id="checkpoint-emoji" placeholder="Emoji (ex: 🏛️)" required>
+                    <div class="coordinate-inputs">
+                        <input type="number" id="checkpoint-lat" placeholder="Latitude" step="any" required>
+                        <input type="number" id="checkpoint-lng" placeholder="Longitude" step="any" required>
+                    </div>
+                    <select id="checkpoint-type" required>
+                        <option value="">-- Type de checkpoint --</option>
+                        <option value="lobby">🏠 Lobby (point de départ)</option>
+                        <option value="enigma">🧩 Énigme</option>
+                        <option value="photo">📸 Photo à prendre</option>
+                        <option value="info">ℹ️ Information à trouver</option>
+                        <option value="final">🏆 Point final</option>
+                    </select>
+                    <textarea id="checkpoint-hint" placeholder="Indice pour trouver ce checkpoint" rows="3"></textarea>
+                    <textarea id="checkpoint-clue" placeholder="Contenu de l'indice/énigme" rows="3"></textarea>
+                    <input type="text" id="checkpoint-answer" placeholder="Réponse (si énigme)">
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-checkpoint-btn" class="cancel-btn">Annuler</button>
+                        <button type="submit" class="success-btn">Créer le checkpoint</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal création parcours -->
+        <div id="create-route-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>🛤️ Créer un Parcours</h2>
+                <form id="create-route-form">
+                    <input type="text" id="route-name" placeholder="Nom du parcours" required>
+                    <div id="route-checkpoints">
+                        <label>Ordre des checkpoints :</label>
+                        <div id="checkpoint-order-list">
+                            <p>Créez d'abord des checkpoints</p>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" id="cancel-route-btn" class="cancel-btn">Annuler</button>
+                        <button type="submit" class="success-btn">Créer le parcours</button>
                     </div>
                 </form>
             </div>

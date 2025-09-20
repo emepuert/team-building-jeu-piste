@@ -1153,6 +1153,9 @@ function simulatePosition(lat, lng) {
 function calculateRouteFromPopup(checkpointId) {
     const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
     if (checkpoint && userPosition) {
+        // Fermer tous les popups ouverts
+        map.closePopup();
+        
         calculateRoute(userPosition, checkpoint);
     }
 }

@@ -65,6 +65,8 @@ let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
 let selectedTeam = null; // Équipe sélectionnée
+let currentDestination = null; // Destination actuelle pour recalcul auto
+let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les spams
 
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
@@ -243,8 +245,8 @@ function requestGeolocation() {
     
     const options = {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
+        timeout: 5000,
+        maximumAge: 2000  // Rafraîchissement plus fréquent (2 secondes)
     };
     
     navigator.geolocation.getCurrentPosition(
@@ -313,12 +315,13 @@ function getTeamColor() {
     return TEAMS[selectedTeam].color;
 }
 
-// Fonction pour mettre à jour la progression sur la route (grignotage)
+// Fonction pour mettre à jour la progression sur la route (grignotage + recalcul auto)
 function updateRouteProgress() {
     if (!currentRoute || !userPosition) return;
     
     const userLatLng = L.latLng(userPosition.lat, userPosition.lng);
     const progressThreshold = 20; // Distance en mètres pour considérer qu'on a "mangé" un segment
+    const recalculateThreshold = 50; // Distance en mètres pour recalculer la route
     
     // Récupérer les coordonnées de la route
     const routeCoords = [];
@@ -369,6 +372,22 @@ function updateRouteProgress() {
                     dashArray: '10, 5'
                 }
             }).addTo(map);
+        }
+    }
+    // Si on est trop loin du trajet, recalculer automatiquement
+    else if (closestDistance > recalculateThreshold && currentDestination) {
+        const now = Date.now();
+        const minRecalculateInterval = 10000; // Minimum 10 secondes entre recalculs
+        
+        if (now - lastRecalculateTime > minRecalculateInterval) {
+            console.log(`🔄 Recalcul automatique - Distance du trajet: ${Math.round(closestDistance)}m`);
+            showNotification('🔄 Recalcul du trajet GPS...');
+            lastRecalculateTime = now;
+            
+            // Recalculer la route vers la même destination
+            setTimeout(() => {
+                calculateRoute(userPosition, currentDestination);
+            }, 1000);
         }
     }
 }
@@ -833,6 +852,9 @@ function centerMapOnCheckpoint(checkpoint) {
 
 async function calculateRoute(from, toCheckpoint) {
     console.log(`🗺️ Calcul de l'itinéraire vers ${toCheckpoint.name}`);
+    
+    // Stocker la destination pour le recalcul automatique
+    currentDestination = toCheckpoint;
     
     // Afficher une notification de chargement
     showNotification('⏳ Calcul de l\'itinéraire en cours...');

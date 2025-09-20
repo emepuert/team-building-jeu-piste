@@ -446,11 +446,8 @@ button:active {
 }
 
 /* Responsive design */
-@media (max-width: 768px) {
-    main {
-        padding: 0.5rem;
-    }
-    
+@media (max-width: 768px) {  
+      
     #map {
         height: 40vh;
         min-height: 250px;

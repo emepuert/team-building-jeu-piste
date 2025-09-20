@@ -822,8 +822,9 @@ async function calculateRoute(from, toCheckpoint) {
                 
                 // Si c'est une chaîne encodée (polyline), on la décode
                 if (typeof route.geometry === 'string') {
-                    console.log('🔄 Décodage de la polyline...');
+                    console.log('🔄 Décodage de la polyline:', route.geometry);
                     const coordinates = decodePolyline(route.geometry);
+                    console.log('📍 Coordonnées décodées:', coordinates);
                     routeGeoJSON = {
                         type: "Feature",
                         geometry: {
@@ -847,7 +848,7 @@ async function calculateRoute(from, toCheckpoint) {
                 console.log('📍 GeoJSON créé:', routeGeoJSON);
                 
                 // Vérifier que le GeoJSON a été créé correctement
-                if (routeGeoJSON && routeGeoJSON.geometry && routeGeoJSON.geometry.coordinates) {
+                if (routeGeoJSON && routeGeoJSON.geometry && routeGeoJSON.geometry.coordinates && routeGeoJSON.geometry.coordinates.length > 0) {
                     // Afficher la route sur la carte
                     currentRoute = L.geoJSON(routeGeoJSON, {
                     style: {

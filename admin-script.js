@@ -670,8 +670,39 @@ function setupModalEvents() {
     });
 }
 
-function showCreateTeamModal() {
+async function showCreateTeamModal() {
+    // Charger les parcours disponibles
+    await loadRouteSelectOptions();
     document.getElementById('create-team-modal').style.display = 'flex';
+}
+
+async function loadRouteSelectOptions() {
+    try {
+        const routes = await firebaseService.getAllRoutes();
+        const select = document.getElementById('team-route');
+        
+        // Vider les options existantes (sauf la première)
+        select.innerHTML = '<option value="">-- Choisir un parcours --</option>';
+        
+        if (routes.length === 0) {
+            select.innerHTML += '<option value="" disabled>Aucun parcours créé</option>';
+            return;
+        }
+        
+        // Ajouter les parcours depuis Firebase
+        routes.forEach(route => {
+            const option = document.createElement('option');
+            option.value = route.route.join(',');
+            option.textContent = `${route.name} (${route.route.length} points)`;
+            select.appendChild(option);
+        });
+        
+        console.log('✅ Parcours chargés dans le sélecteur:', routes.length);
+    } catch (error) {
+        console.error('❌ Erreur chargement parcours pour sélection:', error);
+        const select = document.getElementById('team-route');
+        select.innerHTML = '<option value="">-- Erreur chargement --</option>';
+    }
 }
 
 function hideCreateTeamModal() {

@@ -588,16 +588,18 @@ section h2 {
 }
 
 .search-container input {
-    flex: 1;
+    flex: 3;
     padding: 0.8rem 1rem;
     border: 2px solid #ddd;
     border-radius: 10px;
     font-family: "Oswald", sans-serif;
     font-size: 1rem;
     font-weight: 500;
+    min-width: 0;
 }
 
 .search-container button {
+    flex: 0 0 auto;
     padding: 0.8rem 1rem;
     background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
     color: white;
@@ -605,11 +607,11 @@ section h2 {
     border-radius: 10px;
     font-family: "Oswald", sans-serif;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
-    min-width: 100px;
+    width: 90px;
 }
 
 .search-container button:hover {

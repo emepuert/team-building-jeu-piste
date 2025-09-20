@@ -1352,7 +1352,7 @@ async function loadCheckpoints() {
                 <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
                 <p><strong>Type:</strong> ${checkpoint.type}</p>
                 <p><strong>Coordonnées:</strong> ${checkpoint.coordinates[0]}, ${checkpoint.coordinates[1]}</p>
-                <p><strong>Indice:</strong> ${checkpoint.hint}</p>
+                <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
                 <div class="item-actions">
                     <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
                 </div>

@@ -105,9 +105,6 @@ function initializeApp() {
     
     // Vérifier si un utilisateur est connecté
     checkUserLogin();
-    
-    // Initialiser les checkpoints dans Firebase
-    initializeCheckpointsInFirebase();
 }
 
 function checkUserLogin() {
@@ -1429,19 +1426,7 @@ function calculateRouteFromPopup(checkpointId) {
 window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
 
-async function initializeCheckpointsInFirebase() {
-    if (!firebaseService) {
-        console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
-        return;
-    }
-    
-    try {
-        await firebaseService.initializeCheckpoints(GAME_CONFIG.checkpoints);
-        console.log('✅ Checkpoints initialisés dans Firebase');
-    } catch (error) {
-        console.error('❌ Erreur lors de l\'initialisation des checkpoints dans Firebase:', error);
-    }
-}
+// Fonction supprimée - les checkpoints sont maintenant créés via l'admin
 
 // Synchronisation temps réel des équipes
 function syncTeamData() {

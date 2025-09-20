@@ -10,20 +10,34 @@ const GAME_CONFIG = {
     // Points d'intérêt avec coordonnées et indices
     checkpoints: [
         {
-            id: 1,
-            name: "Point de Départ",
+            id: 0,
+            name: "Lobby - Point de Rassemblement",
             coordinates: [49.09568858396698, 6.189477252799626],
-            emoji: "🚀",
+            emoji: "🏠",
+            isLobby: true,
             clue: {
-                title: "Premier Point Découvert !",
-                text: "Félicitations ! Vous avez trouvé le premier point. Pour débloquer le deuxième point et obtenir sa position GPS, vous devez résoudre cette énigme simple :",
+                title: "Bienvenue au Lobby !",
+                text: "Point de rassemblement de toutes les équipes. Utilisez le bouton GPS pour vous diriger vers votre premier défi !",
+                image: null
+            },
+            hint: "Point de rassemblement - Utilisez le GPS pour commencer votre aventure !"
+        },
+        {
+            id: 1,
+            name: "Premier Défi",
+            coordinates: [49.09524036018862, 6.19175279981568],
+            emoji: "🚀",
+            locked: true,
+            clue: {
+                title: "Premier Défi Découvert !",
+                text: "Félicitations ! Vous avez trouvé votre premier défi. Pour débloquer le point suivant et obtenir sa position GPS, vous devez résoudre cette énigme simple :",
                 riddle: {
                     question: "Combien font 1 + 1 ?",
                     answer: "2",
                     hint: "C'est une addition très simple !"
                 }
             },
-            hint: "Trouvez le point de départ de votre aventure !"
+            hint: "Votre premier défi vous attend !"
         },
         {
             id: 2,
@@ -36,7 +50,7 @@ const GAME_CONFIG = {
                 text: "Bravo ! Vous avez résolu l'énigme et trouvé le point final ! Félicitations pour avoir terminé ce test du jeu de piste.",
                 image: null
             },
-            hint: "Ce point sera débloqué après avoir résolu l'énigme du premier point."
+            hint: "Ce point sera débloqué après avoir résolu l'énigme du premier défi."
         }
     ]
 };
@@ -47,7 +61,7 @@ let userMarker;
 let userPosition = null;
 let foundCheckpoints = [];
 let checkpointMarkers = [];
-let unlockedCheckpoints = [1]; // Le premier point est débloqué par défaut
+let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
 
@@ -253,25 +267,28 @@ function addCheckpointsToMap() {
             iconAnchor: [15, 15]
         });
         
-        // Créer le contenu du popup avec bouton GPS pour tous les points débloqués
+        // Créer le contenu du popup
         let popupContent = `
             <div style="text-align: center;">
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>${isFound ? '✅ Découvert !' : '🔍 À découvrir'}</p>
+                <p>${isFound ? '✅ Découvert !' : checkpoint.isLobby ? '🏠 Lobby' : '🔍 À découvrir'}</p>
                 ${!isFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
-        // Ajouter le bouton GPS pour TOUS les points débloqués (pas encore trouvés)
-        if (!isFound && userPosition) {
+        // Ajouter le bouton GPS pour les points débloqués (pas encore trouvés) OU pour le lobby
+        if (userPosition && (!isFound || checkpoint.isLobby)) {
+            const buttonText = checkpoint.isLobby ? '🧭 GPS vers Premier Défi' : '🧭 Calculer l\'itinéraire GPS';
+            const targetId = checkpoint.isLobby ? 1 : checkpoint.id; // Si lobby, GPS vers le premier défi
+            
             popupContent += `
                 <br>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
+                <button onclick="calculateRouteFromPopup(${targetId})" 
                         style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
                                color: white; border: none; padding: 0.5rem 1rem; 
                                border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
                                margin-top: 0.5rem;">
-                    🧭 Calculer l'itinéraire GPS
+                    ${buttonText}
                 </button>
             `;
         }
@@ -338,13 +355,37 @@ function foundCheckpoint(checkpoint) {
             iconAnchor: [15, 15]
         });
         markerData.marker.setIcon(newIcon);
-        markerData.marker.setPopupContent(`
-            <div style="text-align: center;">
-                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>✅ Découvert !</p>
-                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-            </div>
-        `);
+        
+        // Contenu du popup différent pour le lobby
+        let popupContent;
+        if (checkpoint.isLobby) {
+            popupContent = `
+                <div style="text-align: center;">
+                    <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                    <p>✅ Visité !</p>
+                    <p><em>${checkpoint.hint}</em></p>
+                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                    <br>
+                    <button onclick="calculateRouteFromPopup(1)" 
+                            style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                                   color: white; border: none; padding: 0.5rem 1rem; 
+                                   border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                                   margin-top: 0.5rem;">
+                        🧭 GPS vers Premier Défi
+                    </button>
+                </div>
+            `;
+        } else {
+            popupContent = `
+                <div style="text-align: center;">
+                    <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                    <p>✅ Découvert !</p>
+                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                </div>
+            `;
+        }
+        
+        markerData.marker.setPopupContent(popupContent);
         
         // Mettre à jour le cercle en vert
         markerData.circle.setStyle({
@@ -353,21 +394,35 @@ function foundCheckpoint(checkpoint) {
         });
     }
     
-    // Afficher l'indice
-    showClue(checkpoint.clue);
+    // Afficher l'indice (sauf pour le lobby)
+    if (!checkpoint.isLobby) {
+        showClue(checkpoint.clue);
+    } else {
+        // Pour le lobby, débloquer directement le premier défi
+        setTimeout(() => {
+            unlockCheckpoint(1);
+        }, 1000);
+    }
     
     // Mettre à jour l'interface
     updateUI();
     
-    // Vérifier si le jeu est terminé
-    if (foundCheckpoints.length === GAME_CONFIG.checkpoints.length) {
+    // Vérifier si le jeu est terminé (exclure le lobby du compte)
+    const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
+    const nonLobbyFound = foundCheckpoints.filter(id => {
+        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    });
+    
+    if (nonLobbyFound.length === nonLobbyCheckpoints.length) {
         setTimeout(() => {
             showSuccessModal();
         }, 2000);
     }
     
     // Notification
-    showNotification(`🎉 ${checkpoint.name} découvert !`);
+    const message = checkpoint.isLobby ? `🏠 Bienvenue au ${checkpoint.name} !` : `🎉 ${checkpoint.name} découvert !`;
+    showNotification(message);
 }
 
 function showClue(clue) {
@@ -660,10 +715,17 @@ function updateProgress() {
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     
-    const percentage = (foundCheckpoints.length / GAME_CONFIG.checkpoints.length) * 100;
+    // Exclure le lobby du décompte de progression
+    const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
+    const nonLobbyFound = foundCheckpoints.filter(id => {
+        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    });
+    
+    const percentage = (nonLobbyFound.length / nonLobbyCheckpoints.length) * 100;
     
     progressFill.style.width = `${percentage}%`;
-    progressText.textContent = `${foundCheckpoints.length} / ${GAME_CONFIG.checkpoints.length} indices trouvés`;
+    progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyCheckpoints.length} défis résolus`;
 }
 
 function updateHint() {

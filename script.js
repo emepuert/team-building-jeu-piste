@@ -782,9 +782,19 @@ function foundCheckpoint(checkpoint) {
         });
     }
     
-    // Afficher l'indice (sauf pour le lobby)
+    // Afficher l'indice (sauf pour le lobby et sauf si c'est la fin du jeu)
     if (!checkpoint.isLobby) {
-        showClue(checkpoint.clue);
+        // Vérifier si c'est le dernier checkpoint
+        const teamRoute = currentUser?.teamRoute || [];
+        const nonLobbyRoute = teamRoute.filter(id => id !== 0);
+        const nonLobbyFound = foundCheckpoints.filter(id => id !== 0);
+        const isGameComplete = nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0;
+        
+        if (!isGameComplete) {
+            showClue(checkpoint.clue);
+        } else {
+            console.log('🏁 Dernier checkpoint - pas d\'indice, seulement modal de victoire');
+        }
     } else {
         // Pour le lobby, débloquer le premier checkpoint selon l'équipe
         setTimeout(() => {
@@ -828,16 +838,19 @@ function foundCheckpoint(checkpoint) {
         isComplete: nonLobbyFound.length >= nonLobbyRoute.length
     });
     
-    if (nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0) {
+    const isGameComplete = nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0;
+    
+    if (isGameComplete) {
         console.log(`🎉 Équipe ${currentUser?.teamName} a terminé son parcours !`);
+        // Pour le dernier checkpoint, afficher seulement le modal de victoire
         setTimeout(() => {
             showSuccessModal();
-        }, 2000);
+        }, 1000);
+    } else {
+        // Notification normale seulement si ce n'est pas la fin
+        const message = checkpoint.isLobby ? `🏠 Bienvenue au ${checkpoint.name} !` : `🎉 ${checkpoint.name} découvert !`;
+        showNotification(message);
     }
-    
-    // Notification
-    const message = checkpoint.isLobby ? `🏠 Bienvenue au ${checkpoint.name} !` : `🎉 ${checkpoint.name} découvert !`;
-    showNotification(message);
 }
 
 function showClue(clue) {

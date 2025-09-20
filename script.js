@@ -241,17 +241,35 @@ function addCheckpointsToMap() {
             iconAnchor: [15, 15]
         });
         
+        // Créer le contenu du popup avec bouton GPS si nécessaire
+        let popupContent = `
+            <div style="text-align: center;">
+                <h3>${isLocked ? '🔒' : checkpoint.emoji} ${checkpoint.name}</h3>
+                <p>${isFound ? '✅ Découvert !' : isLocked ? '🔒 Verrouillé' : '🔍 À découvrir'}</p>
+                ${!isFound && !isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                ${isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+        `;
+        
+        // Ajouter le bouton GPS si le point est accessible et pas encore trouvé
+        if (!isFound && !isLocked && userPosition) {
+            popupContent += `
+                <br>
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
+                        style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                               color: white; border: none; padding: 0.5rem 1rem; 
+                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                               margin-top: 0.5rem;">
+                    🧭 Calculer l'itinéraire GPS
+                </button>
+            `;
+        }
+        
+        popupContent += '</div>';
+        
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
-            .bindPopup(`
-                <div style="text-align: center;">
-                    <h3>${isLocked ? '🔒' : checkpoint.emoji} ${checkpoint.name}</h3>
-                    <p>${isFound ? '✅ Découvert !' : isLocked ? '🔒 Verrouillé' : '🔍 À découvrir'}</p>
-                    ${!isFound && !isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
-                    ${isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
-                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                </div>
-            `);
+            .bindPopup(popupContent);
         
         checkpointMarkers.push({
             id: checkpoint.id,
@@ -485,11 +503,8 @@ function centerMapOnCheckpoint(checkpoint) {
 async function calculateRoute(from, toCheckpoint) {
     console.log(`🗺️ Calcul de l'itinéraire vers ${toCheckpoint.name}`);
     
-    // Afficher un indicateur de chargement
-    const gpsBtn = document.getElementById('gps-route-btn');
-    const originalText = gpsBtn.textContent;
-    gpsBtn.textContent = '⏳ Calcul en cours...';
-    gpsBtn.disabled = true;
+    // Afficher une notification de chargement
+    showNotification('⏳ Calcul de l\'itinéraire en cours...');
     
     try {
         // Supprimer l'ancienne route
@@ -531,11 +546,18 @@ async function calculateRoute(from, toCheckpoint) {
         const data = await response.json();
         console.log('📊 Données reçues:', data);
         
-        if (data.features && data.features.length > 0) {
-            const route = data.features[0];
+        if (data.routes && data.routes.length > 0) {
+            const route = data.routes[0];
+            
+            // Créer un GeoJSON à partir des coordonnées de la route
+            const routeGeoJSON = {
+                type: "Feature",
+                geometry: route.geometry,
+                properties: route
+            };
             
             // Afficher la route sur la carte
-            currentRoute = L.geoJSON(route, {
+            currentRoute = L.geoJSON(routeGeoJSON, {
                 style: {
                     color: '#e74c3c',
                     weight: 5,
@@ -545,23 +567,16 @@ async function calculateRoute(from, toCheckpoint) {
             }).addTo(map);
             
             // Extraire les instructions
-            const instructions = route.properties.segments[0].steps;
-            displayNavigationInstructions(instructions, route.properties.summary);
+            const instructions = route.segments[0].steps;
+            displayNavigationInstructions(instructions, route.summary);
             
             console.log('✅ Itinéraire calculé et affiché');
             showNotification('🧭 Itinéraire GPS calculé !');
-            
-            // Cacher le bouton GPS une fois la route affichée
-            gpsBtn.style.display = 'none';
         }
         
     } catch (error) {
         console.error('❌ Erreur lors du calcul de l\'itinéraire:', error);
         showNotification('Impossible de calculer l\'itinéraire GPS', 'error');
-        
-        // Restaurer le bouton
-        gpsBtn.textContent = originalText;
-        gpsBtn.disabled = false;
     }
 }
 
@@ -644,12 +659,9 @@ function updateHint() {
             <strong>${nextCheckpoint.hint}</strong><br>
             <small>Distance approximative: ${distance > 1000 ? 
                 (distance/1000).toFixed(1) + ' km' : 
-                Math.round(distance) + ' m'}</small>
+                Math.round(distance) + ' m'}</small><br>
+            <small style="color: #666;">💡 Cliquez sur le marqueur ${nextCheckpoint.emoji} pour obtenir l'itinéraire GPS</small>
         `;
-        
-        // Afficher le bouton GPS
-        gpsBtn.style.display = 'block';
-        gpsBtn.onclick = () => calculateRoute(userPosition, nextCheckpoint);
         
     } else {
         // Tous les checkpoints débloqués sont trouvés, mais il y en a peut-être des verrouillés
@@ -660,9 +672,10 @@ function updateHint() {
         if (lockedCheckpoint) {
             hintText.innerHTML = `<strong>${lockedCheckpoint.hint}</strong>`;
         }
-        
-        gpsBtn.style.display = 'none';
     }
+    
+    // Cacher le bouton GPS du panneau principal
+    gpsBtn.style.display = 'none';
 }
 
 function updateStatus(message) {
@@ -804,7 +817,16 @@ function simulatePosition(lat, lng) {
     updateStatus('Position simulée');
 }
 
-// Exposer la fonction de simulation pour les tests
+// Fonction appelée depuis le popup du marqueur
+function calculateRouteFromPopup(checkpointId) {
+    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+    if (checkpoint && userPosition) {
+        calculateRoute(userPosition, checkpoint);
+    }
+}
+
+// Exposer les fonctions pour les tests et les popups
 window.simulatePosition = simulatePosition;
+window.calculateRouteFromPopup = calculateRouteFromPopup;
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

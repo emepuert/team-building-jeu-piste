@@ -440,7 +440,8 @@ function getNextCheckpointForTeam() {
     });
     
     // Déterminer quel est le prochain checkpoint dans l'ordre de l'équipe
-    const nextIndex = nonLobbyFound.length;
+    // On commence à l'index 1 pour ignorer le lobby (index 0)
+    const nextIndex = nonLobbyFound.length + 1;
     
     if (nextIndex < teamRoute.length) {
         return teamRoute[nextIndex];
@@ -790,6 +791,7 @@ function foundCheckpoint(checkpoint) {
             console.log('🎯 Premier checkpoint ID:', firstCheckpointId);
             
             if (firstCheckpointId) {
+                console.log('🔓 Débloquage du checkpoint:', firstCheckpointId);
                 unlockCheckpoint(firstCheckpointId);
             } else {
                 console.log('❌ Aucun checkpoint à débloquer trouvé');

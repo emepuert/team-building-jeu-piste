@@ -114,6 +114,7 @@
                     <h2>🛤️ Gestion des Parcours</h2>
                     <div class="management-header">
                         <button id="create-route-btn" class="success-btn">➕ Créer un parcours</button>
+                        <button id="show-routes-map-btn" class="info-btn">🗺️ Visualiser sur carte</button>
                     </div>
                     <div id="routes-management-list">
                         <p class="no-data">Aucun parcours défini</p>
@@ -243,6 +244,27 @@
                         <button type="submit" class="success-btn">Créer le parcours</button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal visualisation parcours -->
+        <div id="routes-map-modal" class="modal" style="display: none;">
+            <div class="modal-content routes-map-modal">
+                <h2>🗺️ Visualisation des Parcours</h2>
+                <div class="routes-map-container">
+                    <div class="routes-legend">
+                        <h3>Légende :</h3>
+                        <div id="routes-legend-list">
+                            <p>Aucun parcours à afficher</p>
+                        </div>
+                    </div>
+                    <div class="routes-map-section">
+                        <div id="routes-visualization-map"></div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="close-routes-map-btn" class="cancel-btn">Fermer</button>
+                </div>
             </div>
         </div>
     </div>

@@ -751,6 +751,110 @@ section h2 {
     }
 }
 
+/* ===== MODAL VISUALISATION PARCOURS ===== */
+.routes-map-modal {
+    max-width: 1400px !important;
+    width: 95vw !important;
+    max-height: 90vh !important;
+    overflow: hidden;
+}
+
+.routes-map-container {
+    display: flex;
+    gap: 2rem;
+    height: 70vh;
+    max-height: 700px;
+}
+
+.routes-legend {
+    flex: 0 0 300px;
+    background: rgba(246, 248, 249, 0.8);
+    border-radius: 15px;
+    padding: 1.5rem;
+    overflow-y: auto;
+    border: 2px solid #f1ff33;
+}
+
+.routes-legend h3 {
+    margin: 0 0 1rem 0;
+    color: #260806;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+}
+
+.routes-map-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+#routes-visualization-map {
+    flex: 1;
+    min-height: 500px;
+    border-radius: 15px;
+    overflow: hidden;
+    border: 3px solid #f1ff33;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.route-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    background: white;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.route-legend-item:hover {
+    border-color: #f1ff33;
+    transform: translateX(5px);
+}
+
+.route-color-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #260806;
+    flex-shrink: 0;
+}
+
+.route-info {
+    flex: 1;
+}
+
+.route-name {
+    font-weight: 600;
+    color: #260806;
+    margin-bottom: 0.2rem;
+}
+
+.route-details {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+/* Responsive pour la visualisation */
+@media (max-width: 1200px) {
+    .routes-map-container {
+        flex-direction: column;
+        height: auto;
+        max-height: none;
+    }
+    
+    .routes-legend {
+        flex: none;
+        max-height: 200px;
+    }
+    
+    .routes-map-section {
+        height: 500px;
+    }
+}
+
 .management-item {
     background: rgba(255, 255, 255, 0.9);
     border-radius: 15px;

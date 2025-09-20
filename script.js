@@ -290,8 +290,8 @@ function startGame() {
     // Configurer les événements
     setupEventListeners();
     
-    // Ajouter les checkpoints sur la carte
-    addCheckpointsToMap();
+    // Synchroniser et ajouter les checkpoints depuis Firebase
+    syncCheckpoints();
     
     // Mettre à jour l'interface
     updateUI();

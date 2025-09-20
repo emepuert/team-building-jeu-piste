@@ -234,6 +234,7 @@ function setupAdminEvents() {
     // Gestion checkpoints et parcours
     document.getElementById('create-checkpoint-btn').addEventListener('click', showCreateCheckpointModal);
     document.getElementById('create-route-btn').addEventListener('click', showCreateRouteModal);
+    document.getElementById('show-routes-map-btn').addEventListener('click', showRoutesMapModal);
     
     // Modals
     setupModalEvents();
@@ -668,6 +669,9 @@ function setupModalEvents() {
         e.preventDefault();
         createRoute();
     });
+    
+    // Modal visualisation parcours
+    document.getElementById('close-routes-map-btn').addEventListener('click', hideRoutesMapModal);
 }
 
 async function showCreateTeamModal() {
@@ -1442,4 +1446,154 @@ async function deleteRoute(routeId) {
         console.error('❌ Erreur suppression parcours:', error);
         showNotification('Erreur lors de la suppression', 'error');
     }
+}
+
+// ===== VISUALISATION DES PARCOURS =====
+let routesVisualizationMap = null;
+const routeColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+
+async function showRoutesMapModal() {
+    document.getElementById('routes-map-modal').style.display = 'block';
+    
+    // Initialiser la carte après un court délai
+    setTimeout(() => {
+        initializeRoutesVisualizationMap();
+    }, 100);
+}
+
+function hideRoutesMapModal() {
+    document.getElementById('routes-map-modal').style.display = 'none';
+    
+    // Détruire la carte pour éviter les conflits
+    if (routesVisualizationMap) {
+        routesVisualizationMap.remove();
+        routesVisualizationMap = null;
+    }
+}
+
+async function initializeRoutesVisualizationMap() {
+    // Détruire la carte existante si elle existe
+    if (routesVisualizationMap) {
+        routesVisualizationMap.remove();
+    }
+    
+    try {
+        // Charger les données
+        const [routes, checkpoints] = await Promise.all([
+            firebaseService.getAllRoutes(),
+            firebaseService.getAllCheckpoints()
+        ]);
+        
+        if (checkpoints.length === 0) {
+            document.getElementById('routes-legend-list').innerHTML = '<p>Aucun checkpoint créé</p>';
+            return;
+        }
+        
+        // Coordonnées par défaut (centre des checkpoints)
+        const avgLat = checkpoints.reduce((sum, cp) => sum + cp.coordinates[0], 0) / checkpoints.length;
+        const avgLng = checkpoints.reduce((sum, cp) => sum + cp.coordinates[1], 0) / checkpoints.length;
+        
+        // Créer la carte
+        routesVisualizationMap = L.map('routes-visualization-map').setView([avgLat, avgLng], 14);
+        
+        // Ajouter les tuiles OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(routesVisualizationMap);
+        
+        // Ajouter tous les checkpoints
+        const checkpointMarkers = {};
+        checkpoints.forEach(checkpoint => {
+            const marker = L.marker(checkpoint.coordinates)
+                .bindPopup(`
+                    <div style="text-align: center;">
+                        <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
+                        <p><strong>Type:</strong> ${checkpoint.type}</p>
+                        <p><strong>ID:</strong> ${checkpoint.id}</p>
+                    </div>
+                `)
+                .addTo(routesVisualizationMap);
+            
+            checkpointMarkers[checkpoint.id] = marker;
+        });
+        
+        // Afficher les parcours
+        displayRoutesOnMap(routes, checkpoints, checkpointMarkers);
+        
+        // Forcer le redimensionnement de la carte
+        setTimeout(() => {
+            routesVisualizationMap.invalidateSize();
+        }, 200);
+        
+    } catch (error) {
+        console.error('❌ Erreur initialisation carte parcours:', error);
+        document.getElementById('routes-legend-list').innerHTML = '<p>Erreur lors du chargement</p>';
+    }
+}
+
+function displayRoutesOnMap(routes, checkpoints, checkpointMarkers) {
+    const legendList = document.getElementById('routes-legend-list');
+    
+    if (routes.length === 0) {
+        legendList.innerHTML = '<p>Aucun parcours créé</p>';
+        return;
+    }
+    
+    let legendHTML = '';
+    
+    routes.forEach((route, index) => {
+        const color = routeColors[index % routeColors.length];
+        
+        // Créer la ligne du parcours
+        const routeCoordinates = route.route.map(checkpointId => {
+            const checkpoint = checkpoints.find(cp => cp.id === checkpointId);
+            return checkpoint ? checkpoint.coordinates : null;
+        }).filter(coord => coord !== null);
+        
+        if (routeCoordinates.length > 1) {
+            L.polyline(routeCoordinates, {
+                color: color,
+                weight: 4,
+                opacity: 0.8,
+                dashArray: '10, 5'
+            }).addTo(routesVisualizationMap);
+            
+            // Ajouter des flèches pour indiquer la direction
+            routeCoordinates.forEach((coord, i) => {
+                if (i < routeCoordinates.length - 1) {
+                    const nextCoord = routeCoordinates[i + 1];
+                    const midLat = (coord[0] + nextCoord[0]) / 2;
+                    const midLng = (coord[1] + nextCoord[1]) / 2;
+                    
+                    L.marker([midLat, midLng], {
+                        icon: L.divIcon({
+                            className: 'route-arrow',
+                            html: `<div style="color: ${color}; font-size: 16px; font-weight: bold;">→</div>`,
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
+                        })
+                    }).addTo(routesVisualizationMap);
+                }
+            });
+        }
+        
+        // Ajouter à la légende
+        const checkpointNames = route.route.map(id => {
+            const checkpoint = checkpoints.find(cp => cp.id === id);
+            return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${id}`;
+        }).join(' → ');
+        
+        legendHTML += `
+            <div class="route-legend-item">
+                <div class="route-color-indicator" style="background-color: ${color};"></div>
+                <div class="route-info">
+                    <div class="route-name">${route.name}</div>
+                    <div class="route-details">${checkpointNames}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    legendList.innerHTML = legendHTML;
 }

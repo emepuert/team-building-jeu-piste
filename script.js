@@ -816,14 +816,20 @@ function foundCheckpoint(checkpoint) {
     // Mettre à jour l'interface
     updateUI();
     
-    // Vérifier si le jeu est terminé (exclure le lobby du compte)
-    const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
-    const nonLobbyFound = foundCheckpoints.filter(id => {
-        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
-        return cp && !cp.isLobby;
+    // Vérifier si l'équipe a terminé son parcours (exclure le lobby du compte)
+    const teamRoute = currentUser?.teamRoute || [];
+    const nonLobbyRoute = teamRoute.filter(id => id !== 0); // Exclure le lobby
+    const nonLobbyFound = foundCheckpoints.filter(id => id !== 0); // Exclure le lobby
+    
+    console.log('🏁 Vérification fin de jeu:', {
+        teamRoute: teamRoute,
+        nonLobbyRoute: nonLobbyRoute,
+        nonLobbyFound: nonLobbyFound,
+        isComplete: nonLobbyFound.length >= nonLobbyRoute.length
     });
     
-    if (nonLobbyFound.length === nonLobbyCheckpoints.length) {
+    if (nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0) {
+        console.log(`🎉 Équipe ${currentUser?.teamName} a terminé son parcours !`);
         setTimeout(() => {
             showSuccessModal();
         }, 2000);
@@ -1188,7 +1194,20 @@ function displayBasicNavigation(summary) {
 
 function showSuccessModal() {
     const modal = document.getElementById('success-modal');
+    const messageEl = document.getElementById('success-message');
+    const teamInfoEl = document.getElementById('success-team-info');
+    
+    // Personnaliser le message selon l'équipe
+    if (currentUser && currentUser.teamName) {
+        messageEl.textContent = `L'équipe "${currentUser.teamName}" a terminé son parcours !`;
+        teamInfoEl.textContent = `Félicitations ${currentUser.name} ! Vous avez relevé tous les défis de votre équipe. Tous les points restent accessibles pour continuer l'exploration.`;
+    } else {
+        messageEl.textContent = 'Vous avez terminé le jeu de piste !';
+        teamInfoEl.textContent = 'Bravo pour cette belle aventure ! Vous pouvez continuer à explorer.';
+    }
+    
     modal.style.display = 'block';
+    console.log(`🏆 Modal de succès affiché pour l'équipe ${currentUser?.teamName}`);
 }
 
 function updateUI() {
@@ -1292,8 +1311,9 @@ function setupEventListeners() {
         document.getElementById('clue-modal').style.display = 'none';
     });
     
-    document.getElementById('restart-btn').addEventListener('click', () => {
-        restartGame();
+    document.getElementById('close-success-btn').addEventListener('click', () => {
+        document.getElementById('success-modal').style.display = 'none';
+        console.log('🎮 Modal de succès fermé - exploration continue');
     });
     
     
@@ -1326,10 +1346,24 @@ function setupEventListeners() {
     });
 }
 
+// FONCTION OBSOLÈTE - Plus utilisée depuis la modification du système de victoire
+// Les équipes gardent maintenant tous leurs points après la victoire
 function restartGame() {
+    console.log(`🔄 Restart demandé pour l'équipe ${currentUser?.teamName} - FONCTION OBSOLÈTE`);
+    
+    // Reset local
     foundCheckpoints = [];
-    unlockedCheckpoints = [1]; // Remettre seulement le premier point débloqué
+    unlockedCheckpoints = [0]; // Remettre au lobby
     document.getElementById('success-modal').style.display = 'none';
+    
+    // Sauvegarder le reset dans Firebase
+    if (firebaseService && currentUser) {
+        firebaseService.updateUserProgress(currentUser.userId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        console.log('💾 Reset sauvegardé dans Firebase');
+    }
     
     // Remettre à jour tous les marqueurs et cercles
     checkpointMarkers.forEach(markerData => {

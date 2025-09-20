@@ -458,6 +458,7 @@ async function resetAllProgressions() {
     console.log('🔄 Début resetAllProgressions');
     console.log('📊 managementTeamsData:', managementTeamsData);
     console.log('👥 usersData:', usersData);
+    console.log('🔍 Longueurs:', {teams: managementTeamsData.length, users: usersData.length});
     
     if (!confirm('🏠 Remettre toutes les équipes au lobby ? Cela va effacer toute la progression actuelle.')) {
         console.log('❌ Reset annulé par l\'utilisateur');
@@ -488,7 +489,16 @@ async function resetAllProgressions() {
         }
         
         console.log(`🎉 Reset terminé: ${resetCount} équipes`);
-        showNotification(`✅ ${resetCount} équipes remises au lobby !`, 'success');
+        
+        // Vider le localStorage pour forcer le rechargement des données
+        console.log('🗑️ Nettoyage localStorage...');
+        if (typeof(Storage) !== "undefined") {
+            // Supprimer les données utilisateur en cache
+            localStorage.removeItem('currentUserId');
+            console.log('✅ localStorage nettoyé');
+        }
+        
+        showNotification(`✅ ${resetCount} équipes remises au lobby ! Rechargez la page du jeu.`, 'success');
         
         // Actualiser les données
         console.log('🔄 Actualisation des données...');

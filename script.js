@@ -5,6 +5,8 @@ const GAME_CONFIG = {
     zoom: 16,
     // Distance en mètres pour déclencher un indice
     proximityThreshold: 50,
+    // Clé API OpenRouteService
+    orsApiKey: 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjgxYzE2ZTJjN2NiODQ3YjY5ZTdhYjU5MzdjNTNjMjlmIiwiaCI6Im11cm11cjY0In0=',
     // Points d'intérêt avec coordonnées et indices
     checkpoints: [
         {
@@ -46,6 +48,8 @@ let userPosition = null;
 let foundCheckpoints = [];
 let checkpointMarkers = [];
 let unlockedCheckpoints = [1]; // Le premier point est débloqué par défaut
+let currentRoute = null; // Route actuelle affichée
+let routeControl = null; // Contrôle de navigation
 
 // Initialisation de l'application
 document.addEventListener('DOMContentLoaded', function() {
@@ -136,7 +140,22 @@ function onLocationSuccess(position) {
     checkProximityToCheckpoints();
     updateHint();
     
+    // Calculer l'itinéraire vers le premier point accessible
+    const nextCheckpoint = getNextAccessibleCheckpoint();
+    if (nextCheckpoint) {
+        calculateRoute(userPosition, nextCheckpoint);
+    }
+    
     showNotification('Position détectée avec succès !');
+}
+
+function getNextAccessibleCheckpoint() {
+    return GAME_CONFIG.checkpoints.find(cp => {
+        const isFound = foundCheckpoints.includes(cp.id);
+        const isUnlocked = unlockedCheckpoints.includes(cp.id);
+        const isAccessible = !cp.locked || isUnlocked;
+        return !isFound && isAccessible;
+    });
 }
 
 function onLocationUpdate(position) {
@@ -280,6 +299,12 @@ function foundCheckpoint(checkpoint) {
     
     foundCheckpoints.push(checkpoint.id);
     
+    // Supprimer la route actuelle puisque le point est atteint
+    if (currentRoute) {
+        map.removeLayer(currentRoute);
+        currentRoute = null;
+    }
+    
     // Mettre à jour le marqueur et le cercle
     const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
     if (markerData) {
@@ -385,7 +410,13 @@ function checkRiddleAnswer() {
         
         setTimeout(() => {
             document.getElementById('riddle-modal').style.display = 'none';
-            showNotification('🎯 Deuxième point débloqué ! Consultez la carte pour voir sa position.');
+            showNotification('🎯 Deuxième point débloqué ! Navigation GPS activée.');
+            
+            // Zoomer sur le nouveau point débloqué
+            const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === 2);
+            if (unlockedCheckpoint) {
+                centerMapOnCheckpoint(unlockedCheckpoint);
+            }
         }, 2000);
         
     } else {
@@ -448,6 +479,11 @@ function centerMapOnCheckpoint(checkpoint) {
         duration: 2 // 2 secondes d'animation
     });
     
+    // Calculer et afficher l'itinéraire vers ce point
+    if (userPosition) {
+        calculateRoute(userPosition, checkpoint);
+    }
+    
     // Optionnel : faire clignoter le marqueur
     setTimeout(() => {
         const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
@@ -455,6 +491,91 @@ function centerMapOnCheckpoint(checkpoint) {
             markerData.marker.openPopup();
         }
     }, 2500); // Ouvrir le popup après l'animation
+}
+
+async function calculateRoute(from, toCheckpoint) {
+    console.log(`🗺️ Calcul de l'itinéraire vers ${toCheckpoint.name}`);
+    
+    try {
+        // Supprimer l'ancienne route
+        if (currentRoute) {
+            map.removeLayer(currentRoute);
+            currentRoute = null;
+        }
+        
+        // Coordonnées au format [longitude, latitude] pour ORS
+        const start = [from.lng, from.lat];
+        const end = [toCheckpoint.coordinates[1], toCheckpoint.coordinates[0]];
+        
+        // Appel à l'API OpenRouteService
+        const response = await fetch('https://api.openrouteservice.org/v2/directions/foot-walking', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+                'Authorization': GAME_CONFIG.orsApiKey,
+                'Content-Type': 'application/json; charset=utf-8'
+            },
+            body: JSON.stringify({
+                coordinates: [start, end],
+                format: 'geojson',
+                instructions: true,
+                language: 'fr'
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erreur ORS: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.features && data.features.length > 0) {
+            const route = data.features[0];
+            
+            // Afficher la route sur la carte
+            currentRoute = L.geoJSON(route, {
+                style: {
+                    color: '#e74c3c',
+                    weight: 5,
+                    opacity: 0.8,
+                    dashArray: '10, 5'
+                }
+            }).addTo(map);
+            
+            // Extraire les instructions
+            const instructions = route.properties.segments[0].steps;
+            displayNavigationInstructions(instructions, route.properties.summary);
+            
+            console.log('✅ Itinéraire calculé et affiché');
+        }
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du calcul de l\'itinéraire:', error);
+        showNotification('Impossible de calculer l\'itinéraire', 'error');
+    }
+}
+
+function displayNavigationInstructions(steps, summary) {
+    const hintText = document.getElementById('hint-text');
+    
+    // Informations générales
+    const distance = (summary.distance / 1000).toFixed(2);
+    const duration = Math.round(summary.duration / 60);
+    
+    // Première instruction
+    const firstStep = steps[1] || steps[0]; // Ignorer "Départ"
+    const instruction = firstStep ? firstStep.instruction : 'Suivez l\'itinéraire sur la carte';
+    
+    hintText.innerHTML = `
+        <div style="background: #e8f5e8; padding: 1rem; border-radius: 10px; border-left: 4px solid #27ae60;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #27ae60;">🧭 Navigation GPS</h4>
+            <p style="margin: 0 0 0.5rem 0; font-weight: bold;">${instruction}</p>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #666;">
+                <span>📍 ${distance} km</span>
+                <span>🚶 ${duration} min</span>
+            </div>
+        </div>
+    `;
 }
 
 function showSuccessModal() {

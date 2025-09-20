@@ -329,6 +329,9 @@ section h2 {
 .danger-btn { background: #e74c3c; color: white; }
 .danger-btn:hover { background: #c0392b; }
 
+.warning-btn { background: #f39c12; color: white; }
+.warning-btn:hover { background: #e67e22; }
+
 .success-btn { background: #27ae60; color: white; }
 .success-btn:hover { background: #229954; }
 

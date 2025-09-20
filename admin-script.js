@@ -223,6 +223,7 @@ async function handleLogout() {
 function setupAdminEvents() {
     // Actions rapides
     document.getElementById('reset-all-teams').addEventListener('click', resetAllTeams);
+    document.getElementById('reset-all-progressions').addEventListener('click', resetAllProgressions);
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
     
@@ -445,6 +446,36 @@ async function resetAllTeams() {
     } catch (error) {
         console.error('Erreur reset global:', error);
         showNotification('❌ Erreur lors du reset global', 'error');
+    }
+}
+
+async function resetAllProgressions() {
+    if (!confirm('🏠 Remettre toutes les équipes au lobby ? Cela va effacer toute la progression actuelle.')) return;
+    
+    try {
+        showNotification('🔄 Reset des progressions en cours...', 'info');
+        
+        let resetCount = 0;
+        
+        // Reset chaque équipe
+        for (const team of managementTeamsData) {
+            await firebaseService.resetTeam(team.id);
+            resetCount++;
+        }
+        
+        // Reset tous les utilisateurs
+        for (const user of usersData) {
+            await firebaseService.resetUser(user.userId);
+        }
+        
+        showNotification(`✅ ${resetCount} équipes remises au lobby !`, 'success');
+        
+        // Actualiser les données
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur reset progressions:', error);
+        showNotification('Erreur lors du reset des progressions', 'error');
     }
 }
 

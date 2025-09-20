@@ -103,18 +103,18 @@ function initializeApp() {
 }
 
 function checkTeamSelection() {
-    // Vérifier le localStorage pour une équipe existante
-    const savedTeam = localStorage.getItem('selectedTeam');
+    // Désactivation temporaire du localStorage pour les tests
+    // const savedTeam = localStorage.getItem('selectedTeam');
     
-    if (savedTeam && TEAMS[savedTeam]) {
-        // Équipe déjà sélectionnée
-        selectedTeam = savedTeam;
-        showTeamInfo();
-        startGame();
-    } else {
+    // if (savedTeam && TEAMS[savedTeam]) {
+    //     // Équipe déjà sélectionnée
+    //     selectedTeam = savedTeam;
+    //     showTeamInfo();
+    //     startGame();
+    // } else {
         // Pas d'équipe sélectionnée, afficher le modal
         showTeamSelectionModal();
-    }
+    // }
 }
 
 function showTeamSelectionModal() {
@@ -136,8 +136,8 @@ function setupTeamSelectionEvents() {
     confirmBtn.addEventListener('click', function() {
         const selectedValue = teamSelect.value;
         if (selectedValue && TEAMS[selectedValue]) {
-            // Sauvegarder l'équipe dans localStorage
-            localStorage.setItem('selectedTeam', selectedValue);
+            // Désactivation temporaire du localStorage pour les tests
+            // localStorage.setItem('selectedTeam', selectedValue);
             selectedTeam = selectedValue;
             
             // Cacher le modal et commencer le jeu
@@ -388,8 +388,8 @@ function addCheckpointsToMap() {
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
-        // Ajouter le bouton GPS pour les points débloqués (pas encore trouvés) OU pour le lobby
-        if (userPosition && (!isFound || checkpoint.isLobby)) {
+        // Ajouter le bouton GPS pour tous les points visibles
+        if (userPosition) {
             let buttonText = '🧭 Calculer l\'itinéraire GPS';
             let targetId = checkpoint.id;
             
@@ -498,6 +498,14 @@ function foundCheckpoint(checkpoint) {
                     <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                     <p>✅ Découvert !</p>
                     <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                    <br>
+                    <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
+                            style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
+                                   color: white; border: none; padding: 0.5rem 1rem; 
+                                   border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                                   margin-top: 0.5rem;">
+                        🧭 Calculer l'itinéraire GPS
+                    </button>
                 </div>
             `;
         }
@@ -771,30 +779,47 @@ async function calculateRoute(from, toCheckpoint) {
         
         if (data.routes && data.routes.length > 0) {
             const route = data.routes[0];
+            console.log('🛣️ Route data:', route);
             
-            // Créer un GeoJSON à partir des coordonnées de la route
-            const routeGeoJSON = {
-                type: "Feature",
-                geometry: route.geometry,
-                properties: route
-            };
-            
-            // Afficher la route sur la carte
-            currentRoute = L.geoJSON(routeGeoJSON, {
-                style: {
-                    color: '#e74c3c',
-                    weight: 5,
-                    opacity: 0.8,
-                    dashArray: '10, 5'
+            // Vérifier si on a une géométrie valide
+            if (route.geometry && route.geometry.coordinates) {
+                // Créer un GeoJSON à partir des coordonnées de la route
+                const routeGeoJSON = {
+                    type: "Feature",
+                    geometry: {
+                        type: "LineString",
+                        coordinates: route.geometry.coordinates
+                    },
+                    properties: route
+                };
+                
+                console.log('📍 GeoJSON créé:', routeGeoJSON);
+                
+                // Afficher la route sur la carte
+                currentRoute = L.geoJSON(routeGeoJSON, {
+                    style: {
+                        color: getTeamColor(),
+                        weight: 5,
+                        opacity: 0.8,
+                        dashArray: '10, 5'
+                    }
+                }).addTo(map);
+                
+                // Extraire les instructions si disponibles
+                if (route.segments && route.segments[0] && route.segments[0].steps) {
+                    const instructions = route.segments[0].steps;
+                    displayNavigationInstructions(instructions, route.summary);
+                } else {
+                    // Instructions basiques si pas de segments détaillés
+                    displayBasicNavigation(route.summary);
                 }
-            }).addTo(map);
-            
-            // Extraire les instructions
-            const instructions = route.segments[0].steps;
-            displayNavigationInstructions(instructions, route.summary);
-            
-            console.log('✅ Itinéraire calculé et affiché');
-            showNotification('🧭 Itinéraire GPS calculé !');
+                
+                console.log('✅ Itinéraire calculé et affiché');
+                showNotification('🧭 Itinéraire GPS calculé !');
+            } else {
+                console.error('❌ Pas de géométrie dans la route:', route);
+                showNotification('Erreur: Pas de géométrie de route', 'error');
+            }
         }
         
     } catch (error) {
@@ -815,9 +840,28 @@ function displayNavigationInstructions(steps, summary) {
     const instruction = firstStep ? firstStep.instruction : 'Suivez l\'itinéraire sur la carte';
     
     hintText.innerHTML = `
-        <div style="background: #e8f5e8; padding: 1rem; border-radius: 10px; border-left: 4px solid #27ae60;">
-            <h4 style="margin: 0 0 0.5rem 0; color: #27ae60;">🧭 Navigation GPS</h4>
+        <div style="background: #e8f5e8; padding: 1rem; border-radius: 10px; border-left: 4px solid ${getTeamColor()};">
+            <h4 style="margin: 0 0 0.5rem 0; color: ${getTeamColor()};">🧭 Navigation GPS</h4>
             <p style="margin: 0 0 0.5rem 0; font-weight: bold;">${instruction}</p>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #666;">
+                <span>📍 ${distance} km</span>
+                <span>🚶 ${duration} min</span>
+            </div>
+        </div>
+    `;
+}
+
+function displayBasicNavigation(summary) {
+    const hintText = document.getElementById('hint-text');
+    
+    // Informations générales
+    const distance = (summary.distance / 1000).toFixed(2);
+    const duration = Math.round(summary.duration / 60);
+    
+    hintText.innerHTML = `
+        <div style="background: #e8f5e8; padding: 1rem; border-radius: 10px; border-left: 4px solid ${getTeamColor()};">
+            <h4 style="margin: 0 0 0.5rem 0; color: ${getTeamColor()};">🧭 Navigation GPS</h4>
+            <p style="margin: 0 0 0.5rem 0; font-weight: bold;">Suivez l'itinéraire tracé sur la carte</p>
             <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: #666;">
                 <span>📍 ${distance} km</span>
                 <span>🚶 ${duration} min</span>

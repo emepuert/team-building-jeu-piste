@@ -69,6 +69,8 @@ let currentTeamId = null; // ID unique de l'équipe dans Firebase
 let currentDestination = null; // Destination actuelle pour recalcul auto
 let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les spams
 let firebaseService = null; // Service Firebase
+let isMapInitialized = false; // Vérifier si la carte est déjà initialisée
+let isGameStarted = false; // Vérifier si le jeu est déjà démarré
 
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
@@ -320,6 +322,12 @@ function showTeamInfo() {
 }
 
 function startGame() {
+    // Vérifier si le jeu est déjà démarré
+    if (isGameStarted) {
+        console.log('⚠️ Jeu déjà démarré, on ignore');
+        return;
+    }
+    
     // Initialiser la carte
     initializeMap();
     
@@ -334,13 +342,22 @@ function startGame() {
     
     // Mettre à jour l'interface
     updateUI();
+    
+    isGameStarted = true;
 }
 
 function initializeMap() {
     console.log('🗺️ Initialisation de la carte...');
     
+    // Vérifier si la carte est déjà initialisée
+    if (isMapInitialized) {
+        console.log('⚠️ Carte déjà initialisée, on ignore');
+        return;
+    }
+    
     // Créer la carte centrée sur Turin
     map = L.map('map').setView(GAME_CONFIG.center, GAME_CONFIG.zoom);
+    isMapInitialized = true;
     
     // Ajouter les tuiles OpenStreetMap (gratuit)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

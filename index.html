@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jeu de Piste - Version Test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🎯 Jeu de Piste - Test</h1>
+            <div id="status">Localisation en cours...</div>
+            <button id="request-location-btn" style="display: none;">📍 Activer la Géolocalisation</button>
+        </header>
+        
+        <main>
+            <div id="map"></div>
+            
+            <div id="info-panel">
+                <div id="current-location">
+                    <h3>📍 Votre position</h3>
+                    <p id="coordinates">En attente de géolocalisation...</p>
+                </div>
+                
+                <div id="progress">
+                    <h3>🎯 Progression</h3>
+                    <div id="progress-bar">
+                        <div id="progress-fill"></div>
+                    </div>
+                    <p id="progress-text">0 / 5 indices trouvés</p>
+                </div>
+                
+                <div id="next-hint">
+                    <h3>🔍 Prochain objectif</h3>
+                    <p id="hint-text">Trouvez votre position pour commencer l'aventure !</p>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Modal pour les indices -->
+        <div id="clue-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 id="clue-title">Indice découvert !</h2>
+                <div id="clue-content">
+                    <p id="clue-text"></p>
+                    <div id="clue-image"></div>
+                </div>
+                <button id="clue-close-btn">Continuer l'aventure</button>
+            </div>
+        </div>
+        
+        <!-- Modal pour les énigmes -->
+        <div id="riddle-modal" class="modal">
+            <div class="modal-content">
+                <h2>🧩 Énigme à Résoudre</h2>
+                <div id="riddle-content">
+                    <p id="riddle-question"></p>
+                    <div id="riddle-input-container">
+                        <input type="text" id="riddle-answer" placeholder="Votre réponse...">
+                        <button id="riddle-submit">Valider</button>
+                    </div>
+                    <p id="riddle-hint" style="display: none;"></p>
+                    <div id="riddle-feedback"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal de félicitations -->
+        <div id="success-modal" class="modal">
+            <div class="modal-content">
+                <h2>🎉 Félicitations !</h2>
+                <p>Vous avez terminé le jeu de piste de Turin !</p>
+                <p>Bravo pour cette belle aventure dans la capitale piémontaise !</p>
+                <button id="restart-btn">Recommencer</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

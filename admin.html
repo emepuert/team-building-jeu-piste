@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Jeu de Piste</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="admin-style.css">
+</head>
+<body>
+    <div id="admin-app">
+        <!-- Modal d'authentification admin -->
+        <div id="admin-auth-modal" class="modal">
+            <div class="modal-content">
+                <h2>🔐 Accès Administrateur</h2>
+                <p>Entrez le mot de passe administrateur :</p>
+                <input type="password" id="admin-password" placeholder="Mot de passe">
+                <button id="admin-login-btn">Se connecter</button>
+                <div id="auth-error" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Interface admin principale -->
+        <div id="admin-interface" style="display: none;">
+            <header>
+                <h1>🎯 Administration - Jeu de Piste</h1>
+                <div class="admin-info">
+                    <span id="session-info">Session active</span>
+                    <button id="logout-btn">Déconnexion</button>
+                </div>
+            </header>
+
+            <main>
+                <!-- Statistiques générales -->
+                <section class="stats-section">
+                    <h2>📊 Vue d'ensemble</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>Équipes actives</h3>
+                            <span id="active-teams-count">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Validations en attente</h3>
+                            <span id="pending-validations-count">0</span>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Équipes terminées</h3>
+                            <span id="completed-teams-count">0</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Validations en attente -->
+                <section class="validations-section">
+                    <h2>⏳ Validations en attente</h2>
+                    <div id="pending-validations">
+                        <p class="no-data">Aucune validation en attente</p>
+                    </div>
+                </section>
+
+                <!-- Équipes et progression -->
+                <section class="teams-section">
+                    <h2>👥 Équipes et Progression</h2>
+                    <div id="teams-list">
+                        <p class="no-data">Aucune équipe active</p>
+                    </div>
+                </section>
+
+                <!-- Actions rapides -->
+                <section class="quick-actions">
+                    <h2>⚡ Actions rapides</h2>
+                    <div class="actions-grid">
+                        <button id="reset-all-teams" class="danger-btn">🔄 Reset toutes les équipes</button>
+                        <button id="export-data" class="info-btn">📊 Exporter les données</button>
+                        <button id="refresh-data" class="success-btn">🔄 Actualiser</button>
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <!-- Notifications -->
+        <div id="admin-notifications"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { firebaseConfig } from './firebase-config.js';
+        import FirebaseService from './firebase-service.js';
+        
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const firebaseService = new FirebaseService(db);
+        
+        // Exposer globalement
+        window.firebaseApp = app;
+        window.firebaseDb = db;
+        window.firebaseService = firebaseService;
+        
+        // Initialiser l'admin une fois Firebase prêt
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.initializeAdmin) {
+                window.initializeAdmin();
+            }
+        });
+    </script>
+    
+    <script src="admin-script.js"></script>
+</body>
+</html>

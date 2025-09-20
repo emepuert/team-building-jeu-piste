@@ -220,10 +220,23 @@ function addCheckpointsToMap() {
         const isUnlocked = unlockedCheckpoints.includes(checkpoint.id);
         const isLocked = checkpoint.locked && !isUnlocked;
         
+        // Ne pas afficher les points verrouillés sur la carte
+        if (isLocked) {
+            // Stocker le checkpoint pour l'ajouter plus tard
+            checkpointMarkers.push({
+                id: checkpoint.id,
+                marker: null,
+                circle: null,
+                checkpoint: checkpoint,
+                hidden: true
+            });
+            return;
+        }
+        
         // Ajouter le cercle de proximité (buffer de 50m)
         const circle = L.circle(checkpoint.coordinates, {
-            color: isLocked ? '#95a5a6' : isFound ? '#27ae60' : '#3498db',
-            fillColor: isLocked ? '#95a5a6' : isFound ? '#27ae60' : '#3498db',
+            color: isFound ? '#27ae60' : '#3498db',
+            fillColor: isFound ? '#27ae60' : '#3498db',
             fillOpacity: 0.1,
             radius: GAME_CONFIG.proximityThreshold,
             weight: 2,
@@ -232,27 +245,25 @@ function addCheckpointsToMap() {
         
         let markerClass = 'checkpoint-marker';
         if (isFound) markerClass += ' found';
-        if (isLocked) markerClass += ' locked';
         
         const markerIcon = L.divIcon({
             className: markerClass,
-            html: isLocked ? '🔒' : checkpoint.emoji,
+            html: checkpoint.emoji,
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
         
-        // Créer le contenu du popup avec bouton GPS si nécessaire
+        // Créer le contenu du popup avec bouton GPS pour tous les points débloqués
         let popupContent = `
             <div style="text-align: center;">
-                <h3>${isLocked ? '🔒' : checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>${isFound ? '✅ Découvert !' : isLocked ? '🔒 Verrouillé' : '🔍 À découvrir'}</p>
-                ${!isFound && !isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
-                ${isLocked ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                <p>${isFound ? '✅ Découvert !' : '🔍 À découvrir'}</p>
+                ${!isFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
-        // Ajouter le bouton GPS si le point est accessible et pas encore trouvé
-        if (!isFound && !isLocked && userPosition) {
+        // Ajouter le bouton GPS pour TOUS les points débloqués (pas encore trouvés)
+        if (!isFound && userPosition) {
             popupContent += `
                 <br>
                 <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
@@ -275,23 +286,23 @@ function addCheckpointsToMap() {
             id: checkpoint.id,
             marker: marker,
             circle: circle,
-            checkpoint: checkpoint
+            checkpoint: checkpoint,
+            hidden: false
         });
     });
     
-    console.log(`✅ ${GAME_CONFIG.checkpoints.length} checkpoints ajoutés avec zones de ${GAME_CONFIG.proximityThreshold}m`);
+    console.log(`✅ ${checkpointMarkers.filter(m => !m.hidden).length} checkpoints visibles ajoutés`);
 }
 
 function checkProximityToCheckpoints() {
     if (!userPosition) return;
     
-    GAME_CONFIG.checkpoints.forEach(checkpoint => {
-        if (foundCheckpoints.includes(checkpoint.id)) return;
+    // Vérifier seulement les checkpoints visibles sur la carte
+    checkpointMarkers.forEach(markerData => {
+        if (markerData.hidden || !markerData.marker) return;
+        if (foundCheckpoints.includes(markerData.checkpoint.id)) return;
         
-        // Vérifier si le checkpoint est débloqué
-        const isUnlocked = unlockedCheckpoints.includes(checkpoint.id);
-        if (checkpoint.locked && !isUnlocked) return;
-        
+        const checkpoint = markerData.checkpoint;
         const distance = calculateDistance(
             userPosition.lat,
             userPosition.lng,
@@ -446,40 +457,72 @@ function unlockCheckpoint(checkpointId) {
     
     unlockedCheckpoints.push(checkpointId);
     
-    // Mettre à jour le marqueur et le cercle sur la carte
+    // Trouver le checkpoint dans la liste
     const markerData = checkpointMarkers.find(m => m.id === checkpointId);
-    if (markerData) {
+    if (markerData && markerData.hidden) {
         const checkpoint = markerData.checkpoint;
         
-        // Mettre à jour le marqueur
-        const newIcon = L.divIcon({
+        // RÉVÉLER le point sur la carte (il était caché)
+        console.log(`🎭 Révélation du checkpoint ${checkpoint.name} sur la carte`);
+        
+        // Créer le cercle de proximité
+        const circle = L.circle(checkpoint.coordinates, {
+            color: '#3498db',
+            fillColor: '#3498db',
+            fillOpacity: 0.1,
+            radius: GAME_CONFIG.proximityThreshold,
+            weight: 2,
+            opacity: 0.6
+        }).addTo(map);
+        
+        // Créer le marqueur
+        const markerIcon = L.divIcon({
             className: 'checkpoint-marker',
             html: checkpoint.emoji,
             iconSize: [30, 30],
             iconAnchor: [15, 15]
         });
-        markerData.marker.setIcon(newIcon);
-        markerData.marker.setPopupContent(`
+        
+        // Créer le contenu du popup avec bouton GPS
+        let popupContent = `
             <div style="text-align: center;">
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>🔍 À découvrir</p>
                 <p><em>${checkpoint.hint}</em></p>
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-            </div>
-        `);
+        `;
         
-        // Mettre à jour le cercle
-        markerData.circle.setStyle({
-            color: '#3498db',
-            fillColor: '#3498db'
-        });
+        // Ajouter le bouton GPS
+        if (userPosition) {
+            popupContent += `
+                <br>
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
+                        style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
+                               color: white; border: none; padding: 0.5rem 1rem; 
+                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                               margin-top: 0.5rem;">
+                    🧭 Calculer l'itinéraire GPS
+                </button>
+            `;
+        }
+        
+        popupContent += '</div>';
+        
+        const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
+            .addTo(map)
+            .bindPopup(popupContent);
+        
+        // Mettre à jour les données du marqueur
+        markerData.marker = marker;
+        markerData.circle = circle;
+        markerData.hidden = false;
         
         // Centrer la carte sur le nouveau point débloqué
         centerMapOnCheckpoint(checkpoint);
     }
     
     updateHint();
-    console.log(`🔓 Checkpoint ${checkpointId} débloqué !`);
+    console.log(`🔓 Checkpoint ${checkpointId} débloqué et révélé !`);
 }
 
 function centerMapOnCheckpoint(checkpoint) {
@@ -491,7 +534,7 @@ function centerMapOnCheckpoint(checkpoint) {
         duration: 2 // 2 secondes d'animation
     });
     
-    // Optionnel : faire clignoter le marqueur
+    // Ouvrir le popup automatiquement après l'animation pour montrer le bouton GPS
     setTimeout(() => {
         const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
         if (markerData) {

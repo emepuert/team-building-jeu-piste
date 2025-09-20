@@ -438,6 +438,86 @@ section h2 {
     font-size: 1.2em;
 }
 
+/* Boutons de création checkpoints et parcours */
+#create-checkpoint-btn,
+#create-route-btn {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    padding: 1.2rem 2.5rem;
+    border-radius: 25px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    border: 2px solid transparent;
+}
+
+#create-checkpoint-btn:hover,
+#create-route-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 10px 30px rgba(52, 152, 219, 0.4);
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+#create-checkpoint-btn:active,
+#create-route-btn:active {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.3);
+}
+
+/* Effet de particules sur les boutons */
+#create-checkpoint-btn::before,
+#create-route-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s ease;
+}
+
+#create-checkpoint-btn:hover::before,
+#create-route-btn:hover::before {
+    left: 100%;
+}
+
+/* Icônes spéciales pour ces boutons */
+#create-checkpoint-btn::after {
+    content: '📍';
+    margin-left: 0.8rem;
+    font-size: 1.4em;
+    animation: bounce 2s infinite;
+}
+
+#create-route-btn::after {
+    content: '🛤️';
+    margin-left: 0.8rem;
+    font-size: 1.4em;
+    animation: bounce 2s infinite 0.5s;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-3px);
+    }
+    60% {
+        transform: translateY(-2px);
+    }
+}
+
 .management-item {
     background: rgba(255, 255, 255, 0.9);
     border-radius: 15px;

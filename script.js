@@ -8,51 +8,7 @@ const GAME_CONFIG = {
     // Clé API OpenRouteService
     orsApiKey: 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjgxYzE2ZTJjN2NiODQ3YjY5ZTdhYjU5MzdjNTNjMjlmIiwiaCI6Im11cm11cjY0In0=',
     // Points d'intérêt avec coordonnées et indices
-    checkpoints: [
-        {
-            id: 0,
-            name: "Lobby - Point de Rassemblement",
-            coordinates: [49.09568858396698, 6.189477252799626],
-            emoji: "🏠",
-            isLobby: true,
-            clue: {
-                title: "Bienvenue au Lobby !",
-                text: "Point de rassemblement de toutes les équipes. Utilisez le bouton GPS pour vous diriger vers votre premier défi !",
-                image: null
-            },
-            hint: "Point de rassemblement - Utilisez le GPS pour commencer votre aventure !"
-        },
-        {
-            id: 1,
-            name: "Premier Défi",
-            coordinates: [49.09524036018862, 6.19175279981568],
-            emoji: "🚀",
-            locked: true,
-            clue: {
-                title: "Premier Défi Découvert !",
-                text: "Félicitations ! Vous avez trouvé votre premier défi. Pour débloquer le point suivant et obtenir sa position GPS, vous devez résoudre cette énigme simple :",
-                riddle: {
-                    question: "Combien font 1 + 1 ?",
-                    answer: "2",
-                    hint: "C'est une addition très simple !"
-                }
-            },
-            hint: "Votre premier défi vous attend !"
-        },
-        {
-            id: 2,
-            name: "Point Final",
-            coordinates: [49.090159892001715, 6.192017564333063],
-            emoji: "🎯",
-            locked: true,
-            clue: {
-                title: "Destination Finale !",
-                text: "Bravo ! Vous avez résolu l'énigme et trouvé le point final ! Félicitations pour avoir terminé ce test du jeu de piste.",
-                image: null
-            },
-            hint: "Ce point sera débloqué après avoir résolu l'énigme du premier défi."
-        }
-    ]
+    checkpoints: [] // Maintenant chargés depuis Firebase via l'admin
 };
 
 // Variables globales

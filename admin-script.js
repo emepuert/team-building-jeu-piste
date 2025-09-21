@@ -619,6 +619,160 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Variables pour l'autocomplétion
+let addressSuggestionsContainer = null;
+let currentSuggestionIndex = -1;
+let addressSuggestions = [];
+let autocompleteTimeout = null;
+
+// Fonction d'autocomplétion des adresses
+function setupAddressAutocomplete() {
+    const addressInput = document.getElementById('address-search');
+    const searchContainer = document.querySelector('.search-container');
+    
+    // Créer le conteneur de suggestions
+    addressSuggestionsContainer = document.createElement('div');
+    addressSuggestionsContainer.className = 'address-suggestions';
+    addressSuggestionsContainer.style.display = 'none';
+    searchContainer.appendChild(addressSuggestionsContainer);
+    
+    // Écouter les saisies
+    addressInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        
+        if (query.length < 3) {
+            hideSuggestions();
+            return;
+        }
+        
+        // Débounce pour éviter trop de requêtes
+        clearTimeout(autocompleteTimeout);
+        autocompleteTimeout = setTimeout(() => {
+            fetchAddressSuggestions(query);
+        }, 300);
+    });
+    
+    // Navigation au clavier
+    addressInput.addEventListener('keydown', (e) => {
+        if (addressSuggestions.length === 0) return;
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                currentSuggestionIndex = Math.min(currentSuggestionIndex + 1, addressSuggestions.length - 1);
+                highlightSuggestion();
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                currentSuggestionIndex = Math.max(currentSuggestionIndex - 1, -1);
+                highlightSuggestion();
+                break;
+            case 'Enter':
+                if (currentSuggestionIndex >= 0) {
+                    e.preventDefault();
+                    selectSuggestion(addressSuggestions[currentSuggestionIndex]);
+                }
+                break;
+            case 'Escape':
+                hideSuggestions();
+                break;
+        }
+    });
+    
+    // Cacher les suggestions si on clique ailleurs
+    document.addEventListener('click', (e) => {
+        if (!searchContainer.contains(e.target)) {
+            hideSuggestions();
+        }
+    });
+}
+
+async function fetchAddressSuggestions(query) {
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+        const data = await response.json();
+        
+        addressSuggestions = data;
+        displaySuggestions(data);
+        
+    } catch (error) {
+        console.error('❌ Erreur autocomplétion:', error);
+        hideSuggestions();
+    }
+}
+
+function displaySuggestions(suggestions) {
+    if (suggestions.length === 0) {
+        hideSuggestions();
+        return;
+    }
+    
+    addressSuggestionsContainer.innerHTML = '';
+    currentSuggestionIndex = -1;
+    
+    suggestions.forEach((suggestion, index) => {
+        const suggestionEl = document.createElement('div');
+        suggestionEl.className = 'address-suggestion';
+        suggestionEl.textContent = suggestion.display_name;
+        
+        suggestionEl.addEventListener('click', () => {
+            selectSuggestion(suggestion);
+        });
+        
+        suggestionEl.addEventListener('mouseenter', () => {
+            currentSuggestionIndex = index;
+            highlightSuggestion();
+        });
+        
+        addressSuggestionsContainer.appendChild(suggestionEl);
+    });
+    
+    addressSuggestionsContainer.style.display = 'block';
+}
+
+function highlightSuggestion() {
+    const suggestions = addressSuggestionsContainer.querySelectorAll('.address-suggestion');
+    suggestions.forEach((el, index) => {
+        el.classList.toggle('selected', index === currentSuggestionIndex);
+    });
+}
+
+function selectSuggestion(suggestion) {
+    const addressInput = document.getElementById('address-search');
+    addressInput.value = suggestion.display_name;
+    
+    // Placer le point sur la carte
+    const lat = parseFloat(suggestion.lat);
+    const lng = parseFloat(suggestion.lon);
+    
+    if (checkpointMap) {
+        checkpointMap.setView([lat, lng], 16);
+        
+        // Supprimer le marqueur existant
+        if (checkpointMarker) {
+            checkpointMap.removeLayer(checkpointMarker);
+        }
+        
+        // Ajouter un marqueur à l'adresse sélectionnée
+        checkpointMarker = L.marker([lat, lng]).addTo(checkpointMap);
+        
+        // Mettre à jour les coordonnées
+        selectedCoordinates = { lat, lng };
+        document.getElementById('checkpoint-lat').value = lat.toFixed(8);
+        document.getElementById('checkpoint-lng').value = lng.toFixed(8);
+    }
+    
+    hideSuggestions();
+}
+
+function hideSuggestions() {
+    if (addressSuggestionsContainer) {
+        addressSuggestionsContainer.style.display = 'none';
+    }
+    addressSuggestions = [];
+    currentSuggestionIndex = -1;
+}
+
 // Exposer les fonctions globalement pour les onclick
 window.initializeAdmin = initializeAdmin;
 window.unlockNextCheckpoint = unlockNextCheckpoint;
@@ -659,6 +813,9 @@ function setupModalEvents() {
             searchAddress();
         }
     });
+    
+    // Autocomplétion des adresses
+    setupAddressAutocomplete();
     
     // Changement de type de checkpoint
     document.getElementById('checkpoint-type').addEventListener('change', updateDynamicContent);

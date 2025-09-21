@@ -2,13 +2,13 @@
 // ⚠️ IMPORTANT: Remplacez ces valeurs par vos vraies clés Firebase !
 
 export const firebaseConfig = {
-    apiKey: "AIzaSyDy3HT4aQgJV5wRhYYXyJg4IjQppFnL1Mc",
+    apiKey: "NOUVELLES_CLES_FIREBASE_ICI",
     authDomain: "inicio-e9f6d.firebaseapp.com",
     projectId: "inicio-e9f6d",
     storageBucket: "inicio-e9f6d.firebasestorage.app",
-    messagingSenderId: "466666902382",
-    appId: "1:466666902382:web:baa7ca423fac6bdd7f677f",
-    measurementId: "G-NNS664XG6E"
+    messagingSenderId: "NOUVEAU_SENDER_ID",
+    appId: "NOUVEAU_APP_ID",
+    measurementId: "NOUVEAU_MEASUREMENT_ID"
 };
 
 // Structure de la base de données Firestore

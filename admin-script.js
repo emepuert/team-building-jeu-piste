@@ -784,6 +784,7 @@ window.showTeamDetails = showTeamDetails;
 window.deleteTeam = deleteTeam;
 window.deleteUser = deleteUser;
 window.resetUser = resetUser;
+window.editTeamRoute = editTeamRoute;
 
     console.log('✅ Admin Script initialisé');
 
@@ -797,6 +798,10 @@ function setupModalEvents() {
     // Modal création utilisateur
     document.getElementById('cancel-user-btn').addEventListener('click', hideCreateUserModal);
     document.getElementById('create-user-form').addEventListener('submit', handleCreateUser);
+    
+    // Modal modification parcours équipe
+    document.getElementById('cancel-edit-route-btn').addEventListener('click', hideEditTeamRouteModal);
+    document.getElementById('edit-team-route-form').addEventListener('submit', handleEditTeamRoute);
     
     // Modal création checkpoint
     document.getElementById('cancel-checkpoint-btn').addEventListener('click', hideCreateCheckpointModal);
@@ -1024,6 +1029,7 @@ function updateTeamsManagementDisplay() {
                 <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
             </div>
             <div class="management-actions">
+                <button class="edit-route-btn" onclick="editTeamRoute('${team.id}')">🛤️ Modifier parcours</button>
                 <button class="delete-btn" onclick="deleteTeam('${team.id}')">🗑️ Supprimer</button>
             </div>
         </div>
@@ -1055,6 +1061,148 @@ function updateUsersManagementDisplay() {
 }
 
 // ===== ACTIONS DE GESTION =====
+
+// Variables pour la modification de parcours
+let currentEditingTeamId = null;
+
+async function editTeamRoute(teamId) {
+    try {
+        currentEditingTeamId = teamId;
+        const team = managementTeamsData.find(t => t.id === teamId);
+        
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        // Remplir les informations de l'équipe
+        document.getElementById('edit-team-name').textContent = team.name;
+        document.getElementById('edit-current-route').textContent = team.route.join(' → ');
+        
+        // Charger les parcours disponibles
+        await loadRouteSelectOptionsForEdit();
+        
+        // Afficher la modal
+        document.getElementById('edit-team-route-modal').style.display = 'flex';
+        document.body.classList.add('modal-open');
+        
+    } catch (error) {
+        console.error('❌ Erreur ouverture modal modification parcours:', error);
+        showNotification('Erreur lors de l\'ouverture', 'error');
+    }
+}
+
+function hideEditTeamRouteModal() {
+    document.getElementById('edit-team-route-modal').style.display = 'none';
+    document.getElementById('edit-team-route-form').reset();
+    document.body.classList.remove('modal-open');
+    currentEditingTeamId = null;
+}
+
+async function loadRouteSelectOptionsForEdit() {
+    try {
+        const routes = await firebaseService.getAllRoutes();
+        const select = document.getElementById('edit-team-route-select');
+        
+        // Vider les options existantes (sauf la première)
+        select.innerHTML = '<option value="">-- Choisir un nouveau parcours --</option>';
+        
+        if (routes.length === 0) {
+            select.innerHTML += '<option value="" disabled>Aucun parcours créé</option>';
+            return;
+        }
+        
+        // Ajouter les parcours depuis Firebase
+        routes.forEach(route => {
+            const option = document.createElement('option');
+            option.value = route.route.join(',');
+            option.textContent = `${route.name} (${route.route.length} points)`;
+            select.appendChild(option);
+        });
+        
+        console.log('✅ Parcours chargés pour modification:', routes.length);
+    } catch (error) {
+        console.error('❌ Erreur chargement parcours pour modification:', error);
+        const select = document.getElementById('edit-team-route-select');
+        select.innerHTML = '<option value="">-- Erreur chargement --</option>';
+    }
+}
+
+async function handleEditTeamRoute(e) {
+    e.preventDefault();
+    
+    if (!currentEditingTeamId) {
+        showNotification('Erreur: aucune équipe sélectionnée', 'error');
+        return;
+    }
+    
+    const newRouteString = document.getElementById('edit-team-route-select').value;
+    
+    if (!newRouteString) {
+        showNotification('Veuillez sélectionner un parcours', 'error');
+        return;
+    }
+    
+    try {
+        const newRoute = newRouteString.split(',').map(Number);
+        const team = managementTeamsData.find(t => t.id === currentEditingTeamId);
+        
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        // Confirmation avec avertissement sur la progression
+        const allUsers = await firebaseService.getAllUsers();
+        const teamUsers = allUsers.filter(user => user.teamId === currentEditingTeamId);
+        
+        let confirmMessage = `⚠️ MODIFICATION DU PARCOURS\n\n`;
+        confirmMessage += `Équipe: "${team.name}"\n`;
+        confirmMessage += `Ancien parcours: ${team.route.join(' → ')}\n`;
+        confirmMessage += `Nouveau parcours: ${newRoute.join(' → ')}\n\n`;
+        
+        if (teamUsers.length > 0) {
+            confirmMessage += `🚨 ATTENTION: Cette action va réinitialiser la progression de ${teamUsers.length} utilisateur(s) :\n`;
+            teamUsers.forEach(user => {
+                confirmMessage += `  - "${user.name}"\n`;
+            });
+            confirmMessage += `\nTous les utilisateurs seront remis au lobby.\n\n`;
+        }
+        
+        confirmMessage += `Continuer ?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        showNotification('🔄 Modification du parcours en cours...', 'info');
+        
+        // Mettre à jour l'équipe avec le nouveau parcours
+        await firebaseService.updateTeamProgress(currentEditingTeamId, {
+            route: newRoute,
+            foundCheckpoints: [], // Reset progression
+            unlockedCheckpoints: [0], // Seulement le lobby
+            currentCheckpoint: 0
+        });
+        
+        // Réinitialiser tous les utilisateurs de l'équipe
+        for (const user of teamUsers) {
+            await firebaseService.updateUserProgress(user.userId, {
+                foundCheckpoints: [],
+                unlockedCheckpoints: [0],
+                currentCheckpoint: 0
+            });
+        }
+        
+        hideEditTeamRouteModal();
+        showNotification(`✅ Parcours modifié pour l'équipe "${team.name}" ! ${teamUsers.length} utilisateurs réinitialisés.`, 'success');
+        
+        // Actualiser les données
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur modification parcours:', error);
+        showNotification('Erreur lors de la modification', 'error');
+    }
+}
 
 async function deleteTeam(teamId) {
     try {

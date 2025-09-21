@@ -1,40 +1,59 @@
-# 🏛️ Jeu de Piste Turin - Séminaire
+# 🏛️ Jeu de Piste - Application Web Interactive
 
-Une application web interactive de jeu de piste géolocalisé pour découvrir Turin lors de votre séminaire.
+Une application web interactive de jeu de piste géolocalisé pour découvrir des lieux lors d'événements de team building ou touristiques.
 
 ## 🎯 Fonctionnalités
 
 - **Carte interactive** avec OpenStreetMap (API gratuite)
 - **Géolocalisation GPS** en temps réel
-- **5 points d'intérêt** emblématiques de Turin
+- **Interface admin** complète pour gérer les équipes et parcours
 - **Détection de proximité** automatique (50m)
 - **Interface mobile-first** optimisée
-- **Pop-ups d'indices** avec informations historiques
-- **Suivi de progression** en temps réel
+- **Firebase backend** pour la synchronisation temps réel
+- **Système d'équipes** avec progression individuelle
+- **Types de défis variés** (énigmes, photos, informations)
 
-## 📍 Points d'Intérêt
+## 🚀 Installation
 
-1. **🏛️ Mole Antonelliana** - Le symbole de Turin
-2. **👑 Palazzo Reale** - L'ancienne résidence royale
-3. **🏰 Piazza Castello** - Le cœur de la ville
-4. **🏺 Museo Egizio** - Les trésors de l'Égypte antique
-5. **🛒 Porta Palazzo** - Le plus grand marché d'Europe
+### 1. Configuration Firebase
 
-## 🚀 Utilisation
+1. Créez un projet Firebase sur [https://console.firebase.google.com/](https://console.firebase.google.com/)
+2. Activez Firestore Database et Authentication
+3. Copiez `firebase-config.template.js` vers `firebase-config.js`
+4. Remplacez les valeurs par vos vraies clés Firebase :
 
+```javascript
+export const firebaseConfig = {
+    apiKey: "VOTRE_API_KEY",
+    authDomain: "VOTRE_PROJECT_ID.firebaseapp.com",
+    projectId: "VOTRE_PROJECT_ID",
+    storageBucket: "VOTRE_PROJECT_ID.firebasestorage.app",
+    messagingSenderId: "VOTRE_SENDER_ID",
+    appId: "VOTRE_APP_ID",
+    measurementId: "VOTRE_MEASUREMENT_ID"
+};
+```
+
+### 2. Déploiement
+
+- **GitHub Pages** : Activez GitHub Pages dans les paramètres du repository
+- **Netlify/Vercel** : Connectez votre repository pour un déploiement automatique
+- **Serveur local** : Utilisez `python -m http.server` ou `npx serve`
+
+## 🎮 Utilisation
+
+### Interface Joueur
 1. Ouvrez `index.html` dans votre navigateur mobile
-2. Autorisez la géolocalisation
-3. Suivez les indices pour découvrir Turin
-4. Approchez-vous des points d'intérêt (moins de 50m)
-5. Découvrez les indices historiques !
+2. Connectez-vous avec vos identifiants fournis par l'organisateur
+3. Autorisez la géolocalisation
+4. Suivez les indices pour découvrir les points d'intérêt
 
-## 🛠️ Technologies
-
-- **HTML5** avec géolocalisation
-- **CSS3** avec design responsive
-- **JavaScript** vanilla (pas de framework)
-- **Leaflet.js** pour la cartographie
-- **OpenStreetMap** pour les tuiles de carte
+### Interface Admin
+1. Accédez à `admin.html`
+2. Connectez-vous avec votre compte Firebase
+3. Créez des équipes, utilisateurs, checkpoints et parcours
+4. Suivez la progression en temps réel
+5. Gérez les validations manuelles
 
 ## 📱 Compatibilité
 
@@ -42,37 +61,39 @@ Une application web interactive de jeu de piste géolocalisé pour découvrir Tu
 - ✅ Navigateurs modernes (Chrome, Safari, Firefox)
 - ✅ HTTPS requis pour la géolocalisation
 
-## 🌐 Déploiement GitHub Pages
+## 🛠️ Technologies
 
-1. Créez un repository GitHub
-2. Uploadez tous les fichiers
-3. Activez GitHub Pages dans les paramètres
-4. Votre jeu sera accessible à `https://username.github.io/repository-name`
+- **Frontend** : HTML5, CSS3, JavaScript vanilla
+- **Cartographie** : Leaflet.js + OpenStreetMap
+- **Backend** : Firebase (Firestore + Authentication)
+- **Navigation GPS** : OpenRouteService API
+- **Déploiement** : GitHub Pages compatible
 
 ## 🧪 Test en Local
 
-Pour tester sans être à Turin, utilisez la console du navigateur :
+Pour tester sans être sur le terrain, utilisez la console du navigateur :
 
 ```javascript
-// Simuler une position près de la Mole Antonelliana
-simulatePosition(45.0692, 7.6934);
+// Simuler une position
+simulatePosition(49.0928, 6.1907);
 ```
 
-## 📝 Personnalisation
+## ⚠️ Sécurité
 
-Modifiez le fichier `script.js` pour :
-- Changer les coordonnées des points d'intérêt
-- Ajuster la distance de détection (`proximityThreshold`)
-- Personnaliser les indices et descriptions
-- Ajouter de nouveaux checkpoints
+- **Ne commitez jamais** le fichier `firebase-config.js` avec de vraies clés
+- Utilisez le template `firebase-config.template.js` 
+- Configurez les règles de sécurité Firestore appropriées
+- HTTPS obligatoire pour la géolocalisation
 
-## ⚠️ Notes Importantes
+## 🎉 Fonctionnalités Avancées
 
-- **HTTPS obligatoire** pour la géolocalisation
-- Testez sur mobile pour une expérience optimale
-- La précision GPS peut varier selon l'environnement
-- Prévoyez une connexion internet pour charger la carte
+- **Synchronisation temps réel** entre joueurs et admin
+- **Types de défis multiples** : énigmes, photos, informations
+- **Gestion d'équipes** avec couleurs et parcours personnalisés
+- **Interface admin mobile-friendly**
+- **Notifications en temps réel**
+- **Système de reset et gestion des progressions**
 
-## 🎉 Bon séminaire à Turin !
+---
 
-Profitez de cette découverte interactive de la magnifique capitale piémontaise !
+🚀 **Prêt pour votre prochain événement de team building !**

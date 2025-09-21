@@ -1057,12 +1057,44 @@ function updateUsersManagementDisplay() {
 // ===== ACTIONS DE GESTION =====
 
 async function deleteTeam(teamId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette équipe ?')) return;
-    
     try {
-        await firebaseService.deleteTeam(teamId);
-        showNotification('Équipe supprimée', 'success');
+        // Analyser l'impact avant suppression
+        const allUsers = await firebaseService.getAllUsers();
+        const team = managementTeamsData.find(t => t.id === teamId);
+        
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        const affectedUsers = allUsers.filter(user => user.teamId === teamId);
+        
+        // Message de confirmation détaillé
+        let confirmMessage = `⚠️ SUPPRESSION EN CASCADE\n\nCette action va supprimer :\n`;
+        confirmMessage += `• 1 équipe : "${team.name}"\n`;
+        
+        if (affectedUsers.length > 0) {
+            confirmMessage += `• ${affectedUsers.length} utilisateurs de cette équipe :\n`;
+            affectedUsers.forEach(user => {
+                confirmMessage += `  - "${user.name}"\n`;
+            });
+        }
+        
+        confirmMessage += `\n🚨 Cette action est IRRÉVERSIBLE !\n\nContinuer ?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        showNotification('🗑️ Suppression en cascade en cours...', 'info');
+        
+        const result = await firebaseService.deleteTeam(teamId);
+        
+        showNotification(
+            `✅ Équipe "${result.teamName}" supprimée avec ${result.affectedUsers} utilisateurs !`, 
+            'success'
+        );
+        
         loadManagementData();
+        
     } catch (error) {
         console.error('❌ Erreur suppression équipe:', error);
         showNotification('Erreur lors de la suppression', 'error');
@@ -1588,12 +1620,66 @@ async function loadRoutes() {
 }
 
 async function deleteCheckpoint(checkpointId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce checkpoint ?')) return;
-    
     try {
-        await firebaseService.deleteCheckpoint(checkpointId);
-        showNotification('Checkpoint supprimé', 'success');
+        // Analyser l'impact avant suppression
+        const allRoutes = await firebaseService.getAllRoutes();
+        const allTeams = await firebaseService.getAllTeams();
+        const allUsers = await firebaseService.getAllUsers();
+        
+        const checkpointIdInt = parseInt(checkpointId);
+        const affectedRoutes = allRoutes.filter(route => 
+            route.route.includes(checkpointIdInt)
+        );
+        const affectedTeams = allTeams.filter(team => 
+            team.route && team.route.includes(checkpointIdInt)
+        );
+        const affectedUsers = allUsers.filter(user => 
+            affectedTeams.some(team => team.id === user.teamId)
+        );
+        
+        // Message de confirmation détaillé
+        let confirmMessage = `⚠️ SUPPRESSION EN CASCADE\n\nCette action va supprimer :\n`;
+        confirmMessage += `• 1 checkpoint\n`;
+        
+        if (affectedRoutes.length > 0) {
+            confirmMessage += `• ${affectedRoutes.length} parcours affectés :\n`;
+            affectedRoutes.forEach(route => {
+                const willBeEmpty = route.route.filter(id => id !== checkpointIdInt).length === 0;
+                confirmMessage += `  - "${route.name}" ${willBeEmpty ? '(sera supprimé - devient vide)' : '(sera modifié)'}\n`;
+            });
+        }
+        
+        if (affectedTeams.length > 0) {
+            confirmMessage += `• ${affectedTeams.length} équipes affectées :\n`;
+            affectedTeams.forEach(team => {
+                confirmMessage += `  - "${team.name}" (route nettoyée)\n`;
+            });
+        }
+        
+        if (affectedUsers.length > 0) {
+            confirmMessage += `• ${affectedUsers.length} utilisateurs affectés :\n`;
+            affectedUsers.forEach(user => {
+                confirmMessage += `  - "${user.name}" (progression nettoyée)\n`;
+            });
+        }
+        
+        confirmMessage += `\n🚨 Cette action est IRRÉVERSIBLE !\n\nContinuer ?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        showNotification('🗑️ Suppression en cascade en cours...', 'info');
+        
+        const result = await firebaseService.deleteCheckpoint(checkpointId);
+        
+        showNotification(
+            `✅ Checkpoint supprimé ! Impact : ${result.affectedRoutes} routes, ${result.affectedTeams} équipes, ${result.affectedUsers} utilisateurs`, 
+            'success'
+        );
+        
         loadCheckpoints();
+        loadRoutes(); // Recharger les routes car certaines ont pu être supprimées/modifiées
+        loadManagementData(); // Recharger les équipes et utilisateurs
+        
     } catch (error) {
         console.error('❌ Erreur suppression checkpoint:', error);
         showNotification('Erreur lors de la suppression', 'error');
@@ -1601,12 +1687,63 @@ async function deleteCheckpoint(checkpointId) {
 }
 
 async function deleteRoute(routeId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce parcours ?')) return;
-    
     try {
-        await firebaseService.deleteRoute(routeId);
-        showNotification('Parcours supprimé', 'success');
+        // Analyser l'impact avant suppression
+        const allRoutes = await firebaseService.getAllRoutes();
+        const allTeams = await firebaseService.getAllTeams();
+        const allUsers = await firebaseService.getAllUsers();
+        
+        const routeIdInt = parseInt(routeId);
+        const routeToDelete = allRoutes.find(route => route.id === routeIdInt);
+        
+        if (!routeToDelete) {
+            showNotification('Parcours non trouvé', 'error');
+            return;
+        }
+        
+        const affectedTeams = allTeams.filter(team => 
+            team.route && JSON.stringify(team.route) === JSON.stringify(routeToDelete.route)
+        );
+        const affectedUsers = allUsers.filter(user => 
+            affectedTeams.some(team => team.id === user.teamId)
+        );
+        
+        // Message de confirmation détaillé
+        let confirmMessage = `⚠️ SUPPRESSION EN CASCADE\n\nCette action va supprimer :\n`;
+        confirmMessage += `• 1 parcours : "${routeToDelete.name}"\n`;
+        
+        if (affectedTeams.length > 0) {
+            confirmMessage += `\nImpact sur les équipes :\n`;
+            confirmMessage += `• ${affectedTeams.length} équipes seront réinitialisées au lobby :\n`;
+            affectedTeams.forEach(team => {
+                confirmMessage += `  - "${team.name}" (progression perdue)\n`;
+            });
+        }
+        
+        if (affectedUsers.length > 0) {
+            confirmMessage += `\nImpact sur les utilisateurs :\n`;
+            confirmMessage += `• ${affectedUsers.length} utilisateurs seront réinitialisés :\n`;
+            affectedUsers.forEach(user => {
+                confirmMessage += `  - "${user.name}" (progression perdue)\n`;
+            });
+        }
+        
+        confirmMessage += `\n🚨 Cette action est IRRÉVERSIBLE !\n\nContinuer ?`;
+        
+        if (!confirm(confirmMessage)) return;
+        
+        showNotification('🗑️ Suppression en cascade en cours...', 'info');
+        
+        const result = await firebaseService.deleteRoute(routeId);
+        
+        showNotification(
+            `✅ Parcours "${result.routeName}" supprimé ! ${result.affectedTeams} équipes et ${result.affectedUsers} utilisateurs réinitialisés`, 
+            'success'
+        );
+        
         loadRoutes();
+        loadManagementData(); // Recharger les équipes et utilisateurs
+        
     } catch (error) {
         console.error('❌ Erreur suppression parcours:', error);
         showNotification('Erreur lors de la suppression', 'error');

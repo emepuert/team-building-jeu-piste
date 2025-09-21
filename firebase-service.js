@@ -201,7 +201,42 @@ class FirebaseService {
 
     // Supprimer une équipe (admin)
     async deleteTeam(teamId) {
-        await deleteDoc(doc(this.db, DB_COLLECTIONS.TEAMS, teamId));
+        try {
+            console.log(`🗑️ Suppression en cascade de l'équipe ${teamId}`);
+            
+            // 1. Trouver l'équipe à supprimer
+            const team = await this.getTeam(teamId);
+            if (!team) {
+                console.log(`⚠️ Équipe ${teamId} non trouvée`);
+                return { team: teamId, affectedUsers: 0 };
+            }
+            
+            // 2. Trouver tous les utilisateurs de cette équipe
+            const allUsers = await this.getAllUsers();
+            const affectedUsers = allUsers.filter(user => user.teamId === teamId);
+            
+            console.log(`👤 ${affectedUsers.length} utilisateurs affectés:`, affectedUsers.map(u => u.name));
+            
+            // 3. Supprimer tous les utilisateurs de l'équipe
+            for (const user of affectedUsers) {
+                await deleteDoc(doc(this.db, DB_COLLECTIONS.USERS, user.userId));
+                console.log(`🗑️ Utilisateur "${user.name}" supprimé`);
+            }
+            
+            // 4. Supprimer l'équipe
+            await deleteDoc(doc(this.db, DB_COLLECTIONS.TEAMS, teamId));
+            
+            console.log(`✅ Équipe "${team.name}" et ses ${affectedUsers.length} utilisateurs supprimés`);
+            return {
+                team: teamId,
+                teamName: team.name,
+                affectedUsers: affectedUsers.length
+            };
+            
+        } catch (error) {
+            console.error('❌ Erreur suppression équipe en cascade:', error);
+            throw error;
+        }
     }
 
     // ===== GESTION DES UTILISATEURS =====
@@ -343,18 +378,106 @@ class FirebaseService {
 
     async deleteCheckpoint(checkpointId) {
         try {
+            const checkpointIdInt = parseInt(checkpointId);
+            console.log(`🗑️ Suppression en cascade du checkpoint ${checkpointId}`);
+            
+            // 1. Trouver toutes les routes qui utilisent ce checkpoint
+            const allRoutes = await this.getAllRoutes();
+            const affectedRoutes = allRoutes.filter(route => 
+                route.route.includes(checkpointIdInt)
+            );
+            
+            console.log(`📍 ${affectedRoutes.length} routes affectées:`, affectedRoutes.map(r => r.name));
+            
+            // 2. Trouver toutes les équipes qui utilisent ces routes
+            const allTeams = await this.getAllTeams();
+            const affectedTeams = allTeams.filter(team => 
+                team.route && team.route.includes(checkpointIdInt)
+            );
+            
+            console.log(`👥 ${affectedTeams.length} équipes affectées:`, affectedTeams.map(t => t.name));
+            
+            // 3. Trouver tous les utilisateurs de ces équipes
+            const allUsers = await this.getAllUsers();
+            const affectedUsers = allUsers.filter(user => 
+                affectedTeams.some(team => team.id === user.teamId)
+            );
+            
+            console.log(`👤 ${affectedUsers.length} utilisateurs affectés:`, affectedUsers.map(u => u.name));
+            
+            // 4. Nettoyer les progressions des utilisateurs
+            for (const user of affectedUsers) {
+                const cleanFoundCheckpoints = user.foundCheckpoints?.filter(id => id !== checkpointIdInt) || [];
+                const cleanUnlockedCheckpoints = user.unlockedCheckpoints?.filter(id => id !== checkpointIdInt) || [0];
+                
+                await this.updateUserProgress(user.userId, {
+                    foundCheckpoints: cleanFoundCheckpoints,
+                    unlockedCheckpoints: cleanUnlockedCheckpoints
+                });
+                console.log(`🧹 Progression nettoyée pour ${user.name}`);
+            }
+            
+            // 5. Nettoyer les routes des équipes
+            for (const team of affectedTeams) {
+                const cleanRoute = team.route?.filter(id => id !== checkpointIdInt) || [];
+                const cleanFoundCheckpoints = team.foundCheckpoints?.filter(id => id !== checkpointIdInt) || [];
+                const cleanUnlockedCheckpoints = team.unlockedCheckpoints?.filter(id => id !== checkpointIdInt) || [0];
+                
+                await this.updateTeamProgress(team.id, {
+                    route: cleanRoute,
+                    foundCheckpoints: cleanFoundCheckpoints,
+                    unlockedCheckpoints: cleanUnlockedCheckpoints
+                });
+                console.log(`🧹 Route nettoyée pour l'équipe ${team.name}`);
+            }
+            
+            // 6. Nettoyer les routes dans la collection routes
+            for (const route of affectedRoutes) {
+                const cleanRouteArray = route.route.filter(id => id !== checkpointIdInt);
+                
+                if (cleanRouteArray.length === 0) {
+                    // Si la route devient vide, la supprimer
+                    await this.deleteRoute(route.id);
+                    console.log(`🗑️ Route "${route.name}" supprimée (devenue vide)`);
+                } else {
+                    // Sinon, mettre à jour la route
+                    const q = query(
+                        collection(this.db, 'routes'),
+                        where('id', '==', route.id)
+                    );
+                    const querySnapshot = await getDocs(q);
+                    
+                    for (const doc of querySnapshot.docs) {
+                        await updateDoc(doc.ref, {
+                            route: cleanRouteArray,
+                            updatedAt: serverTimestamp()
+                        });
+                    }
+                    console.log(`🧹 Route "${route.name}" mise à jour`);
+                }
+            }
+            
+            // 7. Enfin, supprimer le checkpoint
             const q = query(
                 collection(this.db, DB_COLLECTIONS.CHECKPOINTS),
-                where('id', '==', parseInt(checkpointId))
+                where('id', '==', checkpointIdInt)
             );
             const querySnapshot = await getDocs(q);
             
             for (const doc of querySnapshot.docs) {
                 await deleteDoc(doc.ref);
             }
-            console.log('✅ Checkpoint supprimé:', checkpointId);
+            
+            console.log(`✅ Checkpoint ${checkpointId} et toutes ses dépendances supprimés`);
+            return {
+                checkpoint: checkpointId,
+                affectedRoutes: affectedRoutes.length,
+                affectedTeams: affectedTeams.length,
+                affectedUsers: affectedUsers.length
+            };
+            
         } catch (error) {
-            console.error('❌ Erreur suppression checkpoint:', error);
+            console.error('❌ Erreur suppression checkpoint en cascade:', error);
             throw error;
         }
     }
@@ -390,18 +513,78 @@ class FirebaseService {
 
     async deleteRoute(routeId) {
         try {
+            const routeIdInt = parseInt(routeId);
+            console.log(`🗑️ Suppression en cascade de la route ${routeId}`);
+            
+            // 1. Trouver la route à supprimer
+            const allRoutes = await this.getAllRoutes();
+            const routeToDelete = allRoutes.find(route => route.id === routeIdInt);
+            
+            if (!routeToDelete) {
+                console.log(`⚠️ Route ${routeId} non trouvée`);
+                return { route: routeId, affectedTeams: 0, affectedUsers: 0 };
+            }
+            
+            // 2. Trouver toutes les équipes qui utilisent cette route
+            const allTeams = await this.getAllTeams();
+            const affectedTeams = allTeams.filter(team => 
+                team.route && JSON.stringify(team.route) === JSON.stringify(routeToDelete.route)
+            );
+            
+            console.log(`👥 ${affectedTeams.length} équipes affectées:`, affectedTeams.map(t => t.name));
+            
+            // 3. Trouver tous les utilisateurs de ces équipes
+            const allUsers = await this.getAllUsers();
+            const affectedUsers = allUsers.filter(user => 
+                affectedTeams.some(team => team.id === user.teamId)
+            );
+            
+            console.log(`👤 ${affectedUsers.length} utilisateurs affectés:`, affectedUsers.map(u => u.name));
+            
+            // 4. Réinitialiser les équipes affectées au lobby
+            for (const team of affectedTeams) {
+                await this.updateTeamProgress(team.id, {
+                    route: [0], // Seulement le lobby
+                    foundCheckpoints: [],
+                    unlockedCheckpoints: [0],
+                    currentCheckpoint: 0,
+                    status: 'inactive' // Marquer comme inactive
+                });
+                console.log(`🏠 Équipe "${team.name}" réinitialisée au lobby`);
+            }
+            
+            // 5. Réinitialiser les utilisateurs affectés
+            for (const user of affectedUsers) {
+                await this.updateUserProgress(user.userId, {
+                    foundCheckpoints: [],
+                    unlockedCheckpoints: [0],
+                    currentCheckpoint: 0,
+                    status: 'inactive'
+                });
+                console.log(`🏠 Utilisateur "${user.name}" réinitialisé au lobby`);
+            }
+            
+            // 6. Supprimer la route
             const q = query(
                 collection(this.db, 'routes'),
-                where('id', '==', parseInt(routeId))
+                where('id', '==', routeIdInt)
             );
             const querySnapshot = await getDocs(q);
             
             for (const doc of querySnapshot.docs) {
                 await deleteDoc(doc.ref);
             }
-            console.log('✅ Parcours supprimé:', routeId);
+            
+            console.log(`✅ Route "${routeToDelete.name}" et toutes ses dépendances supprimées`);
+            return {
+                route: routeId,
+                routeName: routeToDelete.name,
+                affectedTeams: affectedTeams.length,
+                affectedUsers: affectedUsers.length
+            };
+            
         } catch (error) {
-            console.error('❌ Erreur suppression parcours:', error);
+            console.error('❌ Erreur suppression route en cascade:', error);
             throw error;
         }
     }

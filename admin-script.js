@@ -504,50 +504,59 @@ async function unlockNextCheckpoint(teamId) {
             return;
         }
         
-        // Trouver le prochain checkpoint dans la route de l'équipe
-        const currentUnlocked = team.unlockedCheckpoints || [0];
+        // SYSTÈME SIMPLIFIÉ : On se base UNIQUEMENT sur foundCheckpoints
         const foundCheckpoints = team.foundCheckpoints || [];
         const teamRoute = team.route || [];
         
-        console.log(`🔓 Recherche prochain checkpoint à débloquer pour ${team.name}:`, {
+        console.log(`🔓 SYSTÈME SIMPLIFIÉ - Recherche prochain checkpoint pour ${team.name}:`, {
             route: teamRoute,
-            found: foundCheckpoints,
-            unlocked: currentUnlocked
+            found: foundCheckpoints
         });
         
-        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE débloqué
+        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE TROUVÉ
         let nextCheckpointId = null;
         for (const checkpointId of teamRoute) {
             if (checkpointId === 0) continue; // Ignorer le lobby
             
-            const isUnlocked = currentUnlocked.includes(checkpointId);
             const isFound = foundCheckpoints.includes(checkpointId);
             
-            console.log(`  Checkpoint ${checkpointId}: unlocked=${isUnlocked}, found=${isFound}`);
+            console.log(`  Checkpoint ${checkpointId}: found=${isFound}`);
             
-            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ (peut être trouvé ou pas)
-            if (!isUnlocked) {
+            // On cherche le premier checkpoint PAS ENCORE TROUVÉ
+            if (!isFound) {
                 nextCheckpointId = checkpointId;
-                console.log(`  ➡️ À débloquer: ${checkpointId}`);
+                console.log(`  ➡️ À débloquer (rendre accessible): ${checkpointId}`);
                 break;
             }
         }
         
         if (!nextCheckpointId) {
-            showNotification(`Équipe ${team.name} a déjà tous ses checkpoints débloqués`, 'warning');
+            showNotification(`Équipe ${team.name} a déjà trouvé tous ses checkpoints`, 'warning');
             return;
         }
         
-        // Débloquer le checkpoint via Firebase
-        await firebaseService.unlockCheckpointForTeam(teamId, nextCheckpointId);
+        // NOUVEAU : On ajoute le checkpoint aux "unlockedCheckpoints" pour le rendre accessible
+        // Mais on garde la logique basée sur foundCheckpoints comme référence
+        const currentUnlocked = team.unlockedCheckpoints || [0];
+        if (!currentUnlocked.includes(nextCheckpointId)) {
+            // AVANT de débloquer, corriger les incohérences (checkpoints trouvés doivent être débloqués)
+            const correctedUnlocked = [...new Set([...currentUnlocked, ...foundCheckpoints, 0])]; // Merge + dédoublonner
+            
+            await firebaseService.updateTeamProgress(teamId, {
+                unlockedCheckpoints: [...correctedUnlocked, nextCheckpointId] // Ajouter le nouveau
+            });
+        } else {
+            showNotification(`Checkpoint ${nextCheckpointId} déjà accessible pour ${team.name}`, 'info');
+            return;
+        }
         
         // Trouver le nom du checkpoint
         const checkpointsData = await firebaseService.getAllCheckpoints();
         const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
         
-        console.log(`🔓 Admin débloque checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`✅ "${checkpointName}" débloqué pour ${team.name}`, 'success');
+        console.log(`🔓 Admin rend accessible checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(`✅ "${checkpointName}" rendu accessible pour ${team.name}`, 'success');
         
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);

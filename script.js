@@ -217,20 +217,48 @@ async function loadUserData(userId) {
 
 // Charger les données de jeu de l'utilisateur
 async function loadUserGameData() {
-    if (!currentUser) return;
+    if (!currentUser) {
+        console.error('❌ Aucun utilisateur actuel pour charger les données de jeu');
+        return;
+    }
     
-    // Récupérer l'équipe de l'utilisateur
-    const team = await firebaseService.getTeam(currentUser.teamId);
-    if (team) {
+    try {
+        // Récupérer l'équipe de l'utilisateur
+        const team = await firebaseService.getTeam(currentUser.teamId);
+        if (!team) {
+            console.error('❌ Équipe non trouvée pour l\'utilisateur:', currentUser.teamId);
+            showNotification('❌ Équipe non trouvée. Contactez l\'administrateur.', 'error');
+            localStorage.removeItem('currentUserId');
+            showUserLoginModal();
+            return;
+        }
+        
+        // Vérifier que l'équipe a une route valide
+        if (!team.route || team.route.length === 0) {
+            console.error('❌ L\'équipe n\'a pas de parcours défini:', team);
+            showNotification('❌ Parcours non configuré pour votre équipe. Contactez l\'administrateur.', 'error');
+            return;
+        }
+        
         currentTeamId = currentUser.teamId;
         
         // Ajouter les données de l'équipe à currentUser
         currentUser.teamRoute = team.route;
         currentUser.teamColor = team.color;
+        currentUser.teamName = team.name; // S'assurer que le nom d'équipe est à jour
         
-        // Restaurer la progression
+        // Restaurer la progression avec des valeurs par défaut sûres
         foundCheckpoints = currentUser.foundCheckpoints || [];
         unlockedCheckpoints = currentUser.unlockedCheckpoints || [0];
+        
+        // Vérifier la cohérence des données
+        if (!Array.isArray(foundCheckpoints)) foundCheckpoints = [];
+        if (!Array.isArray(unlockedCheckpoints)) unlockedCheckpoints = [0];
+        
+        // S'assurer que le lobby (0) est toujours débloqué
+        if (!unlockedCheckpoints.includes(0)) {
+            unlockedCheckpoints.unshift(0);
+        }
         
         // Afficher les infos de l'équipe
         showUserInfo();
@@ -238,7 +266,15 @@ async function loadUserGameData() {
         // Démarrer le jeu
         startGame();
         
-        console.log(`✅ Utilisateur ${currentUser.name} connecté - Équipe ${team.name}`);
+        console.log(`✅ Utilisateur ${currentUser.name} connecté - Équipe ${team.name}`, {
+            foundCheckpoints,
+            unlockedCheckpoints,
+            teamRoute: team.route
+        });
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du chargement des données de jeu:', error);
+        showNotification('❌ Erreur de chargement. Rechargez la page.', 'error');
     }
 }
 
@@ -855,31 +891,58 @@ function checkRiddleAnswer() {
     const feedback = document.getElementById('riddle-feedback');
     const userAnswer = answerInput.value.trim().toLowerCase();
     
-    // Récupérer l'énigme du premier checkpoint
-    const firstCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === 1);
-    const correctAnswer = firstCheckpoint.clue.riddle.answer.toLowerCase();
+    // Récupérer l'énigme du checkpoint actuel depuis la modal
+    const riddleQuestion = document.getElementById('riddle-question').textContent;
+    
+    // Trouver le checkpoint correspondant à cette énigme
+    const currentCheckpoint = GAME_CONFIG.checkpoints.find(cp => 
+        cp.clue && cp.clue.riddle && cp.clue.riddle.question === riddleQuestion
+    );
+    
+    if (!currentCheckpoint || !currentCheckpoint.clue || !currentCheckpoint.clue.riddle) {
+        console.error('❌ Impossible de trouver l\'énigme actuelle');
+        feedback.innerHTML = '❌ Erreur système. Veuillez recharger la page.';
+        feedback.className = 'error';
+        return;
+    }
+    
+    const correctAnswer = currentCheckpoint.clue.riddle.answer.toLowerCase();
     
     if (userAnswer === correctAnswer) {
         // Bonne réponse !
-        feedback.innerHTML = '🎉 Correct ! Le deuxième point est maintenant débloqué !';
+        const successMessage = currentCheckpoint.clue.text || '🎉 Correct ! Énigme résolue !';
+        feedback.innerHTML = successMessage;
         feedback.className = 'success';
         
         // Débloquer le prochain point selon l'équipe
         const nextCheckpointId = getNextCheckpointForTeam();
         if (nextCheckpointId) {
             unlockCheckpoint(nextCheckpointId);
+            
+            // Message personnalisé selon le prochain checkpoint
+            const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+            const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+            feedback.innerHTML = `🎉 Correct ! "${nextName}" est maintenant débloqué !`;
+        } else {
+            feedback.innerHTML = '🎉 Correct ! Vous avez terminé votre parcours !';
         }
         
         setTimeout(() => {
             document.getElementById('riddle-modal').style.display = 'none';
-            showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
             
             // Zoomer sur le nouveau point débloqué
             if (nextCheckpointId) {
                 const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
                 if (unlockedCheckpoint) {
+                    console.log('🎯 Zoom vers le checkpoint débloqué:', unlockedCheckpoint.name);
                     centerMapOnCheckpoint(unlockedCheckpoint);
+                    showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Suivez la carte.`);
+                } else {
+                    console.warn('⚠️ Checkpoint débloqué non trouvé:', nextCheckpointId);
+                    showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
                 }
+            } else {
+                showNotification('🏆 Parcours terminé ! Félicitations !');
             }
         }, 2000);
         
@@ -1447,14 +1510,36 @@ function syncTeamData() {
 
 // Synchronisation temps réel des checkpoints
 function syncCheckpoints() {
-    if (!firebaseService) return;
+    if (!firebaseService) {
+        console.warn('⚠️ Firebase Service non disponible pour la synchronisation des checkpoints');
+        return;
+    }
     
     firebaseService.getCheckpoints().then((checkpoints) => {
         console.log('🔄 Checkpoints synchronisés:', checkpoints);
+        
+        if (!checkpoints || checkpoints.length === 0) {
+            console.warn('⚠️ Aucun checkpoint trouvé dans Firebase');
+            showNotification('⚠️ Aucun checkpoint configuré. Contactez l\'administrateur.', 'error');
+            return;
+        }
+        
+        // Vérifier qu'il y a au moins un lobby
+        const hasLobby = checkpoints.some(cp => cp.isLobby || cp.type === 'lobby');
+        if (!hasLobby) {
+            console.warn('⚠️ Aucun lobby trouvé dans les checkpoints');
+            showNotification('⚠️ Configuration incomplète. Contactez l\'administrateur.', 'error');
+        }
+        
         GAME_CONFIG.checkpoints = checkpoints;
-        addCheckpointsToMap();
+        
+        // Ajouter les checkpoints à la carte seulement si on a une carte initialisée
+        if (isMapInitialized) {
+            addCheckpointsToMap();
+        }
     }).catch((error) => {
         console.error('❌ Erreur lors de la synchronisation des checkpoints:', error);
+        showNotification('❌ Erreur de chargement des points. Rechargez la page.', 'error');
     });
 }
 

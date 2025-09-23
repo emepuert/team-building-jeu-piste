@@ -1234,4 +1234,167 @@ section h2 {
     .modal-actions {
         flex-direction: column;
     }
+    
+    .config-steps {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Guide de configuration */
+.configuration-guide {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 4px solid #28a745;
+}
+
+.config-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}
+
+.config-step {
+    background: white;
+    padding: 1rem;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+}
+
+.config-step:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.step-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.step-title {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.step-description {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.step-indicator {
+    background: #28a745;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+}
+
+/* Indicateurs de statut */
+.status-indicator {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-left: 1rem;
+    cursor: help;
+}
+
+.status-healthy {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-warning {
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.status-critical {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.status-info {
+    background: #d1ecf1;
+    color: #0c5460;
+    border: 1px solid #bee5eb;
+}
+
+/* Statut des étapes de configuration */
+.config-step-status {
+    margin-top: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+.step-healthy .config-step-status {
+    background: #d4edda;
+    color: #155724;
+}
+
+.step-warning .config-step-status {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.step-critical .config-step-status {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.step-info .config-step-status {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+/* Statut des éléments individuels */
+.item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.item-status {
+    font-size: 1.2rem;
+    cursor: help;
+}
+
+.item-healthy {
+    border-left: 4px solid #28a745;
+}
+
+.item-warning {
+    border-left: 4px solid #ffc107;
+}
+
+.item-critical {
+    border-left: 4px solid #dc3545;
+}
+
+.item-issues {
+    background: #fff3cd;
+    color: #856404;
+    padding: 0.5rem;
+    border-radius: 5px;
+    margin: 0.5rem 0;
+    font-size: 0.9rem;
+    border-left: 3px solid #ffc107;
+}
+
+.item-critical .item-issues {
+    background: #f8d7da;
+    color: #721c24;
+    border-left-color: #dc3545;
 }

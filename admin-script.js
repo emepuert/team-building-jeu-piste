@@ -845,30 +845,64 @@ async function showCreateTeamModal() {
 
 async function loadRouteSelectOptions() {
     try {
-        const routes = await firebaseService.getAllRoutes();
+        const [routes, checkpoints] = await Promise.all([
+            firebaseService.getAllRoutes(),
+            firebaseService.getAllCheckpoints()
+        ]);
+        
         const select = document.getElementById('team-route');
         
         // Vider les options existantes (sauf la première)
         select.innerHTML = '<option value="">-- Choisir un parcours --</option>';
         
-        if (routes.length === 0) {
-            select.innerHTML += '<option value="" disabled>Aucun parcours créé</option>';
+        if (checkpoints.length === 0) {
+            select.innerHTML += '<option value="" disabled>⚠️ Créez d\'abord des checkpoints</option>';
+            showNotification('⚠️ Créez d\'abord des checkpoints avant de créer des équipes', 'error');
             return;
         }
         
-        // Ajouter les parcours depuis Firebase
-        routes.forEach(route => {
+        if (routes.length === 0) {
+            select.innerHTML += '<option value="" disabled>⚠️ Créez d\'abord des parcours</option>';
+            showNotification('⚠️ Créez d\'abord des parcours avant de créer des équipes', 'error');
+            return;
+        }
+        
+        // Vérifier que chaque route a des checkpoints valides
+        const validRoutes = routes.filter(route => {
+            const hasValidCheckpoints = route.route.every(checkpointId => 
+                checkpoints.some(cp => cp.id === checkpointId)
+            );
+            if (!hasValidCheckpoints) {
+                console.warn(`⚠️ Parcours "${route.name}" contient des checkpoints invalides:`, route.route);
+            }
+            return hasValidCheckpoints;
+        });
+        
+        if (validRoutes.length === 0) {
+            select.innerHTML += '<option value="" disabled>⚠️ Aucun parcours valide trouvé</option>';
+            showNotification('⚠️ Tous les parcours contiennent des checkpoints invalides', 'error');
+            return;
+        }
+        
+        // Ajouter les parcours valides depuis Firebase
+        validRoutes.forEach(route => {
             const option = document.createElement('option');
             option.value = route.route.join(',');
             option.textContent = `${route.name} (${route.route.length} points)`;
             select.appendChild(option);
         });
         
-        console.log('✅ Parcours chargés dans le sélecteur:', routes.length);
+        console.log('✅ Parcours valides chargés dans le sélecteur:', validRoutes.length);
+        
+        if (validRoutes.length < routes.length) {
+            showNotification(`⚠️ ${routes.length - validRoutes.length} parcours ignorés (checkpoints manquants)`, 'warning');
+        }
+        
     } catch (error) {
         console.error('❌ Erreur chargement parcours pour sélection:', error);
         const select = document.getElementById('team-route');
         select.innerHTML = '<option value="">-- Erreur chargement --</option>';
+        showNotification('❌ Erreur lors du chargement des parcours', 'error');
     }
 }
 
@@ -895,12 +929,33 @@ function updateTeamSelectOptions() {
     const teamSelect = document.getElementById('user-team');
     teamSelect.innerHTML = '<option value="">-- Choisir une équipe --</option>';
     
-    managementTeamsData.forEach(team => {
+    if (managementTeamsData.length === 0) {
+        teamSelect.innerHTML += '<option value="" disabled>⚠️ Créez d\'abord des équipes</option>';
+        showNotification('⚠️ Créez d\'abord des équipes avant de créer des utilisateurs', 'error');
+        return;
+    }
+    
+    // Filtrer les équipes qui ont des parcours valides
+    const validTeams = managementTeamsData.filter(team => {
+        return team.route && Array.isArray(team.route) && team.route.length > 0;
+    });
+    
+    if (validTeams.length === 0) {
+        teamSelect.innerHTML += '<option value="" disabled>⚠️ Aucune équipe avec parcours valide</option>';
+        showNotification('⚠️ Toutes les équipes ont des parcours invalides', 'error');
+        return;
+    }
+    
+    validTeams.forEach(team => {
         const option = document.createElement('option');
         option.value = team.id;
-        option.textContent = team.name;
+        option.textContent = `${team.name} (${team.route.length} points)`;
         teamSelect.appendChild(option);
     });
+    
+    if (validTeams.length < managementTeamsData.length) {
+        showNotification(`⚠️ ${managementTeamsData.length - validTeams.length} équipes ignorées (parcours invalides)`, 'warning');
+    }
 }
 
 // ===== CRÉATION D'ÉQUIPES =====
@@ -1005,12 +1060,276 @@ async function loadManagementData() {
         updateUsersManagementDisplay();
         
         // Charger les checkpoints et parcours
-        loadCheckpoints();
-        loadRoutes();
+        await loadCheckpoints();
+        await loadRoutes();
+        
+        // Mettre à jour les statuts de configuration
+        updateConfigurationStatus();
         
     } catch (error) {
         console.error('❌ Erreur chargement données gestion:', error);
     }
+}
+
+// Variables globales pour les données
+let checkpointsData = [];
+let routesData = [];
+
+// ===== SYSTÈME DE VÉRIFICATION DE SANTÉ =====
+
+function updateConfigurationStatus() {
+    console.log('🔍 Vérification de la santé de la configuration...');
+    
+    const checkpointsStatus = analyzeCheckpointsHealth();
+    const routesStatus = analyzeRoutesHealth();
+    const teamsStatus = analyzeTeamsHealth();
+    const usersStatus = analyzeUsersHealth();
+    
+    updateStatusIndicators({
+        checkpoints: checkpointsStatus,
+        routes: routesStatus,
+        teams: teamsStatus,
+        users: usersStatus
+    });
+}
+
+function analyzeCheckpointsHealth() {
+    const issues = [];
+    let status = 'healthy';
+    
+    if (checkpointsData.length === 0) {
+        issues.push('Aucun checkpoint créé');
+        status = 'critical';
+    } else {
+        const hasLobby = checkpointsData.some(cp => cp.isLobby || cp.type === 'lobby');
+        if (!hasLobby) {
+            issues.push('Aucun lobby configuré');
+            status = 'critical';
+        }
+        
+        const enigmaCount = checkpointsData.filter(cp => cp.clue?.riddle).length;
+        if (enigmaCount === 0 && checkpointsData.length > 1) {
+            issues.push('Aucune énigme configurée');
+            status = status === 'healthy' ? 'warning' : status;
+        }
+        
+        // Vérifier les coordonnées valides
+        const invalidCoords = checkpointsData.filter(cp => 
+            !cp.coordinates || cp.coordinates.length !== 2 || 
+            isNaN(cp.coordinates[0]) || isNaN(cp.coordinates[1])
+        );
+        
+        if (invalidCoords.length > 0) {
+            issues.push(`${invalidCoords.length} checkpoint(s) avec coordonnées invalides`);
+            status = 'critical';
+        }
+    }
+    
+    return {
+        status,
+        count: checkpointsData.length,
+        issues,
+        details: `${checkpointsData.length} checkpoint(s)`
+    };
+}
+
+function analyzeRoutesHealth() {
+    const issues = [];
+    let status = 'healthy';
+    
+    if (routesData.length === 0) {
+        issues.push('Aucun parcours créé');
+        status = checkpointsData.length > 0 ? 'critical' : 'warning';
+    } else {
+        // Vérifier que tous les checkpoints des routes existent
+        routesData.forEach(route => {
+            const invalidCheckpoints = route.route.filter(checkpointId => 
+                !checkpointsData.some(cp => cp.id === checkpointId)
+            );
+            
+            if (invalidCheckpoints.length > 0) {
+                issues.push(`Parcours "${route.name}" contient des checkpoints inexistants`);
+                status = 'critical';
+            }
+            
+            if (route.route.length < 2) {
+                issues.push(`Parcours "${route.name}" trop court (< 2 points)`);
+                status = status === 'healthy' ? 'warning' : status;
+            }
+        });
+    }
+    
+    return {
+        status,
+        count: routesData.length,
+        issues,
+        details: `${routesData.length} parcours`
+    };
+}
+
+function analyzeTeamsHealth() {
+    const issues = [];
+    let status = 'healthy';
+    
+    if (managementTeamsData.length === 0) {
+        issues.push('Aucune équipe créée');
+        status = routesData.length > 0 ? 'warning' : 'info';
+    } else {
+        // Vérifier que toutes les équipes ont des parcours valides
+        managementTeamsData.forEach(team => {
+            if (!team.route || team.route.length === 0) {
+                issues.push(`Équipe "${team.name}" sans parcours`);
+                status = 'critical';
+            } else {
+                const invalidCheckpoints = team.route.filter(checkpointId => 
+                    !checkpointsData.some(cp => cp.id === checkpointId)
+                );
+                
+                if (invalidCheckpoints.length > 0) {
+                    issues.push(`Équipe "${team.name}" a un parcours avec checkpoints manquants`);
+                    status = 'critical';
+                }
+            }
+        });
+    }
+    
+    return {
+        status,
+        count: managementTeamsData.length,
+        issues,
+        details: `${managementTeamsData.length} équipe(s)`
+    };
+}
+
+function analyzeUsersHealth() {
+    const issues = [];
+    let status = 'healthy';
+    
+    if (usersData.length === 0) {
+        issues.push('Aucun utilisateur créé');
+        status = managementTeamsData.length > 0 ? 'warning' : 'info';
+    } else {
+        // Vérifier que tous les utilisateurs ont des équipes valides
+        usersData.forEach(user => {
+            const team = managementTeamsData.find(t => t.id === user.teamId);
+            if (!team) {
+                issues.push(`Utilisateur "${user.name}" dans équipe inexistante`);
+                status = 'critical';
+            }
+        });
+        
+        // Vérifier la répartition des équipes
+        const teamCounts = {};
+        usersData.forEach(user => {
+            teamCounts[user.teamId] = (teamCounts[user.teamId] || 0) + 1;
+        });
+        
+        const unevenTeams = Object.values(teamCounts).some(count => count === 0);
+        if (unevenTeams) {
+            issues.push('Certaines équipes n\'ont aucun joueur');
+            status = status === 'healthy' ? 'warning' : status;
+        }
+    }
+    
+    return {
+        status,
+        count: usersData.length,
+        issues,
+        details: `${usersData.length} utilisateur(s)`
+    };
+}
+
+function updateStatusIndicators(statuses) {
+    // Mettre à jour les indicateurs de statut dans l'interface
+    updateSectionStatus('checkpoints-management', statuses.checkpoints);
+    updateSectionStatus('routes-management', statuses.routes);
+    updateSectionStatus('teams-management', statuses.teams);
+    updateSectionStatus('users-management', statuses.users);
+    
+    // Mettre à jour le guide de configuration
+    updateConfigGuideStatus(statuses);
+}
+
+function updateSectionStatus(sectionClass, healthData) {
+    const section = document.querySelector(`.${sectionClass}`);
+    if (!section) return;
+    
+    const header = section.querySelector('h2');
+    if (!header) return;
+    
+    // Supprimer les anciens indicateurs
+    const oldIndicators = header.querySelectorAll('.status-indicator');
+    oldIndicators.forEach(indicator => indicator.remove());
+    
+    // Créer le nouvel indicateur
+    const indicator = document.createElement('span');
+    indicator.className = `status-indicator status-${healthData.status}`;
+    
+    const statusIcons = {
+        healthy: '✅',
+        warning: '⚠️',
+        critical: '❌',
+        info: 'ℹ️'
+    };
+    
+    const statusTexts = {
+        healthy: 'OK',
+        warning: 'Attention',
+        critical: 'Erreur',
+        info: 'À faire'
+    };
+    
+    indicator.innerHTML = `${statusIcons[healthData.status]} ${statusTexts[healthData.status]} (${healthData.details})`;
+    
+    // Ajouter le tooltip avec les détails
+    if (healthData.issues.length > 0) {
+        indicator.title = healthData.issues.join('\n');
+    }
+    
+    header.appendChild(indicator);
+}
+
+function updateConfigGuideStatus(statuses) {
+    const configSteps = document.querySelectorAll('.config-step');
+    
+    const stepStatuses = [
+        statuses.checkpoints,  // Étape 1
+        statuses.routes,       // Étape 2
+        statuses.teams,        // Étape 3
+        statuses.users         // Étape 4
+    ];
+    
+    configSteps.forEach((step, index) => {
+        const stepStatus = stepStatuses[index];
+        if (!stepStatus) return;
+        
+        // Supprimer les anciennes classes de statut
+        step.classList.remove('step-healthy', 'step-warning', 'step-critical', 'step-info');
+        
+        // Ajouter la nouvelle classe
+        step.classList.add(`step-${stepStatus.status}`);
+        
+        // Ajouter/mettre à jour l'indicateur de statut
+        let statusIndicator = step.querySelector('.config-step-status');
+        if (!statusIndicator) {
+            statusIndicator = document.createElement('div');
+            statusIndicator.className = 'config-step-status';
+            step.appendChild(statusIndicator);
+        }
+        
+        const statusIcons = {
+            healthy: '✅',
+            warning: '⚠️',
+            critical: '❌',
+            info: '⏳'
+        };
+        
+        statusIndicator.innerHTML = `${statusIcons[stepStatus.status]} ${stepStatus.details}`;
+        
+        if (stepStatus.issues.length > 0) {
+            statusIndicator.title = stepStatus.issues.join('\n');
+        }
+    });
 }
 
 function updateTeamsManagementDisplay() {
@@ -1719,51 +2038,105 @@ async function createRoute() {
 // ===== CHARGEMENT DES DONNÉES =====
 async function loadCheckpoints() {
     try {
-        const checkpoints = await firebaseService.getAllCheckpoints();
+        checkpointsData = await firebaseService.getAllCheckpoints();
         const list = document.getElementById('checkpoints-management-list');
         
-        if (checkpoints.length === 0) {
+        if (checkpointsData.length === 0) {
             list.innerHTML = '<p style="text-align: center; color: #666;">Aucun checkpoint créé</p>';
             return;
         }
 
-        list.innerHTML = checkpoints.map(checkpoint => `
-            <div class="management-item">
-                <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
-                <p><strong>Type:</strong> ${checkpoint.type}</p>
-                <p><strong>Coordonnées:</strong> ${checkpoint.coordinates[0]}, ${checkpoint.coordinates[1]}</p>
-                <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
-                <div class="item-actions">
-                    <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
+        list.innerHTML = checkpointsData.map(checkpoint => {
+            // Analyser le statut de ce checkpoint
+            const issues = [];
+            if (!checkpoint.coordinates || checkpoint.coordinates.length !== 2) {
+                issues.push('Coordonnées manquantes');
+            }
+            if (!checkpoint.clue || !checkpoint.clue.text) {
+                issues.push('Contenu manquant');
+            }
+            if (checkpoint.type === 'enigma' && (!checkpoint.clue?.riddle || !checkpoint.clue.riddle.answer)) {
+                issues.push('Énigme incomplète');
+            }
+            
+            const statusIcon = issues.length === 0 ? '✅' : '⚠️';
+            const statusClass = issues.length === 0 ? 'item-healthy' : 'item-warning';
+            
+            return `
+                <div class="management-item ${statusClass}">
+                    <div class="item-header">
+                        <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
+                        <span class="item-status" title="${issues.join(', ')}">${statusIcon}</span>
+                    </div>
+                    <p><strong>Type:</strong> ${checkpoint.type}</p>
+                    <p><strong>Coordonnées:</strong> ${checkpoint.coordinates ? `${checkpoint.coordinates[0]}, ${checkpoint.coordinates[1]}` : 'Non définies'}</p>
+                    <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
+                    ${issues.length > 0 ? `<div class="item-issues">⚠️ ${issues.join(', ')}</div>` : ''}
+                    <div class="item-actions">
+                        <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (error) {
         console.error('❌ Erreur chargement checkpoints:', error);
+        checkpointsData = [];
     }
 }
 
 async function loadRoutes() {
     try {
-        const routes = await firebaseService.getAllRoutes();
+        routesData = await firebaseService.getAllRoutes();
         const list = document.getElementById('routes-management-list');
         
-        if (routes.length === 0) {
+        if (routesData.length === 0) {
             list.innerHTML = '<p style="text-align: center; color: #666;">Aucun parcours créé</p>';
             return;
         }
 
-        list.innerHTML = routes.map(route => `
-            <div class="management-item">
-                <h4>🛤️ ${route.name}</h4>
-                <p><strong>Ordre:</strong> ${route.route.join(' → ')}</p>
-                <div class="item-actions">
-                    <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
+        list.innerHTML = routesData.map(route => {
+            // Analyser le statut de ce parcours
+            const issues = [];
+            if (!route.route || route.route.length < 2) {
+                issues.push('Parcours trop court');
+            }
+            
+            // Vérifier que tous les checkpoints existent
+            const missingCheckpoints = route.route.filter(checkpointId => 
+                !checkpointsData.some(cp => cp.id === checkpointId)
+            );
+            
+            if (missingCheckpoints.length > 0) {
+                issues.push(`${missingCheckpoints.length} checkpoint(s) manquant(s)`);
+            }
+            
+            const statusIcon = issues.length === 0 ? '✅' : '❌';
+            const statusClass = issues.length === 0 ? 'item-healthy' : 'item-critical';
+            
+            // Créer la liste des checkpoints avec leurs noms
+            const checkpointNames = route.route.map(checkpointId => {
+                const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+                return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `❓ ID:${checkpointId}`;
+            }).join(' → ');
+            
+            return `
+                <div class="management-item ${statusClass}">
+                    <div class="item-header">
+                        <h4>🛤️ ${route.name}</h4>
+                        <span class="item-status" title="${issues.join(', ')}">${statusIcon}</span>
+                    </div>
+                    <p><strong>Checkpoints:</strong> ${checkpointNames}</p>
+                    <p><strong>Longueur:</strong> ${route.route.length} points</p>
+                    ${issues.length > 0 ? `<div class="item-issues">❌ ${issues.join(', ')}</div>` : ''}
+                    <div class="item-actions">
+                        <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (error) {
         console.error('❌ Erreur chargement parcours:', error);
+        routesData = [];
     }
 }
 

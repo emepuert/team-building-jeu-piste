@@ -513,17 +513,21 @@ async function unlockNextCheckpoint(teamId) {
             found: foundCheckpoints
         });
         
-        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE TROUVÉ
+        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE DÉBLOQUÉ
+        // (Logique : on débloque les checkpoints dans l'ordre, pas selon les trouvés)
+        const currentUnlockedTemp = team.unlockedCheckpoints || [0];
         let nextCheckpointId = null;
+        
         for (const checkpointId of teamRoute) {
             if (checkpointId === 0) continue; // Ignorer le lobby
             
             const isFound = foundCheckpoints.includes(checkpointId);
+            const isUnlocked = currentUnlockedTemp.includes(checkpointId);
             
-            console.log(`  Checkpoint ${checkpointId}: found=${isFound}`);
+            console.log(`  Checkpoint ${checkpointId}: found=${isFound}, unlocked=${isUnlocked}`);
             
-            // On cherche le premier checkpoint PAS ENCORE TROUVÉ
-            if (!isFound) {
+            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ
+            if (!isUnlocked) {
                 nextCheckpointId = checkpointId;
                 console.log(`  ➡️ À débloquer (rendre accessible): ${checkpointId}`);
                 break;

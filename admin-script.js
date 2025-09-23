@@ -438,20 +438,32 @@ function getCurrentCheckpointName(team) {
 
 function getNextUnlockedCheckpoint(team) {
     const currentUnlocked = team.unlockedCheckpoints || [0];
+    const foundCheckpoints = team.foundCheckpoints || [];
     const teamRoute = team.route || [];
     
-    // Chercher le prochain checkpoint non débloqué dans la route
+    // Chercher le prochain checkpoint DÉBLOQUÉ mais PAS ENCORE TROUVÉ
     const nextCheckpointId = teamRoute.find(checkpointId => 
-        !currentUnlocked.includes(checkpointId)
+        currentUnlocked.includes(checkpointId) && // Débloqué
+        !foundCheckpoints.includes(checkpointId) && // Pas encore trouvé
+        checkpointId !== 0 // Pas le lobby
     );
     
     if (!nextCheckpointId) {
-        return 'Tous débloqués';
+        // Si aucun checkpoint débloqué non trouvé, chercher le prochain à débloquer
+        const nextToUnlock = teamRoute.find(checkpointId => 
+            !currentUnlocked.includes(checkpointId)
+        );
+        
+        if (nextToUnlock) {
+            return `🔒 Point ${nextToUnlock} (à débloquer)`;
+        }
+        
+        return '🏆 Parcours terminé';
     }
     
     // Trouver le nom du checkpoint
     const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
-    return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${nextCheckpointId}`;
+    return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `🎯 Point ${nextCheckpointId}`;
 }
 
 function getTeamName(teamId) {

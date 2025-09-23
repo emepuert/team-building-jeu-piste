@@ -289,15 +289,7 @@ function showLoginError(message) {
     document.getElementById('user-password').value = '';
 }
 
-function showTeamInfo() {
-    const teamInfo = document.getElementById('team-info');
-    const currentTeamSpan = document.getElementById('current-team');
-    
-    if (currentUser && currentUser.teamName) {
-        currentTeamSpan.textContent = currentUser.teamName;
-        teamInfo.style.display = 'block';
-    }
-}
+// Fonction supprimée - doublon avec la fonction showTeamInfo() ligne 270
 
 function startGame() {
     // Vérifier si le jeu est déjà démarré
@@ -814,7 +806,7 @@ function foundCheckpoint(checkpoint) {
     updateUI();
     
     // Vérifier si l'équipe a terminé son parcours (exclure le lobby du compte)
-    const teamRoute = currentUser?.teamRoute || [];
+    const teamRoute = currentTeam?.route || [];
     const nonLobbyRoute = teamRoute.filter(id => id !== 0); // Exclure le lobby
     const nonLobbyFound = foundCheckpoints.filter(id => id !== 0); // Exclure le lobby
     
@@ -1412,7 +1404,7 @@ function setupEventListeners() {
 // FONCTION OBSOLÈTE - Plus utilisée depuis la modification du système de victoire
 // Les équipes gardent maintenant tous leurs points après la victoire
 function restartGame() {
-    console.log(`🔄 Restart demandé pour l'équipe ${currentUser?.teamName} - FONCTION OBSOLÈTE`);
+    console.log(`🔄 Restart demandé pour l'équipe ${currentTeam?.name} - FONCTION OBSOLÈTE`);
     
     // Reset local
     foundCheckpoints = [];
@@ -1420,8 +1412,8 @@ function restartGame() {
     document.getElementById('success-modal').style.display = 'none';
     
     // Sauvegarder le reset dans Firebase
-    if (firebaseService && currentUser) {
-        firebaseService.updateUserProgress(currentUser.userId, {
+    if (firebaseService && currentTeam && currentTeamId) {
+        firebaseService.updateTeamProgress(currentTeamId, {
             foundCheckpoints: foundCheckpoints,
             unlockedCheckpoints: unlockedCheckpoints
         });

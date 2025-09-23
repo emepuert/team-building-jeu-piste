@@ -50,6 +50,7 @@ class FirebaseService {
             id: teamId,
             name: teamData.name,
             color: teamData.color,
+            password: teamData.password, // Mot de passe pour connexion équipe
             route: teamData.route,
             currentCheckpoint: 0,
             foundCheckpoints: [],

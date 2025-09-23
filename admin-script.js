@@ -8,7 +8,7 @@ let isAuthenticated = false;
 let currentUser = null;
 let teamsData = [];
 let validationsData = [];
-let usersData = [];
+// let usersData = []; // Supprimé - 1 équipe = 1 joueur
 let managementTeamsData = [];
 
 // Configuration admin - Emails autorisés
@@ -233,9 +233,8 @@ function setupAdminEvents() {
         loadManagementData();
     });
     
-    // Gestion équipes et utilisateurs
+    // Gestion équipes seulement - 1 équipe = 1 joueur
     document.getElementById('create-team-btn').addEventListener('click', showCreateTeamModal);
-    document.getElementById('create-user-btn').addEventListener('click', showCreateUserModal);
     
     // Gestion checkpoints et parcours
     document.getElementById('create-checkpoint-btn').addEventListener('click', showCreateCheckpointModal);
@@ -268,16 +267,7 @@ function startRealtimeSync() {
         updateLastUpdateTime();
     });
     
-    // Écouter tous les utilisateurs pour voir les changements en temps réel
-    firebaseService.onAllUsersChange((users) => {
-        console.log('👥 Mise à jour utilisateurs:', users);
-        usersData = users;
-        // updateUsersManagementDisplay(); // Supprimé - 1 équipe = 1 joueur
-        updateConfigurationStatus();
-        
-        // Mettre à jour l'heure de dernière mise à jour
-        updateLastUpdateTime();
-    });
+    // Plus de synchronisation utilisateurs - 1 équipe = 1 joueur
     
     // Écouter les validations en attente (temporairement désactivé - problème d'index Firebase)
     // firebaseService.onValidationRequests((validations) => {
@@ -535,8 +525,7 @@ async function resetAllTeams() {
 async function resetAllProgressions() {
     console.log('🔄 Début resetAllProgressions');
     console.log('📊 managementTeamsData:', managementTeamsData);
-    console.log('👥 usersData:', usersData);
-    console.log('🔍 Longueurs:', {teams: managementTeamsData.length, users: usersData.length});
+    console.log('🔍 Longueur:', {teams: managementTeamsData.length});
     
     if (!confirm('🏠 Remettre toutes les équipes au lobby ? Cela va effacer toute la progression actuelle.')) {
         console.log('❌ Reset annulé par l\'utilisateur');
@@ -549,7 +538,7 @@ async function resetAllProgressions() {
         
         let resetCount = 0;
         
-        // Reset chaque équipe
+        // Reset chaque équipe (1 équipe = 1 joueur)
         console.log(`🏆 Reset de ${managementTeamsData.length} équipes...`);
         for (const team of managementTeamsData) {
             console.log(`🔄 Reset équipe: ${team.name} (${team.id})`);
@@ -558,21 +547,13 @@ async function resetAllProgressions() {
             console.log(`✅ Équipe ${team.name} resetée`);
         }
         
-        // Reset tous les utilisateurs
-        console.log(`👤 Reset de ${usersData.length} utilisateurs...`);
-        for (const user of usersData) {
-            console.log(`🔄 Reset utilisateur: ${user.name} (${user.userId})`);
-            await firebaseService.resetUser(user.userId);
-            console.log(`✅ Utilisateur ${user.name} reseté`);
-        }
-        
         console.log(`🎉 Reset terminé: ${resetCount} équipes`);
         
         // Vider le localStorage pour forcer le rechargement des données
         console.log('🗑️ Nettoyage localStorage...');
         if (typeof(Storage) !== "undefined") {
-            // Supprimer les données utilisateur en cache
-            localStorage.removeItem('currentUserId');
+            // Supprimer les données équipe en cache
+            localStorage.removeItem('currentTeamId');
             console.log('✅ localStorage nettoyé');
         }
         
@@ -607,25 +588,17 @@ async function resetTeamProgression(teamId) {
         await firebaseService.resetTeam(teamId);
         console.log(`✅ Équipe ${team.name} resetée`);
         
-        // Reset tous les utilisateurs de cette équipe
-        const teamUsers = usersData.filter(user => user.teamId === teamId);
-        console.log(`👤 Reset de ${teamUsers.length} utilisateurs de l'équipe...`);
+        // Plus besoin de reset utilisateurs - 1 équipe = 1 joueur
         
-        for (const user of teamUsers) {
-            console.log(`🔄 Reset utilisateur: ${user.name} (${user.userId})`);
-            await firebaseService.resetUser(user.userId);
-            console.log(`✅ Utilisateur ${user.name} reseté`);
-        }
-        
-        // Vider le localStorage pour cette équipe (si des utilisateurs sont connectés)
+        // Vider le localStorage pour cette équipe
         console.log('🗑️ Nettoyage localStorage...');
         if (typeof(Storage) !== "undefined") {
-            localStorage.removeItem('currentUserId');
+            localStorage.removeItem('currentTeamId');
             console.log('✅ localStorage nettoyé');
         }
         
         console.log(`🎉 Reset équipe "${team.name}" terminé`);
-        showNotification(`✅ Équipe "${team.name}" remise au lobby ! Les joueurs doivent recharger la page.`, 'success');
+        showNotification(`✅ Équipe "${team.name}" remise au lobby ! L'équipe doit recharger la page.`, 'success');
         
         // Actualiser les données
         loadManagementData();
@@ -866,8 +839,8 @@ window.approveValidation = approveValidation;
 window.rejectValidation = rejectValidation;
 window.showTeamDetails = showTeamDetails;
 window.deleteTeam = deleteTeam;
-window.deleteUser = deleteUser;
-window.resetUser = resetUser;
+// window.deleteUser = deleteUser; // Supprimé - 1 équipe = 1 joueur
+// window.resetUser = resetUser; // Supprimé - 1 équipe = 1 joueur
 window.editTeamRoute = editTeamRoute;
 
     console.log('✅ Admin Script initialisé');
@@ -879,9 +852,7 @@ function setupModalEvents() {
     document.getElementById('cancel-team-btn').addEventListener('click', hideCreateTeamModal);
     document.getElementById('create-team-form').addEventListener('submit', handleCreateTeam);
     
-    // Modal création utilisateur
-    document.getElementById('cancel-user-btn').addEventListener('click', hideCreateUserModal);
-    document.getElementById('create-user-form').addEventListener('submit', handleCreateUser);
+    // Modal création utilisateur supprimée - 1 équipe = 1 joueur
     
     // Modal modification parcours équipe
     document.getElementById('cancel-edit-route-btn').addEventListener('click', hideEditTeamRouteModal);
@@ -996,51 +967,10 @@ function hideCreateTeamModal() {
     document.body.classList.remove('modal-open');
 }
 
-function showCreateUserModal() {
-    // Mettre à jour la liste des équipes disponibles
-    updateTeamSelectOptions();
-    document.getElementById('create-user-modal').style.display = 'flex';
-    document.body.classList.add('modal-open');
-}
+// function showCreateUserModal() - Supprimée : 1 équipe = 1 joueur
+// function hideCreateUserModal() - Supprimée : 1 équipe = 1 joueur
 
-function hideCreateUserModal() {
-    document.getElementById('create-user-modal').style.display = 'none';
-    document.getElementById('create-user-form').reset();
-    document.body.classList.remove('modal-open');
-}
-
-function updateTeamSelectOptions() {
-    const teamSelect = document.getElementById('user-team');
-    teamSelect.innerHTML = '<option value="">-- Choisir une équipe --</option>';
-    
-    if (managementTeamsData.length === 0) {
-        teamSelect.innerHTML += '<option value="" disabled>⚠️ Créez d\'abord des équipes</option>';
-        showNotification('⚠️ Créez d\'abord des équipes avant de créer des utilisateurs', 'error');
-        return;
-    }
-    
-    // Filtrer les équipes qui ont des parcours valides
-    const validTeams = managementTeamsData.filter(team => {
-        return team.route && Array.isArray(team.route) && team.route.length > 0;
-    });
-    
-    if (validTeams.length === 0) {
-        teamSelect.innerHTML += '<option value="" disabled>⚠️ Aucune équipe avec parcours valide</option>';
-        showNotification('⚠️ Toutes les équipes ont des parcours invalides', 'error');
-        return;
-    }
-    
-    validTeams.forEach(team => {
-        const option = document.createElement('option');
-        option.value = team.id;
-        option.textContent = `${team.name} (${team.route.length} points)`;
-        teamSelect.appendChild(option);
-    });
-    
-    if (validTeams.length < managementTeamsData.length) {
-        showNotification(`⚠️ ${managementTeamsData.length - validTeams.length} équipes ignorées (parcours invalides)`, 'warning');
-    }
-}
+// function updateTeamSelectOptions() - Supprimée : 1 équipe = 1 joueur
 
 // ===== CRÉATION D'ÉQUIPES =====
 
@@ -1049,10 +979,11 @@ async function handleCreateTeam(e) {
     
     const teamName = document.getElementById('team-name').value.trim();
     const teamColor = document.getElementById('team-color').value;
+    const teamPassword = document.getElementById('team-password').value.trim();
     const teamRoute = document.getElementById('team-route').value.split(',').map(Number);
     
-    if (!teamName || !teamRoute.length) {
-        showNotification('Veuillez remplir tous les champs', 'error');
+    if (!teamName || !teamPassword || !teamRoute.length) {
+        showNotification('Veuillez remplir tous les champs (nom, mot de passe, parcours)', 'error');
         return;
     }
     
@@ -1060,6 +991,7 @@ async function handleCreateTeam(e) {
         const teamData = {
             name: teamName,
             color: teamColor,
+            password: teamPassword,
             route: teamRoute
         };
         
@@ -1078,58 +1010,7 @@ async function handleCreateTeam(e) {
     }
 }
 
-// ===== CRÉATION D'UTILISATEURS =====
-
-async function handleCreateUser(e) {
-    e.preventDefault();
-    
-    const userName = document.getElementById('user-name').value.trim();
-    const userId = document.getElementById('user-id-input').value.trim();
-    const userPassword = document.getElementById('user-password-input').value;
-    const teamId = document.getElementById('user-team').value;
-    
-    if (!userName || !userId || !userPassword || !teamId) {
-        showNotification('Veuillez remplir tous les champs', 'error');
-        return;
-    }
-    
-    try {
-        // Vérifier si l'ID utilisateur existe déjà
-        const existingUser = await firebaseService.getUser(userId);
-        if (existingUser) {
-            showNotification('Cet identifiant existe déjà', 'error');
-            return;
-        }
-        
-        // Récupérer les infos de l'équipe
-        const team = managementTeamsData.find(t => t.id === teamId);
-        if (!team) {
-            showNotification('Équipe non trouvée', 'error');
-            return;
-        }
-        
-        const userData = {
-            userId: userId,
-            name: userName,
-            password: userPassword,
-            teamId: teamId,
-            teamName: team.name
-        };
-        
-        await firebaseService.createUser(userData);
-        console.log('✅ Utilisateur créé:', userId);
-        
-        hideCreateUserModal();
-        showNotification(`Utilisateur "${userName}" créé avec succès !`, 'success');
-        
-        // Actualiser la liste
-        loadManagementData();
-        
-    } catch (error) {
-        console.error('❌ Erreur création utilisateur:', error);
-        showNotification('Erreur lors de la création de l\'utilisateur', 'error');
-    }
-}
+// ===== CRÉATION D'UTILISATEURS - SUPPRIMÉE : 1 équipe = 1 joueur =====
 
 // ===== CHARGEMENT DES DONNÉES DE GESTION =====
 
@@ -1139,9 +1020,7 @@ async function loadManagementData() {
         managementTeamsData = await firebaseService.getAllTeams();
         updateTeamsManagementDisplay();
         
-        // Charger les utilisateurs
-        usersData = await firebaseService.getAllUsers();
-        // updateUsersManagementDisplay(); // Supprimé - 1 équipe = 1 joueur
+        // Plus de chargement utilisateurs - 1 équipe = 1 joueur
         
         // Charger les checkpoints et parcours
         await loadCheckpoints();
@@ -1286,40 +1165,12 @@ function analyzeTeamsHealth() {
 }
 
 function analyzeUsersHealth() {
-    const issues = [];
-    let status = 'healthy';
-    
-    if (usersData.length === 0) {
-        issues.push('Aucun utilisateur créé');
-        status = managementTeamsData.length > 0 ? 'warning' : 'info';
-    } else {
-        // Vérifier que tous les utilisateurs ont des équipes valides
-        usersData.forEach(user => {
-            const team = managementTeamsData.find(t => t.id === user.teamId);
-            if (!team) {
-                issues.push(`Utilisateur "${user.name}" dans équipe inexistante`);
-                status = 'critical';
-            }
-        });
-        
-        // Vérifier la répartition des équipes
-        const teamCounts = {};
-        usersData.forEach(user => {
-            teamCounts[user.teamId] = (teamCounts[user.teamId] || 0) + 1;
-        });
-        
-        const unevenTeams = Object.values(teamCounts).some(count => count === 0);
-        if (unevenTeams) {
-            issues.push('Certaines équipes n\'ont aucun joueur');
-            status = status === 'healthy' ? 'warning' : status;
-        }
-    }
-    
+    // Plus de gestion utilisateurs - 1 équipe = 1 joueur
     return {
-        status,
-        count: usersData.length,
-        issues,
-        details: `${usersData.length} utilisateur(s)`
+        status: 'info',
+        count: managementTeamsData.length,
+        issues: [],
+        details: `${managementTeamsData.length} équipe(s) = ${managementTeamsData.length} joueur(s)`
     };
 }
 
@@ -1439,31 +1290,7 @@ function updateTeamsManagementDisplay() {
     `).join('');
 }
 
-function updateUsersManagementDisplay() {
-    const container = document.getElementById('users-management-list');
-    
-    if (usersData.length === 0) {
-        container.innerHTML = '<p class="no-data">Aucun utilisateur créé</p>';
-        return;
-    }
-    
-    container.innerHTML = usersData.map(user => `
-        <div class="management-item">
-            <div class="management-item-info">
-                <h4>${user.name}</h4>
-                <p><strong>ID:</strong> ${user.userId}</p>
-                <p><strong>Équipe:</strong> ${user.teamName}</p>
-                <p><strong>🏆 Défis résolus:</strong> ${user.foundCheckpoints?.join(', ') || 'Aucun'}</p>
-                <p><strong>🔓 Points accessibles:</strong> ${user.unlockedCheckpoints?.join(', ') || '[0]'}</p>
-                <p><strong>Dernière activité:</strong> ${formatDate(user.updatedAt) || 'Jamais'}</p>
-            </div>
-            <div class="management-actions">
-                <button class="reset-btn" onclick="resetUser('${user.userId}')">🔄 Reset</button>
-                <button class="delete-btn" onclick="deleteUser('${user.userId}')">🗑️ Supprimer</button>
-            </div>
-        </div>
-    `).join('');
-}
+// function updateUsersManagementDisplay() - Supprimée : 1 équipe = 1 joueur
 
 // ===== ACTIONS DE GESTION =====
 
@@ -1558,29 +1385,18 @@ async function handleEditTeamRoute(e) {
         }
         
         // Confirmation avec avertissement sur la progression
-        const allUsers = await firebaseService.getAllUsers();
-        const teamUsers = allUsers.filter(user => user.teamId === currentEditingTeamId);
-        
         let confirmMessage = `⚠️ MODIFICATION DU PARCOURS\n\n`;
         confirmMessage += `Équipe: "${team.name}"\n`;
         confirmMessage += `Ancien parcours: ${team.route.join(' → ')}\n`;
         confirmMessage += `Nouveau parcours: ${newRoute.join(' → ')}\n\n`;
-        
-        if (teamUsers.length > 0) {
-            confirmMessage += `🚨 ATTENTION: Cette action va réinitialiser la progression de ${teamUsers.length} utilisateur(s) :\n`;
-            teamUsers.forEach(user => {
-                confirmMessage += `  - "${user.name}"\n`;
-            });
-            confirmMessage += `\nTous les utilisateurs seront remis au lobby.\n\n`;
-        }
-        
+        confirmMessage += `🚨 ATTENTION: Cette action va réinitialiser la progression de l'équipe.\n\n`;
         confirmMessage += `Continuer ?`;
         
         if (!confirm(confirmMessage)) return;
         
         showNotification('🔄 Modification du parcours en cours...', 'info');
         
-        // Mettre à jour l'équipe avec le nouveau parcours
+        // Mettre à jour l'équipe avec le nouveau parcours (1 équipe = 1 joueur)
         await firebaseService.updateTeamProgress(currentEditingTeamId, {
             route: newRoute,
             foundCheckpoints: [], // Reset progression
@@ -1588,17 +1404,8 @@ async function handleEditTeamRoute(e) {
             currentCheckpoint: 0
         });
         
-        // Réinitialiser tous les utilisateurs de l'équipe
-        for (const user of teamUsers) {
-            await firebaseService.updateUserProgress(user.userId, {
-                foundCheckpoints: [],
-                unlockedCheckpoints: [0],
-                currentCheckpoint: 0
-            });
-        }
-        
         hideEditTeamRouteModal();
-        showNotification(`✅ Parcours modifié pour l'équipe "${team.name}" ! ${teamUsers.length} utilisateurs réinitialisés.`, 'success');
+        showNotification(`✅ Parcours modifié pour l'équipe "${team.name}" ! Équipe réinitialisée.`, 'success');
         
         // Actualiser les données
         loadManagementData();
@@ -1611,8 +1418,7 @@ async function handleEditTeamRoute(e) {
 
 async function deleteTeam(teamId) {
     try {
-        // Analyser l'impact avant suppression
-        const allUsers = await firebaseService.getAllUsers();
+        // Analyser l'impact avant suppression (1 équipe = 1 joueur)
         const team = managementTeamsData.find(t => t.id === teamId);
         
         if (!team) {
@@ -1620,29 +1426,19 @@ async function deleteTeam(teamId) {
             return;
         }
         
-        const affectedUsers = allUsers.filter(user => user.teamId === teamId);
-        
         // Message de confirmation détaillé
-        let confirmMessage = `⚠️ SUPPRESSION EN CASCADE\n\nCette action va supprimer :\n`;
+        let confirmMessage = `⚠️ SUPPRESSION\n\nCette action va supprimer :\n`;
         confirmMessage += `• 1 équipe : "${team.name}"\n`;
-        
-        if (affectedUsers.length > 0) {
-            confirmMessage += `• ${affectedUsers.length} utilisateurs de cette équipe :\n`;
-            affectedUsers.forEach(user => {
-                confirmMessage += `  - "${user.name}"\n`;
-            });
-        }
-        
         confirmMessage += `\n🚨 Cette action est IRRÉVERSIBLE !\n\nContinuer ?`;
         
         if (!confirm(confirmMessage)) return;
         
-        showNotification('🗑️ Suppression en cascade en cours...', 'info');
+        showNotification('🗑️ Suppression en cours...', 'info');
         
         const result = await firebaseService.deleteTeam(teamId);
         
         showNotification(
-            `✅ Équipe "${result.teamName}" supprimée avec ${result.affectedUsers} utilisateurs !`, 
+            `✅ Équipe "${result.teamName}" supprimée !`, 
             'success'
         );
         
@@ -1654,31 +1450,8 @@ async function deleteTeam(teamId) {
     }
 }
 
-async function deleteUser(userId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) return;
-    
-    try {
-        await firebaseService.deleteUser(userId);
-        showNotification('Utilisateur supprimé', 'success');
-        loadManagementData();
-    } catch (error) {
-        console.error('❌ Erreur suppression utilisateur:', error);
-        showNotification('Erreur lors de la suppression', 'error');
-    }
-}
-
-async function resetUser(userId) {
-    if (!confirm('Êtes-vous sûr de vouloir reset cet utilisateur ?')) return;
-    
-    try {
-        await firebaseService.resetUser(userId);
-        showNotification('Utilisateur reseté', 'success');
-        loadManagementData();
-    } catch (error) {
-        console.error('❌ Erreur reset utilisateur:', error);
-        showNotification('Erreur lors du reset', 'error');
-    }
-}
+// async function deleteUser() - Supprimée : 1 équipe = 1 joueur
+// async function resetUser() - Supprimée : 1 équipe = 1 joueur
 
 // ===== GESTION DES CHECKPOINTS =====
 let checkpointMap = null;

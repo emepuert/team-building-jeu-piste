@@ -242,6 +242,57 @@ class FirebaseService {
 
     // ===== NETTOYAGE FIREBASE (ADMIN) =====
     
+    async fixTeamDataConsistency() {
+        try {
+            console.log('🔧 Correction de la cohérence des données équipes...');
+            const allTeams = await this.getAllTeams();
+            
+            let fixedCount = 0;
+            for (const team of allTeams) {
+                let needsUpdate = false;
+                const updates = {};
+                
+                // Règle : foundCheckpoints ne doit PAS être dans unlockedCheckpoints
+                const foundCheckpoints = team.foundCheckpoints || [];
+                let unlockedCheckpoints = team.unlockedCheckpoints || [0];
+                
+                // Supprimer les checkpoints trouvés des checkpoints débloqués
+                const cleanUnlockedCheckpoints = unlockedCheckpoints.filter(id => 
+                    !foundCheckpoints.includes(id) || id === 0 // Garder le lobby
+                );
+                
+                if (cleanUnlockedCheckpoints.length !== unlockedCheckpoints.length) {
+                    updates.unlockedCheckpoints = cleanUnlockedCheckpoints;
+                    needsUpdate = true;
+                    console.log(`🔧 Équipe ${team.name}: nettoyage unlockedCheckpoints`, {
+                        avant: unlockedCheckpoints,
+                        après: cleanUnlockedCheckpoints,
+                        trouvés: foundCheckpoints
+                    });
+                }
+                
+                // S'assurer que le lobby est toujours débloqué
+                if (!cleanUnlockedCheckpoints.includes(0)) {
+                    updates.unlockedCheckpoints = [0, ...cleanUnlockedCheckpoints];
+                    needsUpdate = true;
+                }
+                
+                if (needsUpdate) {
+                    await this.updateTeamProgress(team.id, updates);
+                    fixedCount++;
+                    console.log(`✅ Équipe ${team.name} corrigée`);
+                }
+            }
+            
+            console.log(`✅ ${fixedCount} équipes corrigées`);
+            return fixedCount;
+            
+        } catch (error) {
+            console.error('❌ Erreur correction cohérence:', error);
+            throw error;
+        }
+    }
+    
     async cleanupAllUsers() {
         try {
             console.log('🧹 Nettoyage de tous les utilisateurs Firebase...');

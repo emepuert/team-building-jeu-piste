@@ -227,13 +227,24 @@ function setupAdminEvents() {
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
     // Debug : vérifier si les boutons existent
+    const fixConsistencyBtn = document.getElementById('fix-consistency-btn');
     const cleanupUsersBtn = document.getElementById('cleanup-users-btn');
     const cleanupAllBtn = document.getElementById('cleanup-all-btn');
     
     console.log('🔍 Debug boutons nettoyage:', {
+        fixConsistencyBtn: !!fixConsistencyBtn,
         cleanupUsersBtn: !!cleanupUsersBtn,
         cleanupAllBtn: !!cleanupAllBtn
     });
+    
+    if (fixConsistencyBtn) {
+        fixConsistencyBtn.addEventListener('click', () => {
+            console.log('🔧 Clic sur correction cohérence');
+            fixTeamDataConsistency();
+        });
+    } else {
+        console.warn('❌ Bouton fix-consistency-btn non trouvé');
+    }
     
     if (cleanupUsersBtn) {
         cleanupUsersBtn.addEventListener('click', () => {
@@ -661,6 +672,28 @@ function refreshData() {
 
 // ===== NETTOYAGE FIREBASE =====
 
+async function fixTeamDataConsistency() {
+    console.log('🔧 fixTeamDataConsistency() appelée');
+    
+    if (!confirm('🔧 CORRECTION COHÉRENCE DONNÉES\n\nCela va corriger les incohérences dans les données équipes :\n• Séparer foundCheckpoints et unlockedCheckpoints\n• S\'assurer que le lobby est toujours débloqué\n\nContinuer ?')) {
+        console.log('❌ Correction annulée par utilisateur');
+        return;
+    }
+    
+    try {
+        showNotification('🔧 Correction de la cohérence des données...', 'info');
+        
+        const fixedCount = await firebaseService.fixTeamDataConsistency();
+        
+        showNotification(`✅ ${fixedCount} équipes corrigées ! Données maintenant cohérentes.`, 'success');
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur correction cohérence:', error);
+        showNotification('❌ Erreur lors de la correction', 'error');
+    }
+}
+
 async function cleanupAllUsers() {
     console.log('🧹 cleanupAllUsers() appelée');
     
@@ -933,6 +966,7 @@ window.deleteTeam = deleteTeam;
 // window.deleteUser = deleteUser; // Supprimé - 1 équipe = 1 joueur
 // window.resetUser = resetUser; // Supprimé - 1 équipe = 1 joueur
 window.editTeamRoute = editTeamRoute;
+window.fixTeamDataConsistency = fixTeamDataConsistency;
 window.cleanupAllUsers = cleanupAllUsers;
 window.cleanupAllData = cleanupAllData;
 

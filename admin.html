@@ -151,6 +151,8 @@
                         <button id="reset-all-progressions" class="warning-btn">🏠 Reset progressions → Lobby</button>
                         <button id="export-data" class="info-btn">📊 Exporter les données</button>
                         <button id="refresh-data" class="success-btn">🔄 Actualiser</button>
+                        <button id="cleanup-users-btn" class="warning-btn">🧹 Nettoyer utilisateurs obsolètes</button>
+                        <button id="cleanup-all-btn" class="danger-btn">🚨 NETTOYER TOUT Firebase</button>
                     </div>
                 </section>
             </main>
@@ -165,6 +167,7 @@
                 <h2>🏆 Créer une Équipe</h2>
                 <form id="create-team-form">
                     <input type="text" id="team-name" placeholder="Nom de l'équipe" required>
+                    <input type="password" id="team-password" placeholder="Mot de passe équipe" required>
                     <input type="color" id="team-color" value="#e74c3c" title="Couleur de l'équipe">
                     <select id="team-route" required>
                         <option value="">-- Choisir un parcours --</option>
@@ -177,24 +180,7 @@
             </div>
         </div>
 
-        <!-- Modal création utilisateur -->
-        <div id="create-user-modal" class="modal" style="display: none;">
-            <div class="modal-content">
-                <h2>👤 Créer un Utilisateur</h2>
-                <form id="create-user-form">
-                    <input type="text" id="user-name" placeholder="Nom du joueur" required>
-                    <input type="text" id="user-id-input" placeholder="Identifiant (ex: joueur1)" required>
-                    <input type="password" id="user-password-input" placeholder="Mot de passe" required>
-                    <select id="user-team" required>
-                        <option value="">-- Choisir une équipe --</option>
-                    </select>
-                    <div class="modal-actions">
-                        <button type="button" id="cancel-user-btn" class="cancel-btn">Annuler</button>
-                        <button type="submit" class="success-btn">Créer l'utilisateur</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <!-- Modal création utilisateur supprimée - 1 équipe = 1 joueur -->
 
         <!-- Modal modification parcours équipe -->
         <div id="edit-team-route-modal" class="modal" style="display: none;">

@@ -240,6 +240,76 @@ class FirebaseService {
         }
     }
 
+    // ===== NETTOYAGE FIREBASE (ADMIN) =====
+    
+    async cleanupAllUsers() {
+        try {
+            console.log('🧹 Nettoyage de tous les utilisateurs Firebase...');
+            const usersSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.USERS));
+            
+            let deletedCount = 0;
+            for (const userDoc of usersSnapshot.docs) {
+                await deleteDoc(userDoc.ref);
+                deletedCount++;
+                console.log(`🗑️ Utilisateur supprimé: ${userDoc.id}`);
+            }
+            
+            console.log(`✅ ${deletedCount} utilisateurs supprimés de Firebase`);
+            return deletedCount;
+        } catch (error) {
+            console.error('❌ Erreur nettoyage utilisateurs:', error);
+            throw error;
+        }
+    }
+    
+    async cleanupAllData() {
+        try {
+            console.log('🧹 Nettoyage complet de Firebase...');
+            
+            // Supprimer tous les utilisateurs
+            const usersCount = await this.cleanupAllUsers();
+            
+            // Supprimer toutes les équipes
+            const teamsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.TEAMS));
+            let teamsCount = 0;
+            for (const teamDoc of teamsSnapshot.docs) {
+                await deleteDoc(teamDoc.ref);
+                teamsCount++;
+                console.log(`🗑️ Équipe supprimée: ${teamDoc.id}`);
+            }
+            
+            // Supprimer tous les checkpoints
+            const checkpointsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.CHECKPOINTS));
+            let checkpointsCount = 0;
+            for (const checkpointDoc of checkpointsSnapshot.docs) {
+                await deleteDoc(checkpointDoc.ref);
+                checkpointsCount++;
+                console.log(`🗑️ Checkpoint supprimé: ${checkpointDoc.id}`);
+            }
+            
+            // Supprimer toutes les routes
+            const routesSnapshot = await getDocs(collection(this.db, 'routes'));
+            let routesCount = 0;
+            for (const routeDoc of routesSnapshot.docs) {
+                await deleteDoc(routeDoc.ref);
+                routesCount++;
+                console.log(`🗑️ Route supprimée: ${routeDoc.id}`);
+            }
+            
+            console.log(`✅ Nettoyage terminé: ${usersCount} users, ${teamsCount} teams, ${checkpointsCount} checkpoints, ${routesCount} routes`);
+            return {
+                users: usersCount,
+                teams: teamsCount,
+                checkpoints: checkpointsCount,
+                routes: routesCount
+            };
+            
+        } catch (error) {
+            console.error('❌ Erreur nettoyage complet:', error);
+            throw error;
+        }
+    }
+
     // ===== GESTION DES ÉQUIPES - AUTHENTIFICATION =====
     
     async authenticateTeam(teamName, password) {

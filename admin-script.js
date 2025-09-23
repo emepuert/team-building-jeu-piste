@@ -226,6 +226,8 @@ function setupAdminEvents() {
     document.getElementById('reset-all-progressions').addEventListener('click', resetAllProgressions);
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
+    document.getElementById('cleanup-users-btn')?.addEventListener('click', cleanupAllUsers);
+    document.getElementById('cleanup-all-btn')?.addEventListener('click', cleanupAllData);
     
     // Bouton de rafraîchissement des équipes
     document.getElementById('refresh-teams-btn')?.addEventListener('click', () => {
@@ -631,6 +633,57 @@ function refreshData() {
     // Force un refresh des données
     startRealtimeSync();
     showNotification('🔄 Données actualisées', 'info');
+}
+
+// ===== NETTOYAGE FIREBASE =====
+
+async function cleanupAllUsers() {
+    if (!confirm('🧹 NETTOYAGE UTILISATEURS\n\nCela va supprimer TOUS les utilisateurs de Firebase (obsolètes).\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nContinuer ?')) {
+        return;
+    }
+    
+    try {
+        showNotification('🧹 Nettoyage des utilisateurs obsolètes...', 'info');
+        
+        const deletedCount = await firebaseService.cleanupAllUsers();
+        
+        showNotification(`✅ ${deletedCount} utilisateurs obsolètes supprimés de Firebase !`, 'success');
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur nettoyage utilisateurs:', error);
+        showNotification('❌ Erreur lors du nettoyage', 'error');
+    }
+}
+
+async function cleanupAllData() {
+    if (!confirm('🚨 NETTOYAGE COMPLET FIREBASE\n\nCela va supprimer TOUTES les données :\n• Tous les utilisateurs\n• Toutes les équipes\n• Tous les checkpoints\n• Tous les parcours\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nTaper "SUPPRIMER TOUT" pour confirmer:')) {
+        return;
+    }
+    
+    const confirmation = prompt('Tapez "SUPPRIMER TOUT" en majuscules pour confirmer :');
+    if (confirmation !== 'SUPPRIMER TOUT') {
+        showNotification('❌ Nettoyage annulé', 'info');
+        return;
+    }
+    
+    try {
+        showNotification('🧹 Nettoyage complet de Firebase...', 'info');
+        
+        const result = await firebaseService.cleanupAllData();
+        
+        showNotification(
+            `✅ Firebase nettoyé ! Supprimé : ${result.users} users, ${result.teams} teams, ${result.checkpoints} checkpoints, ${result.routes} routes`, 
+            'success'
+        );
+        
+        // Actualiser l'interface
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur nettoyage complet:', error);
+        showNotification('❌ Erreur lors du nettoyage complet', 'error');
+    }
 }
 
 function showTeamDetails(teamId) {

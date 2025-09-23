@@ -252,28 +252,33 @@ class FirebaseService {
                 let needsUpdate = false;
                 const updates = {};
                 
-                // Règle : foundCheckpoints ne doit PAS être dans unlockedCheckpoints
+                // NOUVELLE RÈGLE : foundCheckpoints DOIVENT TOUJOURS être dans unlockedCheckpoints
                 const foundCheckpoints = team.foundCheckpoints || [];
                 let unlockedCheckpoints = team.unlockedCheckpoints || [0];
                 
-                // Supprimer les checkpoints trouvés des checkpoints débloqués
-                const cleanUnlockedCheckpoints = unlockedCheckpoints.filter(id => 
-                    !foundCheckpoints.includes(id) || id === 0 // Garder le lobby
-                );
+                console.log(`🔧 Équipe ${team.name}: analyse cohérence`, {
+                    found: foundCheckpoints,
+                    unlocked: unlockedCheckpoints
+                });
                 
-                if (cleanUnlockedCheckpoints.length !== unlockedCheckpoints.length) {
-                    updates.unlockedCheckpoints = cleanUnlockedCheckpoints;
+                // S'assurer que TOUS les checkpoints trouvés sont aussi débloqués
+                const missingFromUnlocked = foundCheckpoints.filter(id => !unlockedCheckpoints.includes(id));
+                
+                if (missingFromUnlocked.length > 0) {
+                    const correctedUnlocked = [...new Set([...unlockedCheckpoints, ...foundCheckpoints, 0])]; // Merge + dédoublonner + lobby
+                    updates.unlockedCheckpoints = correctedUnlocked;
                     needsUpdate = true;
-                    console.log(`🔧 Équipe ${team.name}: nettoyage unlockedCheckpoints`, {
+                    console.log(`🔧 Équipe ${team.name}: ajout checkpoints trouvés manquants`, {
                         avant: unlockedCheckpoints,
-                        après: cleanUnlockedCheckpoints,
-                        trouvés: foundCheckpoints
+                        après: correctedUnlocked,
+                        ajoutés: missingFromUnlocked
                     });
                 }
                 
                 // S'assurer que le lobby est toujours débloqué
-                if (!cleanUnlockedCheckpoints.includes(0)) {
-                    updates.unlockedCheckpoints = [0, ...cleanUnlockedCheckpoints];
+                const finalUnlocked = updates.unlockedCheckpoints || unlockedCheckpoints;
+                if (!finalUnlocked.includes(0)) {
+                    updates.unlockedCheckpoints = [0, ...finalUnlocked];
                     needsUpdate = true;
                 }
                 

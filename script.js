@@ -20,7 +20,7 @@ let checkpointMarkers = [];
 let unlockedCheckpoints = [0]; // Le lobby est toujours accessible
 let currentRoute = null; // Route actuelle affichée
 let routeControl = null; // Contrôle de navigation
-let currentUser = null; // Utilisateur connecté
+let currentTeam = null; // Équipe connectée
 let currentTeamId = null; // ID unique de l'équipe dans Firebase
 let currentDestination = null; // Destination actuelle pour recalcul auto
 let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les spams
@@ -103,25 +103,25 @@ function initializeApp() {
         console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
     }
     
-    // Vérifier si un utilisateur est connecté
-    checkUserLogin();
+    // Vérifier si une équipe est connectée
+    checkTeamLogin();
 }
 
-function checkUserLogin() {
-    // Vérifier si un utilisateur est déjà connecté
-    const savedUserId = localStorage.getItem('currentUserId');
+function checkTeamLogin() {
+    // Vérifier si une équipe est déjà connectée
+    const savedTeamId = localStorage.getItem('currentTeamId');
     
-    if (savedUserId) {
-        // Utilisateur déjà connecté, charger ses données
-        loadUserData(savedUserId);
+    if (savedTeamId) {
+        // Équipe déjà connectée, charger ses données
+        loadTeamData(savedTeamId);
     } else {
-        // Pas d'utilisateur connecté, afficher le modal de connexion
-        showUserLoginModal();
+        // Pas d'équipe connectée, afficher le modal de connexion
+        showTeamLoginModal();
     }
 }
 
-function showUserLoginModal() {
-    const modal = document.getElementById('user-login-modal');
+function showTeamLoginModal() {
+    const modal = document.getElementById('user-login-modal'); // On garde le même modal pour l'instant
     modal.style.display = 'block';
     
     // Configurer les événements de connexion
@@ -156,9 +156,9 @@ function setupLoginEvents() {
     loginBtn.addEventListener('click', handleUserLogin);
 }
 
-// Gestion de la connexion utilisateur
+// Gestion de la connexion équipe (plus de users !)
 async function handleUserLogin() {
-    const userId = document.getElementById('user-id').value.trim();
+    const teamName = document.getElementById('user-id').value.trim();
     const password = document.getElementById('user-password').value;
     const errorDiv = document.getElementById('login-error');
     const loadingDiv = document.getElementById('login-loading');
@@ -168,88 +168,73 @@ async function handleUserLogin() {
         errorDiv.style.display = 'none';
         loadingDiv.style.display = 'block';
         
-        // Vérifier les identifiants dans Firebase
-        const user = await firebaseService.authenticateUser(userId, password);
+        // Vérifier les identifiants de l'équipe dans Firebase
+        const team = await firebaseService.authenticateTeam(teamName, password);
         
-        if (user) {
+        if (team) {
             // Connexion réussie
-            currentUser = user;
-            localStorage.setItem('currentUserId', userId);
+            currentTeam = team;
+            currentTeamId = team.id;
+            localStorage.setItem('currentTeamId', team.id);
             
             // Cacher le modal et démarrer le jeu
             document.getElementById('user-login-modal').style.display = 'none';
             
-            // Charger les données de l'utilisateur
-            await loadUserGameData();
+            // Charger les données de l'équipe
+            await loadTeamGameData();
             
-            showNotification(`Bienvenue ${user.name} ! Équipe ${user.teamName}`, 'success');
+            showNotification(`Bienvenue équipe ${team.name} !`, 'success');
             
         } else {
-            showLoginError('Identifiants incorrects');
+            showLoginError('Nom d\'équipe ou mot de passe incorrect');
         }
         
     } catch (error) {
-        console.error('❌ Erreur de connexion:', error);
+        console.error('❌ Erreur de connexion équipe:', error);
         showLoginError('Erreur de connexion. Veuillez réessayer.');
     } finally {
         loadingDiv.style.display = 'none';
     }
 }
 
-// Charger les données utilisateur depuis Firebase
-async function loadUserData(userId) {
+// Charger les données équipe depuis Firebase
+async function loadTeamData(teamId) {
     try {
-        const user = await firebaseService.getUser(userId);
-        if (user) {
-            currentUser = user;
-            await loadUserGameData();
+        const team = await firebaseService.getTeam(teamId);
+        if (team) {
+            currentTeam = team;
+            currentTeamId = teamId;
+            await loadTeamGameData();
         } else {
-            // Utilisateur non trouvé, déconnecter
-            localStorage.removeItem('currentUserId');
-            showUserLoginModal();
+            // Équipe non trouvée, déconnecter
+            localStorage.removeItem('currentTeamId');
+            showTeamLoginModal();
         }
     } catch (error) {
-        console.error('❌ Erreur chargement utilisateur:', error);
-        localStorage.removeItem('currentUserId');
-        showUserLoginModal();
+        console.error('❌ Erreur chargement équipe:', error);
+        localStorage.removeItem('currentTeamId');
+        showTeamLoginModal();
     }
 }
 
-// Charger les données de jeu de l'utilisateur
-async function loadUserGameData() {
-    if (!currentUser) {
-        console.error('❌ Aucun utilisateur actuel pour charger les données de jeu');
+// Charger les données de jeu de l'équipe
+async function loadTeamGameData() {
+    if (!currentTeam) {
+        console.error('❌ Aucune équipe actuelle pour charger les données de jeu');
         return;
     }
     
     try {
-        // Récupérer l'équipe de l'utilisateur
-        const team = await firebaseService.getTeam(currentUser.teamId);
-        if (!team) {
-            console.error('❌ Équipe non trouvée pour l\'utilisateur:', currentUser.teamId);
-            showNotification('❌ Équipe non trouvée. Contactez l\'administrateur.', 'error');
-            localStorage.removeItem('currentUserId');
-            showUserLoginModal();
-            return;
-        }
-        
         // Vérifier que l'équipe a une route valide
-        if (!team.route || team.route.length === 0) {
-            console.error('❌ L\'équipe n\'a pas de parcours défini:', team);
+        if (!currentTeam.route || currentTeam.route.length === 0) {
+            console.error('❌ L\'équipe n\'a pas de parcours défini:', currentTeam);
             showNotification('❌ Parcours non configuré pour votre équipe. Contactez l\'administrateur.', 'error');
             return;
         }
         
-        currentTeamId = currentUser.teamId;
-        
-        // Ajouter les données de l'équipe à currentUser
-        currentUser.teamRoute = team.route;
-        currentUser.teamColor = team.color;
-        currentUser.teamName = team.name; // S'assurer que le nom d'équipe est à jour
-        
         // Restaurer la progression avec des valeurs par défaut sûres
-        foundCheckpoints = currentUser.foundCheckpoints || [];
-        unlockedCheckpoints = currentUser.unlockedCheckpoints || [0];
+        foundCheckpoints = currentTeam.foundCheckpoints || [];
+        unlockedCheckpoints = currentTeam.unlockedCheckpoints || [0];
         
         // Vérifier la cohérence des données
         if (!Array.isArray(foundCheckpoints)) foundCheckpoints = [];
@@ -261,7 +246,7 @@ async function loadUserGameData() {
         }
         
         // Afficher les infos de l'équipe
-        showUserInfo();
+        showTeamInfo();
         
         // Démarrer le jeu
         startGame();
@@ -269,10 +254,10 @@ async function loadUserGameData() {
         // Démarrer la synchronisation temps réel avec l'équipe
         startTeamSync();
         
-        console.log(`✅ Utilisateur ${currentUser.name} connecté - Équipe ${team.name}`, {
+        console.log(`✅ Équipe ${currentTeam.name} connectée`, {
             foundCheckpoints,
             unlockedCheckpoints,
-            teamRoute: team.route
+            teamRoute: currentTeam.route
         });
         
     } catch (error) {
@@ -281,13 +266,14 @@ async function loadUserGameData() {
     }
 }
 
-// Afficher les informations utilisateur
-function showUserInfo() {
+// Afficher les informations équipe
+function showTeamInfo() {
     const teamInfo = document.getElementById('team-info');
     const currentTeamSpan = document.getElementById('current-team');
     
-    if (currentUser && teamInfo && currentTeamSpan) {
-        currentTeamSpan.textContent = `${currentUser.name} - ${currentUser.teamName}`;
+    if (currentTeam && teamInfo && currentTeamSpan) {
+        currentTeamSpan.textContent = `Équipe ${currentTeam.name}`;
+        currentTeamSpan.style.color = currentTeam.color || '#3498db';
         teamInfo.style.display = 'block';
     }
 }
@@ -423,9 +409,9 @@ function getNextAccessibleCheckpoint() {
 }
 
 function getNextCheckpointForTeam() {
-    if (!currentUser || !currentUser.teamRoute) return null;
+    if (!currentTeam || !currentTeam.route) return null;
     
-    const teamRoute = currentUser.teamRoute;
+    const teamRoute = currentTeam.route;
     const nonLobbyFound = foundCheckpoints.filter(id => {
         const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
         return cp && !cp.isLobby;
@@ -443,7 +429,7 @@ function getNextCheckpointForTeam() {
 }
 
 function getTeamColor() {
-    return currentUser?.teamColor || '#3498db';
+    return currentTeam?.color || '#3498db';
 }
 
 // Fonction pour mettre à jour la progression sur la route (grignotage + recalcul auto)
@@ -777,7 +763,7 @@ function foundCheckpoint(checkpoint) {
     // Afficher l'indice (sauf pour le lobby et sauf si c'est la fin du jeu)
     if (!checkpoint.isLobby) {
         // Vérifier si c'est le dernier checkpoint
-        const teamRoute = currentUser?.teamRoute || [];
+        const teamRoute = currentTeam?.route || [];
         const nonLobbyRoute = teamRoute.filter(id => id !== 0);
         const nonLobbyFound = foundCheckpoints.filter(id => id !== 0);
         const isGameComplete = nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0;
@@ -791,8 +777,8 @@ function foundCheckpoint(checkpoint) {
         // Pour le lobby, débloquer le premier checkpoint selon l'équipe
         setTimeout(() => {
             console.log('🏠 Lobby trouvé, recherche du premier checkpoint...');
-            console.log('👤 currentUser:', currentUser);
-            console.log('🛤️ teamRoute:', currentUser?.teamRoute);
+            console.log('👥 currentTeam:', currentTeam);
+            console.log('🛤️ teamRoute:', currentTeam?.route);
             
             const firstCheckpointId = getNextCheckpointForTeam();
             console.log('🎯 Premier checkpoint ID:', firstCheckpointId);
@@ -806,13 +792,9 @@ function foundCheckpoint(checkpoint) {
         }, 1000);
     }
     
-    // Sauvegarder la progression dans Firebase (utilisateur ET équipe)
-    if (firebaseService && currentUser && currentTeamId) {
-        // Mettre à jour l'utilisateur
-        firebaseService.updateUserProgress(currentUser.userId, {
-            foundCheckpoints: foundCheckpoints,
-            unlockedCheckpoints: unlockedCheckpoints
-        });
+    // Sauvegarder la progression dans Firebase (équipe seulement)
+    if (firebaseService && currentTeam && currentTeamId) {
+        // Plus besoin d'utilisateurs - équipe directement
         
         // Mettre à jour l'équipe aussi pour que l'admin voit les changements
         firebaseService.updateTeamProgress(currentTeamId, {
@@ -821,7 +803,7 @@ function foundCheckpoint(checkpoint) {
         });
         
         console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
-            userId: currentUser.userId,
+            teamId: currentTeamId,
             teamId: currentTeamId,
             foundCheckpoints, 
             unlockedCheckpoints
@@ -846,7 +828,7 @@ function foundCheckpoint(checkpoint) {
     const isGameComplete = nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0;
     
     if (isGameComplete) {
-        console.log(`🎉 Équipe ${currentUser?.teamName} a terminé son parcours !`);
+        console.log(`🎉 Équipe ${currentTeam?.name} a terminé son parcours !`);
         // Pour le dernier checkpoint, afficher seulement le modal de victoire
         setTimeout(() => {
             showSuccessModal();
@@ -1041,13 +1023,9 @@ function unlockCheckpoint(checkpointId) {
         centerMapOnCheckpoint(checkpoint);
     }
     
-    // Sauvegarder la progression dans Firebase (utilisateur ET équipe)
-    if (firebaseService && currentUser && currentTeamId) {
-        // Mettre à jour l'utilisateur
-        firebaseService.updateUserProgress(currentUser.userId, {
-            foundCheckpoints: foundCheckpoints,
-            unlockedCheckpoints: unlockedCheckpoints
-        });
+    // Sauvegarder la progression dans Firebase (équipe seulement)
+    if (firebaseService && currentTeam && currentTeamId) {
+        // Plus besoin d'utilisateurs - équipe directement
         
         // Mettre à jour l'équipe aussi pour que l'admin voit les changements
         firebaseService.updateTeamProgress(currentTeamId, {
@@ -1056,7 +1034,7 @@ function unlockCheckpoint(checkpointId) {
         });
         
         console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
-            userId: currentUser.userId,
+            teamId: currentTeamId,
             teamId: currentTeamId,
             foundCheckpoints, 
             unlockedCheckpoints
@@ -1072,7 +1050,7 @@ function unlockCheckpoint(checkpointId) {
             checkpointId,
             foundCheckpoints,
             unlockedCheckpoints,
-            currentUser: currentUser?.name,
+            currentTeam: currentTeam?.name,
             currentTeamId
         });
     }, 1000);
@@ -1267,16 +1245,16 @@ function showSuccessModal() {
     const teamInfoEl = document.getElementById('success-team-info');
     
     // Personnaliser le message selon l'équipe
-    if (currentUser && currentUser.teamName) {
-        messageEl.textContent = `L'équipe "${currentUser.teamName}" a terminé son parcours !`;
-        teamInfoEl.textContent = `Félicitations ${currentUser.name} ! Vous avez relevé tous les défis de votre équipe. Tous les points restent accessibles pour continuer l'exploration.`;
+    if (currentTeam && currentTeam.name) {
+        messageEl.textContent = `L'équipe "${currentTeam.name}" a terminé son parcours !`;
+        teamInfoEl.textContent = `Félicitations équipe ${currentTeam.name} ! Vous avez relevé tous les défis de votre parcours. Tous les points restent accessibles pour continuer l'exploration.`;
     } else {
         messageEl.textContent = 'Vous avez terminé le jeu de piste !';
         teamInfoEl.textContent = 'Bravo pour cette belle aventure ! Vous pouvez continuer à explorer.';
     }
     
     modal.style.display = 'block';
-    console.log(`🏆 Modal de succès affiché pour l'équipe ${currentUser?.teamName}`);
+    console.log(`🏆 Modal de succès affiché pour l'équipe ${currentTeam?.name}`);
     console.log('📋 Contenu du modal:', {
         message: messageEl.textContent,
         teamInfo: teamInfoEl.textContent
@@ -1315,9 +1293,21 @@ function updateHint() {
         return;
     }
     
-    if (foundCheckpoints.length === GAME_CONFIG.checkpoints.length) {
-        hintText.textContent = '🎉 Félicitations ! Vous avez terminé le jeu de piste !';
+    // Vérifier si l'équipe a terminé SON parcours (pas tous les checkpoints du jeu)
+    const teamRoute = currentTeam?.route || [];
+    const nonLobbyRoute = teamRoute.filter(id => id !== 0); // Exclure le lobby
+    const nonLobbyFound = foundCheckpoints.filter(id => id !== 0); // Exclure le lobby
+    const isTeamGameComplete = nonLobbyRoute.length > 0 && nonLobbyFound.length >= nonLobbyRoute.length;
+    
+    if (isTeamGameComplete) {
+        hintText.textContent = `🎉 Félicitations ! Équipe ${currentTeam?.name || 'votre équipe'} a terminé son parcours !`;
         gpsBtn.style.display = 'none';
+        console.log('🏆 Affichage message fin de jeu:', {
+            équipe: currentTeam?.name,
+            route: nonLobbyRoute,
+            trouvés: nonLobbyFound,
+            message: 'Parcours équipe terminé'
+        });
         return;
     }
     
@@ -1586,23 +1576,12 @@ function startTeamSync() {
             }
         }
         
-        // Synchroniser les checkpoints trouvés (ne pas écraser les progrès locaux)
-        const teamFoundCheckpoints = teamData.foundCheckpoints || [];
-        const localFoundCheckpoints = foundCheckpoints || [];
-        
-        // Prendre le maximum entre local et équipe (ne jamais perdre de progrès)
-        const mergedFoundCheckpoints = [...new Set([...localFoundCheckpoints, ...teamFoundCheckpoints])];
-        
-        if (mergedFoundCheckpoints.length !== localFoundCheckpoints.length) {
-            console.log('📊 Synchronisation checkpoints trouvés:', {
-                local: localFoundCheckpoints,
-                équipe: teamFoundCheckpoints,
-                fusionné: mergedFoundCheckpoints
-            });
-            
-            foundCheckpoints = mergedFoundCheckpoints;
-            updateUI();
-        }
+        // 1 ÉQUIPE = 1 JOUEUR : pas de fusion des foundCheckpoints
+        // Les checkpoints trouvés restent strictement locaux au joueur
+        console.log('📱 1 joueur par équipe - pas de fusion des foundCheckpoints:', {
+            local: foundCheckpoints,
+            équipe_ignorée: teamData.foundCheckpoints || []
+        });
         
         // Mettre à jour les infos d'équipe
         showTeamInfo();

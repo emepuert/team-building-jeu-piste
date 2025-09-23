@@ -272,7 +272,7 @@ function startRealtimeSync() {
     firebaseService.onAllUsersChange((users) => {
         console.log('👥 Mise à jour utilisateurs:', users);
         usersData = users;
-        updateUsersManagementDisplay();
+        // updateUsersManagementDisplay(); // Supprimé - 1 équipe = 1 joueur
         updateConfigurationStatus();
         
         // Mettre à jour l'heure de dernière mise à jour
@@ -1141,7 +1141,7 @@ async function loadManagementData() {
         
         // Charger les utilisateurs
         usersData = await firebaseService.getAllUsers();
-        updateUsersManagementDisplay();
+        // updateUsersManagementDisplay(); // Supprimé - 1 équipe = 1 joueur
         
         // Charger les checkpoints et parcours
         await loadCheckpoints();

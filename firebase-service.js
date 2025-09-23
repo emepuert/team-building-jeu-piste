@@ -239,7 +239,32 @@ class FirebaseService {
         }
     }
 
-    // ===== GESTION DES UTILISATEURS =====
+    // ===== GESTION DES ÉQUIPES - AUTHENTIFICATION =====
+    
+    async authenticateTeam(teamName, password) {
+        try {
+            const q = query(
+                collection(this.db, DB_COLLECTIONS.TEAMS),
+                where('name', '==', teamName),
+                where('password', '==', password),
+                where('sessionId', '==', this.currentGameSession)
+            );
+            
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                const teamDoc = querySnapshot.docs[0];
+                return { id: teamDoc.id, ...teamDoc.data() };
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Erreur authentification équipe:', error);
+            return null;
+        }
+    }
+
+    // ===== GESTION DES UTILISATEURS (DEPRECATED - 1 équipe = 1 joueur) =====
     
     async createUser(userData) {
         const userId = userData.userId || `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

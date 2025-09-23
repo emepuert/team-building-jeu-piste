@@ -392,12 +392,21 @@ function onLocationSuccess(position) {
 }
 
 function getNextAccessibleCheckpoint() {
-    return GAME_CONFIG.checkpoints.find(cp => {
-        const isFound = foundCheckpoints.includes(cp.id);
-        const isUnlocked = unlockedCheckpoints.includes(cp.id);
-        const isAccessible = !cp.locked || isUnlocked;
-        return !isFound && isAccessible;
-    });
+    if (!currentTeam?.route) return null;
+    
+    // Chercher dans la route de l'équipe le premier checkpoint débloqué mais pas trouvé
+    for (const checkpointId of currentTeam.route) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
+        
+        const isFound = foundCheckpoints.includes(checkpointId);
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        
+        if (isUnlocked && !isFound) {
+            return GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        }
+    }
+    
+    return null;
 }
 
 function getNextCheckpointForTeam() {
@@ -1262,17 +1271,29 @@ function updateProgress() {
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     
-    // Exclure le lobby du décompte de progression
-    const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
-    const nonLobbyFound = foundCheckpoints.filter(id => {
-        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
-        return cp && !cp.isLobby;
-    });
+    if (!currentTeam?.route) {
+        progressFill.style.width = '0%';
+        progressText.textContent = '0 / 0 défis résolus';
+        return;
+    }
     
-    const percentage = (nonLobbyFound.length / nonLobbyCheckpoints.length) * 100;
+    // Calculer progression basée sur la route spécifique de l'équipe (exclure le lobby)
+    const teamRoute = currentTeam.route.filter(id => id !== 0); // Exclure le lobby
+    const teamFoundCheckpoints = foundCheckpoints.filter(id => 
+        id !== 0 && teamRoute.includes(id) // Exclure le lobby ET ne compter que les checkpoints de la route
+    );
+    
+    const percentage = teamRoute.length > 0 ? (teamFoundCheckpoints.length / teamRoute.length) * 100 : 0;
     
     progressFill.style.width = `${percentage}%`;
-    progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyCheckpoints.length} défis résolus`;
+    progressText.textContent = `${teamFoundCheckpoints.length} / ${teamRoute.length} défis résolus`;
+    
+    console.log('📊 Progression mise à jour:', {
+        équipe: currentTeam.name,
+        route: teamRoute,
+        trouvés: teamFoundCheckpoints,
+        pourcentage: percentage
+    });
 }
 
 function updateHint() {
@@ -1303,13 +1324,27 @@ function updateHint() {
         return;
     }
     
-    // Trouver le prochain checkpoint débloqué et non trouvé
-    const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => {
-        const isFound = foundCheckpoints.includes(cp.id);
-        const isUnlocked = unlockedCheckpoints.includes(cp.id);
-        const isAccessible = !cp.locked || isUnlocked;
-        return !isFound && isAccessible;
-    });
+    // Trouver le prochain checkpoint dans la route de l'équipe (débloqué mais pas trouvé)
+    let nextCheckpoint = null;
+    
+    if (currentTeam?.route) {
+        // Parcourir la route dans l'ordre pour trouver le premier checkpoint débloqué mais pas trouvé
+        for (const checkpointId of currentTeam.route) {
+            if (checkpointId === 0) continue; // Ignorer le lobby
+            
+            const isFound = foundCheckpoints.includes(checkpointId);
+            const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+            
+            console.log(`🎯 Checkpoint ${checkpointId}: found=${isFound}, unlocked=${isUnlocked}`);
+            
+            if (isUnlocked && !isFound) {
+                // Trouver les données complètes de ce checkpoint
+                nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+                console.log(`➡️ Prochain objectif trouvé:`, nextCheckpoint);
+                break;
+            }
+        }
+    }
     
     if (nextCheckpoint) {
         const distance = calculateDistance(

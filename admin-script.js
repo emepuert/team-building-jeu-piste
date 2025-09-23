@@ -351,6 +351,9 @@ function updateTeamsDisplay() {
                 <button class="unlock-btn" onclick="unlockNextCheckpoint('${team.id}')">
                     🔓 Débloquer suivant
                 </button>
+                <button class="success-btn" onclick="solveNextCheckpoint('${team.id}')">
+                    ✅ Résoudre suivant
+                </button>
                 <button class="reset-btn" onclick="resetTeam('${team.id}')">
                     🔄 Reset équipe
                 </button>
@@ -658,6 +661,92 @@ async function unlockNextCheckpoint(teamId) {
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);
         showNotification('❌ Erreur lors du déblocage', 'error');
+    }
+}
+
+async function solveNextCheckpoint(teamId) {
+    try {
+        const team = teamsData.find(t => t.id === teamId);
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        // SYSTÈME : Résoudre directement le prochain checkpoint (trouvé + résolu)
+        const foundCheckpoints = team.foundCheckpoints || [];
+        const teamRoute = team.route || [];
+        
+        console.log(`✅ RÉSOLUTION DIRECTE - Recherche prochain checkpoint pour ${team.name}:`, {
+            route: teamRoute,
+            found: foundCheckpoints
+        });
+        
+        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE TROUVÉ
+        let nextCheckpointId = null;
+        for (const checkpointId of teamRoute) {
+            if (checkpointId === 0) continue; // Ignorer le lobby
+            
+            const isFound = foundCheckpoints.includes(checkpointId);
+            
+            console.log(`  Checkpoint ${checkpointId}: found=${isFound}`);
+            
+            if (!isFound) {
+                nextCheckpointId = checkpointId;
+                console.log(`  ➡️ À résoudre directement: ${checkpointId}`);
+                break;
+            }
+        }
+        
+        if (!nextCheckpointId) {
+            showNotification(`Équipe ${team.name} a déjà résolu tous ses checkpoints`, 'warning');
+            return;
+        }
+        
+        // RÉSOUDRE = Ajouter aux foundCheckpoints + débloqué + débloquer le suivant
+        const newFoundCheckpoints = [...foundCheckpoints, nextCheckpointId];
+        const currentUnlocked = team.unlockedCheckpoints || [0];
+        
+        // Ajouter le checkpoint résolu aux débloqués s'il n'y est pas
+        const correctedUnlocked = [...new Set([...currentUnlocked, ...newFoundCheckpoints, 0])];
+        
+        // Trouver le prochain checkpoint à débloquer après celui qu'on vient de résoudre
+        const nextToUnlock = teamRoute.find(id => 
+            id !== 0 && !newFoundCheckpoints.includes(id) && !correctedUnlocked.includes(id)
+        );
+        
+        const finalUnlocked = nextToUnlock ? 
+            [...correctedUnlocked, nextToUnlock] : correctedUnlocked;
+        
+        console.log(`✅ Résolution + déblocage suivant:`, {
+            résolu: nextCheckpointId,
+            foundCheckpoints: newFoundCheckpoints,
+            unlockedCheckpoints: finalUnlocked,
+            prochainDébloqué: nextToUnlock
+        });
+        
+        // Mettre à jour Firebase
+        await firebaseService.updateTeamProgress(teamId, {
+            foundCheckpoints: newFoundCheckpoints,
+            unlockedCheckpoints: finalUnlocked
+        });
+        
+        // Trouver le nom du checkpoint
+        const checkpointsData = await firebaseService.getAllCheckpoints();
+        const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
+        
+        let message = `✅ "${checkpointName}" résolu pour ${team.name}`;
+        if (nextToUnlock) {
+            const nextCheckpoint = checkpointsData.find(cp => cp.id === nextToUnlock);
+            const nextName = nextCheckpoint ? nextCheckpoint.name : `Point ${nextToUnlock}`;
+            message += ` + "${nextName}" débloqué`;
+        }
+        
+        showNotification(message, 'success');
+        
+    } catch (error) {
+        console.error('Erreur résolution checkpoint:', error);
+        showNotification('❌ Erreur lors de la résolution', 'error');
     }
 }
 
@@ -1108,6 +1197,7 @@ function hideSuggestions() {
 // Exposer les fonctions globalement pour les onclick
 window.initializeAdmin = initializeAdmin;
 window.unlockNextCheckpoint = unlockNextCheckpoint;
+window.solveNextCheckpoint = solveNextCheckpoint;
 window.resetTeam = resetTeam;
 window.resetTeamProgression = resetTeamProgression;
 window.approveValidation = approveValidation;

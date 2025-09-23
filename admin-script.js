@@ -515,8 +515,7 @@ async function unlockNextCheckpoint(teamId) {
             unlocked: currentUnlocked
         });
         
-        // Chercher le PREMIER checkpoint de la route qui n'est PAS débloqué
-        // (en ignorant ceux déjà trouvés qui pourraient être dans unlocked par erreur)
+        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE débloqué
         let nextCheckpointId = null;
         for (const checkpointId of teamRoute) {
             if (checkpointId === 0) continue; // Ignorer le lobby
@@ -526,7 +525,8 @@ async function unlockNextCheckpoint(teamId) {
             
             console.log(`  Checkpoint ${checkpointId}: unlocked=${isUnlocked}, found=${isFound}`);
             
-            if (!isUnlocked && !isFound) {
+            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ (peut être trouvé ou pas)
+            if (!isUnlocked) {
                 nextCheckpointId = checkpointId;
                 console.log(`  ➡️ À débloquer: ${checkpointId}`);
                 break;

@@ -226,8 +226,32 @@ function setupAdminEvents() {
     document.getElementById('reset-all-progressions').addEventListener('click', resetAllProgressions);
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
-    document.getElementById('cleanup-users-btn')?.addEventListener('click', cleanupAllUsers);
-    document.getElementById('cleanup-all-btn')?.addEventListener('click', cleanupAllData);
+    // Debug : vérifier si les boutons existent
+    const cleanupUsersBtn = document.getElementById('cleanup-users-btn');
+    const cleanupAllBtn = document.getElementById('cleanup-all-btn');
+    
+    console.log('🔍 Debug boutons nettoyage:', {
+        cleanupUsersBtn: !!cleanupUsersBtn,
+        cleanupAllBtn: !!cleanupAllBtn
+    });
+    
+    if (cleanupUsersBtn) {
+        cleanupUsersBtn.addEventListener('click', () => {
+            console.log('🧹 Clic sur nettoyage users');
+            cleanupAllUsers();
+        });
+    } else {
+        console.warn('❌ Bouton cleanup-users-btn non trouvé');
+    }
+    
+    if (cleanupAllBtn) {
+        cleanupAllBtn.addEventListener('click', () => {
+            console.log('🚨 Clic sur nettoyage complet');
+            cleanupAllData();
+        });
+    } else {
+        console.warn('❌ Bouton cleanup-all-btn non trouvé');
+    }
     
     // Bouton de rafraîchissement des équipes
     document.getElementById('refresh-teams-btn')?.addEventListener('click', () => {
@@ -638,7 +662,10 @@ function refreshData() {
 // ===== NETTOYAGE FIREBASE =====
 
 async function cleanupAllUsers() {
+    console.log('🧹 cleanupAllUsers() appelée');
+    
     if (!confirm('🧹 NETTOYAGE UTILISATEURS\n\nCela va supprimer TOUS les utilisateurs de Firebase (obsolètes).\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nContinuer ?')) {
+        console.log('❌ Nettoyage annulé par utilisateur');
         return;
     }
     
@@ -657,7 +684,10 @@ async function cleanupAllUsers() {
 }
 
 async function cleanupAllData() {
+    console.log('🚨 cleanupAllData() appelée');
+    
     if (!confirm('🚨 NETTOYAGE COMPLET FIREBASE\n\nCela va supprimer TOUTES les données :\n• Tous les utilisateurs\n• Toutes les équipes\n• Tous les checkpoints\n• Tous les parcours\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nTaper "SUPPRIMER TOUT" pour confirmer:')) {
+        console.log('❌ Nettoyage complet annulé par utilisateur');
         return;
     }
     
@@ -895,6 +925,8 @@ window.deleteTeam = deleteTeam;
 // window.deleteUser = deleteUser; // Supprimé - 1 équipe = 1 joueur
 // window.resetUser = resetUser; // Supprimé - 1 équipe = 1 joueur
 window.editTeamRoute = editTeamRoute;
+window.cleanupAllUsers = cleanupAllUsers;
+window.cleanupAllData = cleanupAllData;
 
     console.log('✅ Admin Script initialisé');
 

@@ -441,29 +441,42 @@ function getNextUnlockedCheckpoint(team) {
     const foundCheckpoints = team.foundCheckpoints || [];
     const teamRoute = team.route || [];
     
-    // Chercher le prochain checkpoint DÉBLOQUÉ mais PAS ENCORE TROUVÉ
-    const nextCheckpointId = teamRoute.find(checkpointId => 
-        currentUnlocked.includes(checkpointId) && // Débloqué
-        !foundCheckpoints.includes(checkpointId) && // Pas encore trouvé
-        checkpointId !== 0 // Pas le lobby
-    );
+    console.log(`🔍 Debug getNextUnlockedCheckpoint pour ${team.name}:`, {
+        route: teamRoute,
+        found: foundCheckpoints,
+        unlocked: currentUnlocked
+    });
     
-    if (!nextCheckpointId) {
-        // Si aucun checkpoint débloqué non trouvé, chercher le prochain à débloquer
-        const nextToUnlock = teamRoute.find(checkpointId => 
-            !currentUnlocked.includes(checkpointId)
-        );
+    // Chercher le PREMIER checkpoint de la route qui est DÉBLOQUÉ mais PAS TROUVÉ
+    for (const checkpointId of teamRoute) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
         
-        if (nextToUnlock) {
-            return `🔒 Point ${nextToUnlock} (à débloquer)`;
+        const isUnlocked = currentUnlocked.includes(checkpointId);
+        const isFound = foundCheckpoints.includes(checkpointId);
+        
+        console.log(`  Checkpoint ${checkpointId}: unlocked=${isUnlocked}, found=${isFound}`);
+        
+        if (isUnlocked && !isFound) {
+            // C'est le prochain objectif !
+            const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+            const result = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `🎯 Point ${checkpointId}`;
+            console.log(`  ➡️ Prochain objectif: ${result}`);
+            return result;
         }
-        
-        return '🏆 Parcours terminé';
     }
     
-    // Trouver le nom du checkpoint
-    const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
-    return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `🎯 Point ${nextCheckpointId}`;
+    // Si aucun checkpoint débloqué non trouvé, chercher le prochain à débloquer
+    for (const checkpointId of teamRoute) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
+        
+        if (!currentUnlocked.includes(checkpointId)) {
+            console.log(`  ➡️ À débloquer: Point ${checkpointId}`);
+            return `🔒 Point ${checkpointId} (à débloquer)`;
+        }
+    }
+    
+    console.log(`  ➡️ Parcours terminé`);
+    return '🏆 Parcours terminé';
 }
 
 function getTeamName(teamId) {
@@ -2065,17 +2078,17 @@ async function loadCheckpoints() {
             return `
                 <div class="management-item ${statusClass}">
                     <div class="item-header">
-                        <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
+                <h4>${checkpoint.emoji} ${checkpoint.name}</h4>
                         <span class="item-status" title="${issues.join(', ')}">${statusIcon}</span>
                     </div>
-                    <p><strong>Type:</strong> ${checkpoint.type}</p>
+                <p><strong>Type:</strong> ${checkpoint.type}</p>
                     <p><strong>Coordonnées:</strong> ${checkpoint.coordinates ? `${checkpoint.coordinates[0]}, ${checkpoint.coordinates[1]}` : 'Non définies'}</p>
-                    <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
+                <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
                     ${issues.length > 0 ? `<div class="item-issues">⚠️ ${issues.join(', ')}</div>` : ''}
-                    <div class="item-actions">
-                        <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
-                    </div>
+                <div class="item-actions">
+                    <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
                 </div>
+            </div>
             `;
         }).join('');
     } catch (error) {
@@ -2122,16 +2135,16 @@ async function loadRoutes() {
             return `
                 <div class="management-item ${statusClass}">
                     <div class="item-header">
-                        <h4>🛤️ ${route.name}</h4>
+                <h4>🛤️ ${route.name}</h4>
                         <span class="item-status" title="${issues.join(', ')}">${statusIcon}</span>
                     </div>
                     <p><strong>Checkpoints:</strong> ${checkpointNames}</p>
                     <p><strong>Longueur:</strong> ${route.route.length} points</p>
                     ${issues.length > 0 ? `<div class="item-issues">❌ ${issues.join(', ')}</div>` : ''}
-                    <div class="item-actions">
-                        <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
-                    </div>
+                <div class="item-actions">
+                    <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
                 </div>
+            </div>
             `;
         }).join('');
     } catch (error) {

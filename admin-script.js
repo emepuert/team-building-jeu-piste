@@ -506,12 +506,32 @@ async function unlockNextCheckpoint(teamId) {
         
         // Trouver le prochain checkpoint dans la route de l'équipe
         const currentUnlocked = team.unlockedCheckpoints || [0];
+        const foundCheckpoints = team.foundCheckpoints || [];
         const teamRoute = team.route || [];
         
-        // Chercher le prochain checkpoint non débloqué dans la route
-        const nextCheckpointId = teamRoute.find(checkpointId => 
-            !currentUnlocked.includes(checkpointId)
-        );
+        console.log(`🔓 Recherche prochain checkpoint à débloquer pour ${team.name}:`, {
+            route: teamRoute,
+            found: foundCheckpoints,
+            unlocked: currentUnlocked
+        });
+        
+        // Chercher le PREMIER checkpoint de la route qui n'est PAS débloqué
+        // (en ignorant ceux déjà trouvés qui pourraient être dans unlocked par erreur)
+        let nextCheckpointId = null;
+        for (const checkpointId of teamRoute) {
+            if (checkpointId === 0) continue; // Ignorer le lobby
+            
+            const isUnlocked = currentUnlocked.includes(checkpointId);
+            const isFound = foundCheckpoints.includes(checkpointId);
+            
+            console.log(`  Checkpoint ${checkpointId}: unlocked=${isUnlocked}, found=${isFound}`);
+            
+            if (!isUnlocked && !isFound) {
+                nextCheckpointId = checkpointId;
+                console.log(`  ➡️ À débloquer: ${checkpointId}`);
+                break;
+            }
+        }
         
         if (!nextCheckpointId) {
             showNotification(`Équipe ${team.name} a déjà tous ses checkpoints débloqués`, 'warning');

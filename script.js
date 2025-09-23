@@ -1255,8 +1255,91 @@ function showSuccessModal() {
 
 function updateUI() {
     updateProgress();
+    updatePlayerRouteProgress();
     updateHint();
 }
+
+function updatePlayerRouteProgress() {
+    const routeListElement = document.getElementById('player-route-list');
+    
+    if (!currentTeam || !currentTeam.route) {
+        routeListElement.innerHTML = '<p style="color: #e74c3c;">❌ Aucun parcours défini</p>';
+        return;
+    }
+    
+    const teamRoute = currentTeam.route;
+    let progressHTML = '';
+    
+    teamRoute.forEach((checkpointId, index) => {
+        const isFound = foundCheckpoints.includes(checkpointId);
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        
+        // Trouver les infos du checkpoint
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
+        
+        // Déterminer le statut et la couleur
+        let statusIcon, statusText, statusColor, clickable = false;
+        
+        if (isFound) {
+            statusIcon = '✅';
+            statusText = 'trouvé';
+            statusColor = '#27ae60';
+        } else if (isUnlocked) {
+            statusIcon = '🎯';
+            statusText = 'accessible';
+            statusColor = '#f39c12';
+            clickable = true; // Peut cliquer pour zoomer
+        } else {
+            statusIcon = '🔒';
+            statusText = 'verrouillé';
+            statusColor = '#95a5a6';
+        }
+        
+        const clickHandler = clickable && userPosition ? `onclick="zoomToCheckpoint(${checkpointId})"` : '';
+        const cursorStyle = clickable && userPosition ? 'cursor: pointer;' : '';
+        
+        progressHTML += `
+            <div class="player-checkpoint-item" 
+                 style="color: ${statusColor}; ${cursorStyle}" 
+                 ${clickHandler}>
+                ${statusIcon} ${index + 1}. ${checkpointName} 
+                <small>(${statusText})</small>
+                ${clickable && userPosition ? ' 🧭' : ''}
+            </div>
+        `;
+    });
+    
+    routeListElement.innerHTML = progressHTML;
+}
+
+// Fonction pour zoomer sur un checkpoint spécifique
+function zoomToCheckpoint(checkpointId) {
+    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+    if (checkpoint && userPosition) {
+        // Fermer tous les popups ouverts
+        map.closePopup();
+        
+        // Centrer la carte sur le checkpoint
+        map.flyTo(checkpoint.coordinates, GAME_CONFIG.zoom, {
+            animate: true,
+            duration: 1.5
+        });
+        
+        // Ouvrir le popup du checkpoint après l'animation
+        setTimeout(() => {
+            const markerData = checkpointMarkers.find(m => m.id === checkpointId);
+            if (markerData && markerData.marker) {
+                markerData.marker.openPopup();
+            }
+        }, 2000);
+        
+        showNotification(`🎯 Zoom vers ${checkpoint.name}`, 'info');
+    }
+}
+
+// Exposer la fonction globalement
+window.zoomToCheckpoint = zoomToCheckpoint;
 
 function updateProgress() {
     const progressFill = document.getElementById('progress-fill');
@@ -1303,12 +1386,27 @@ function updateHint() {
         return;
     }
     
-    // Trouver le prochain checkpoint débloqué et non trouvé
-    const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => {
-        const isFound = foundCheckpoints.includes(cp.id);
-        const isUnlocked = unlockedCheckpoints.includes(cp.id);
-        const isAccessible = !cp.locked || isUnlocked;
-        return !isFound && isAccessible;
+    // Trouver le prochain checkpoint dans la route de l'équipe (débloqué mais pas trouvé)
+    const teamRoute = currentTeam?.route || [];
+    let nextCheckpoint = null;
+    
+    for (const checkpointId of teamRoute) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
+        
+        const isFound = foundCheckpoints.includes(checkpointId);
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        
+        if (isUnlocked && !isFound) {
+            nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+            break;
+        }
+    }
+    
+    console.log('🎯 Prochain checkpoint pour hint:', {
+        teamRoute,
+        foundCheckpoints,
+        unlockedCheckpoints,
+        nextCheckpoint: nextCheckpoint?.name || 'Aucun'
     });
     
     if (nextCheckpoint) {
@@ -1529,6 +1627,9 @@ function startTeamSync() {
             console.warn('⚠️ Données d\'équipe vides reçues');
             return;
         }
+        
+        // Mettre à jour les données de l'équipe
+        currentTeam = teamData;
         
         // Vérifier si les checkpoints débloqués ont changé (action admin)
         const newUnlockedCheckpoints = teamData.unlockedCheckpoints || [0];

@@ -535,9 +535,19 @@ async function unlockNextCheckpoint(teamId) {
             return;
         }
         
+        console.log(`🔧 Checkpoint trouvé à débloquer: ${nextCheckpointId}`);
+        console.log(`🔧 Team data:`, team);
+        
         // NOUVEAU : On ajoute le checkpoint aux "unlockedCheckpoints" pour le rendre accessible
         // Mais on garde la logique basée sur foundCheckpoints comme référence
-        const currentUnlocked = team.unlockedCheckpoints || [0];
+        let currentUnlocked;
+        try {
+            currentUnlocked = team.unlockedCheckpoints || [0];
+            console.log(`🔧 currentUnlocked extrait:`, currentUnlocked);
+        } catch (error) {
+            console.error(`❌ Erreur extraction unlockedCheckpoints:`, error);
+            currentUnlocked = [0];
+        }
         console.log(`🔧 currentUnlocked:`, currentUnlocked);
         console.log(`🔧 nextCheckpointId:`, nextCheckpointId);
         console.log(`🔧 includes check:`, currentUnlocked.includes(nextCheckpointId));

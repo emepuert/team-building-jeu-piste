@@ -561,8 +561,8 @@ async function unlockNextCheckpoint(teamId) {
             found: foundCheckpoints
         });
         
-        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE DÉBLOQUÉ
-        // (Logique : on débloque les checkpoints dans l'ordre, pas selon les trouvés)
+        // Chercher le PREMIER checkpoint DÉBLOQUÉ mais PAS ENCORE TROUVÉ
+        // (Logique : on résout les checkpoints déjà accessibles avant d'en débloquer de nouveaux)
         const currentUnlockedTemp = team.unlockedCheckpoints || [0];
         let nextCheckpointId = null;
         
@@ -574,14 +574,11 @@ async function unlockNextCheckpoint(teamId) {
             
             console.log(`  Checkpoint ${checkpointId}: found=${isFound}, unlocked=${isUnlocked}`);
             
-            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ ET PAS ENCORE TROUVÉ
-            // (Un checkpoint trouvé ne doit JAMAIS être redébloqué !)
-            if (!isUnlocked && !isFound) {
+            // On cherche le premier checkpoint DÉBLOQUÉ mais PAS ENCORE TROUVÉ
+            if (isUnlocked && !isFound) {
                 nextCheckpointId = checkpointId;
-                console.log(`  ➡️ À débloquer (rendre accessible): ${checkpointId}`);
+                console.log(`  ➡️ À résoudre (déjà accessible): ${checkpointId}`);
                 break;
-            } else if (isFound && !isUnlocked) {
-                console.log(`  ⚠️ INCOHÉRENCE: Checkpoint ${checkpointId} trouvé mais pas débloqué - IGNORÉ`);
             }
         }
         
@@ -600,7 +597,7 @@ async function unlockNextCheckpoint(teamId) {
                 return;
             }
             
-            showNotification(`Équipe ${team.name} a déjà tous ses checkpoints disponibles`, 'warning');
+            showNotification(`Équipe ${team.name} n'a aucun checkpoint débloqué à résoudre`, 'warning');
             return;
         }
         

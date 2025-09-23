@@ -435,28 +435,6 @@ section h2 {
 .success-btn { background: #27ae60; color: white; }
 .success-btn:hover { background: #229954; }
 
-.info-btn {
-    background: #3498db;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all 0.3s ease;
-}
-
-.info-btn:disabled {
-    background: #95a5a6;
-    cursor: not-allowed;
-    opacity: 0.7;
-}
-
-.info-btn:hover:not(:disabled) {
-    background: #2980b9;
-    transform: translateY(-2px);
-}
-
 /* Messages */
 .no-data {
     text-align: center;

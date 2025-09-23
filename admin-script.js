@@ -348,7 +348,9 @@ function updateTeamsDisplay() {
             </div>
             
             <div class="team-actions">
-                ${getTeamActionButton(team)}
+                <button class="success-btn" onclick="unlockNextCheckpoint('${team.id}')">
+                    🎯 Résoudre suivant
+                </button>
                 <button class="reset-btn" onclick="resetTeam('${team.id}')">
                     🔄 Reset équipe
                 </button>
@@ -434,45 +436,6 @@ function getTeamProgress(team) {
 function getCurrentCheckpointName(team) {
     // Logique pour obtenir le nom du checkpoint actuel
     return `Checkpoint ${team.currentCheckpoint}`;
-}
-
-function getTeamActionButton(team) {
-    const foundCheckpoints = team.foundCheckpoints || [];
-    const unlockedCheckpoints = team.unlockedCheckpoints || [0];
-    const teamRoute = team.route || [];
-    
-    // Chercher le PROCHAIN checkpoint dans l'ordre de la route (débloqué ou pas)
-    let nextCheckpoint = null;
-    for (const checkpointId of teamRoute) {
-        if (checkpointId === 0) continue; // Ignorer le lobby
-        
-        const isFound = foundCheckpoints.includes(checkpointId);
-        
-        if (!isFound) {
-            nextCheckpoint = checkpointId;
-            break;
-        }
-    }
-    
-    if (nextCheckpoint) {
-        const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpoint);
-        const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpoint}`;
-        const isUnlocked = unlockedCheckpoints.includes(nextCheckpoint);
-        
-        // UN SEUL BOUTON qui fait débloquer + résoudre
-        return `
-            <button class="success-btn" onclick="solveNextChallenge('${team.id}', ${nextCheckpoint})" title="${isUnlocked ? 'Marquer comme résolu' : 'Débloquer et résoudre directement'}">
-                🎯 Résoudre "${checkpointName}"
-            </button>
-        `;
-    } else {
-        // Tous les checkpoints sont terminés
-        return `
-            <button class="info-btn" disabled title="Parcours terminé">
-                🏆 Parcours terminé
-            </button>
-        `;
-    }
 }
 
 function getRouteProgressDisplay(team) {
@@ -581,93 +544,6 @@ function formatDate(timestamp) {
 }
 
 // Actions admin
-async function solveNextChallenge(teamId, checkpointId) {
-    try {
-        const team = teamsData.find(t => t.id === teamId);
-        if (!team) {
-            showNotification('Équipe non trouvée', 'error');
-            return;
-        }
-        
-        const foundCheckpoints = team.foundCheckpoints || [];
-        const unlockedCheckpoints = team.unlockedCheckpoints || [0];
-        const checkpointIdInt = parseInt(checkpointId);
-        
-        if (foundCheckpoints.includes(checkpointIdInt)) {
-            showNotification('Checkpoint déjà résolu', 'warning');
-            return;
-        }
-        
-        // Préparer les mises à jour
-        const updates = {};
-        
-        // 1. S'assurer que le checkpoint est débloqué
-        if (!unlockedCheckpoints.includes(checkpointIdInt)) {
-            console.log(`🔓 Déblocage automatique du checkpoint ${checkpointId}`);
-            // Corriger les incohérences et ajouter le nouveau checkpoint
-            const correctedUnlocked = [...new Set([...unlockedCheckpoints, ...foundCheckpoints, 0])];
-            const finalUnlocked = [...correctedUnlocked, checkpointIdInt];
-            updates.unlockedCheckpoints = finalUnlocked;
-        }
-        
-        // 2. Marquer comme trouvé
-        const newFoundCheckpoints = [...foundCheckpoints, checkpointIdInt];
-        updates.foundCheckpoints = newFoundCheckpoints;
-        
-        // Mettre à jour Firebase
-        await firebaseService.updateTeamProgress(teamId, updates);
-        
-        // Trouver le nom du checkpoint
-        const checkpointsData = await firebaseService.getAllCheckpoints();
-        const checkpoint = checkpointsData.find(cp => cp.id === checkpointIdInt);
-        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
-        
-        console.log(`🎯 Admin résout défi ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`🎯 "${checkpointName}" résolu pour ${team.name}`, 'success');
-        
-    } catch (error) {
-        console.error('Erreur résolution défi:', error);
-        showNotification('❌ Erreur lors de la résolution', 'error');
-    }
-}
-
-async function validateCheckpoint(teamId, checkpointId) {
-    try {
-        const team = teamsData.find(t => t.id === teamId);
-        if (!team) {
-            showNotification('Équipe non trouvée', 'error');
-            return;
-        }
-        
-        const foundCheckpoints = team.foundCheckpoints || [];
-        const checkpointIdInt = parseInt(checkpointId);
-        
-        if (foundCheckpoints.includes(checkpointIdInt)) {
-            showNotification('Checkpoint déjà trouvé', 'warning');
-            return;
-        }
-        
-        // Ajouter le checkpoint aux foundCheckpoints
-        const newFoundCheckpoints = [...foundCheckpoints, checkpointIdInt];
-        
-        await firebaseService.updateTeamProgress(teamId, {
-            foundCheckpoints: newFoundCheckpoints
-        });
-        
-        // Trouver le nom du checkpoint
-        const checkpointsData = await firebaseService.getAllCheckpoints();
-        const checkpoint = checkpointsData.find(cp => cp.id === checkpointIdInt);
-        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
-        
-        console.log(`✅ Admin valide checkpoint ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`✅ "${checkpointName}" résolu pour ${team.name}`, 'success');
-        
-    } catch (error) {
-        console.error('Erreur validation checkpoint:', error);
-        showNotification('❌ Erreur lors de la validation', 'error');
-    }
-}
-
 async function unlockNextCheckpoint(teamId) {
     try {
         const team = teamsData.find(t => t.id === teamId);
@@ -731,44 +607,33 @@ async function unlockNextCheckpoint(teamId) {
         console.log(`🔧 Checkpoint trouvé à débloquer: ${nextCheckpointId}`);
         console.log(`🔧 Team data:`, team);
         
-        // NOUVEAU : On ajoute le checkpoint aux "unlockedCheckpoints" pour le rendre accessible
-        // Mais on garde la logique basée sur foundCheckpoints comme référence
-        let currentUnlocked;
-        try {
-            currentUnlocked = team.unlockedCheckpoints || [0];
-            console.log(`🔧 currentUnlocked extrait:`, currentUnlocked);
-        } catch (error) {
-            console.error(`❌ Erreur extraction unlockedCheckpoints:`, error);
-            currentUnlocked = [0];
-        }
-        console.log(`🔧 currentUnlocked:`, currentUnlocked);
-        console.log(`🔧 nextCheckpointId:`, nextCheckpointId);
-        console.log(`🔧 includes check:`, currentUnlocked.includes(nextCheckpointId));
+        // NOUVEAU : Débloquer ET marquer comme trouvé en une seule action
+        const currentUnlocked = team.unlockedCheckpoints || [0];
+        const currentFound = team.foundCheckpoints || [];
         
-        if (!currentUnlocked.includes(nextCheckpointId)) {
-            // AVANT de débloquer, corriger les incohérences (checkpoints trouvés doivent être débloqués)
-            const correctedUnlocked = [...new Set([...currentUnlocked, ...foundCheckpoints, 0])]; // Merge + dédoublonner
-            const finalUnlocked = [...correctedUnlocked, nextCheckpointId];
-            
-            console.log(`🔧 Avant update Firebase:`, {
-                correctedUnlocked,
-                finalUnlocked,
-                teamId
+        console.log(`🔧 Action: Débloquer + Résoudre checkpoint ${nextCheckpointId}`);
+        console.log(`🔧 Avant:`, { found: currentFound, unlocked: currentUnlocked });
+        
+        // Préparer les mises à jour complètes
+        const correctedUnlocked = [...new Set([...currentUnlocked, ...currentFound, 0])]; // Auto-correction
+        const finalUnlocked = [...new Set([...correctedUnlocked, nextCheckpointId])]; // Ajouter le nouveau
+        const finalFound = [...new Set([...currentFound, nextCheckpointId])]; // Marquer comme trouvé aussi
+        
+        console.log(`🔧 Après:`, { 
+            finalFound, 
+            finalUnlocked, 
+            action: 'Débloquer + Résoudre'
+        });
+        
+        try {
+            await firebaseService.updateTeamProgress(teamId, {
+                unlockedCheckpoints: finalUnlocked,
+                foundCheckpoints: finalFound
             });
-            
-            try {
-                await firebaseService.updateTeamProgress(teamId, {
-                    unlockedCheckpoints: finalUnlocked
-                });
-                console.log(`✅ Firebase update réussi !`);
-            } catch (error) {
-                console.error(`❌ Erreur Firebase update:`, error);
-                throw error;
-            }
-        } else {
-            console.log(`ℹ️ Checkpoint ${nextCheckpointId} déjà dans unlocked:`, currentUnlocked);
-            showNotification(`Checkpoint ${nextCheckpointId} déjà accessible pour ${team.name}`, 'info');
-            return;
+            console.log(`✅ Firebase update réussi - Checkpoint débloqué ET résolu !`);
+        } catch (error) {
+            console.error(`❌ Erreur Firebase update:`, error);
+            throw error;
         }
         
         // Trouver le nom du checkpoint
@@ -776,8 +641,8 @@ async function unlockNextCheckpoint(teamId) {
         const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
         
-        console.log(`🔓 Admin rend accessible checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`✅ "${checkpointName}" rendu accessible pour ${team.name}`, 'success');
+        console.log(`🎯 Admin résout défi ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(`🎯 "${checkpointName}" résolu pour ${team.name} !`, 'success');
         
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);
@@ -1231,9 +1096,7 @@ function hideSuggestions() {
 
 // Exposer les fonctions globalement pour les onclick
 window.initializeAdmin = initializeAdmin;
-window.solveNextChallenge = solveNextChallenge;
 window.unlockNextCheckpoint = unlockNextCheckpoint;
-window.validateCheckpoint = validateCheckpoint;
 window.resetTeam = resetTeam;
 window.resetTeamProgression = resetTeamProgression;
 window.approveValidation = approveValidation;

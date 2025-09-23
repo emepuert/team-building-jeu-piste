@@ -526,16 +526,33 @@ async function unlockNextCheckpoint(teamId) {
             
             console.log(`  Checkpoint ${checkpointId}: found=${isFound}, unlocked=${isUnlocked}`);
             
-            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ
-            if (!isUnlocked) {
+            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ ET PAS ENCORE TROUVÉ
+            // (Un checkpoint trouvé ne doit JAMAIS être redébloqué !)
+            if (!isUnlocked && !isFound) {
                 nextCheckpointId = checkpointId;
                 console.log(`  ➡️ À débloquer (rendre accessible): ${checkpointId}`);
                 break;
+            } else if (isFound && !isUnlocked) {
+                console.log(`  ⚠️ INCOHÉRENCE: Checkpoint ${checkpointId} trouvé mais pas débloqué - IGNORÉ`);
             }
         }
         
         if (!nextCheckpointId) {
-            showNotification(`Équipe ${team.name} a déjà trouvé tous ses checkpoints`, 'warning');
+            // Vérifier s'il y a des incohérences à corriger (checkpoints trouvés mais pas débloqués)
+            const foundButNotUnlocked = foundCheckpoints.filter(id => !currentUnlockedTemp.includes(id));
+            if (foundButNotUnlocked.length > 0) {
+                console.log(`🔧 CORRECTION AUTO: Checkpoints trouvés mais pas débloqués:`, foundButNotUnlocked);
+                showNotification(`🔧 Correction automatique des incohérences pour ${team.name}`, 'info');
+                
+                // Auto-corriger en ajoutant les checkpoints trouvés aux débloqués
+                const correctedUnlocked = [...new Set([...currentUnlockedTemp, ...foundCheckpoints])];
+                await firebaseService.updateTeamProgress(teamId, {
+                    unlockedCheckpoints: correctedUnlocked
+                });
+                return;
+            }
+            
+            showNotification(`Équipe ${team.name} a déjà tous ses checkpoints disponibles`, 'warning');
             return;
         }
         

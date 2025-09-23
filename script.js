@@ -803,13 +803,26 @@ function foundCheckpoint(checkpoint) {
         }, 1000);
     }
     
-    // Sauvegarder la progression dans Firebase
-    if (firebaseService && currentUser) {
+    // Sauvegarder la progression dans Firebase (utilisateur ET équipe)
+    if (firebaseService && currentUser && currentTeamId) {
+        // Mettre à jour l'utilisateur
         firebaseService.updateUserProgress(currentUser.userId, {
             foundCheckpoints: foundCheckpoints,
             unlockedCheckpoints: unlockedCheckpoints
         });
-        console.log('💾 Progression sauvegardée:', {foundCheckpoints, unlockedCheckpoints});
+        
+        // Mettre à jour l'équipe aussi pour que l'admin voit les changements
+        firebaseService.updateTeamProgress(currentTeamId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        
+        console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
+            userId: currentUser.userId,
+            teamId: currentTeamId,
+            foundCheckpoints, 
+            unlockedCheckpoints
+        });
     }
     
     // Mettre à jour l'interface
@@ -1025,17 +1038,41 @@ function unlockCheckpoint(checkpointId) {
         centerMapOnCheckpoint(checkpoint);
     }
     
-    // Sauvegarder la progression dans Firebase
-    if (firebaseService && currentUser) {
+    // Sauvegarder la progression dans Firebase (utilisateur ET équipe)
+    if (firebaseService && currentUser && currentTeamId) {
+        // Mettre à jour l'utilisateur
         firebaseService.updateUserProgress(currentUser.userId, {
             foundCheckpoints: foundCheckpoints,
             unlockedCheckpoints: unlockedCheckpoints
         });
-        console.log('💾 Progression sauvegardée après débloquage:', {foundCheckpoints, unlockedCheckpoints});
+        
+        // Mettre à jour l'équipe aussi pour que l'admin voit les changements
+        firebaseService.updateTeamProgress(currentTeamId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        
+        console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
+            userId: currentUser.userId,
+            teamId: currentTeamId,
+            foundCheckpoints, 
+            unlockedCheckpoints
+        });
     }
     
     updateHint();
     console.log(`🔓 Checkpoint ${checkpointId} débloqué et révélé !`);
+    
+    // Forcer une notification pour vérifier la synchronisation
+    setTimeout(() => {
+        console.log('🔍 Vérification synchronisation après débloquage:', {
+            checkpointId,
+            foundCheckpoints,
+            unlockedCheckpoints,
+            currentUser: currentUser?.name,
+            currentTeamId
+        });
+    }, 1000);
 }
 
 function centerMapOnCheckpoint(checkpoint) {

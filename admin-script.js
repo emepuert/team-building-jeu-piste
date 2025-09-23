@@ -227,6 +227,12 @@ function setupAdminEvents() {
     document.getElementById('export-data').addEventListener('click', exportData);
     document.getElementById('refresh-data').addEventListener('click', refreshData);
     
+    // Bouton de rafraîchissement des équipes
+    document.getElementById('refresh-teams-btn')?.addEventListener('click', () => {
+        showNotification('🔄 Actualisation manuelle...', 'info');
+        loadManagementData();
+    });
+    
     // Gestion équipes et utilisateurs
     document.getElementById('create-team-btn').addEventListener('click', showCreateTeamModal);
     document.getElementById('create-user-btn').addEventListener('click', showCreateUserModal);
@@ -252,6 +258,25 @@ function startRealtimeSync() {
         teamsData = teams;
         updateTeamsDisplay();
         updateStats();
+        
+        // Mettre à jour aussi les données de gestion
+        managementTeamsData = teams;
+        updateTeamsManagementDisplay();
+        updateConfigurationStatus();
+        
+        // Mettre à jour l'heure de dernière mise à jour
+        updateLastUpdateTime();
+    });
+    
+    // Écouter tous les utilisateurs pour voir les changements en temps réel
+    firebaseService.onAllUsersChange((users) => {
+        console.log('👥 Mise à jour utilisateurs:', users);
+        usersData = users;
+        updateUsersManagementDisplay();
+        updateConfigurationStatus();
+        
+        // Mettre à jour l'heure de dernière mise à jour
+        updateLastUpdateTime();
     });
     
     // Écouter les validations en attente (temporairement désactivé - problème d'index Firebase)
@@ -287,7 +312,8 @@ function updateTeamsDisplay() {
             </div>
             
             <div class="team-info">
-                <p><strong>Checkpoint actuel:</strong> ${getCurrentCheckpointName(team)}</p>
+                <p><strong>Checkpoints trouvés:</strong> ${team.foundCheckpoints?.join(', ') || 'Aucun'}</p>
+                <p><strong>Checkpoints débloqués:</strong> ${team.unlockedCheckpoints?.join(', ') || '[0]'}</p>
                 <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
             </div>
             
@@ -600,6 +626,20 @@ function showTeamDetails(teamId) {
           `Progression: ${getTeamProgress(team)}%\n` +
           `Checkpoints trouvés: ${team.foundCheckpoints.join(', ')}\n` +
           `Checkpoints débloqués: ${team.unlockedCheckpoints.join(', ')}`);
+}
+
+function updateLastUpdateTime() {
+    const lastUpdateElement = document.getElementById('last-update');
+    if (lastUpdateElement) {
+        const now = new Date();
+        lastUpdateElement.textContent = `Dernière mise à jour : ${now.toLocaleTimeString('fr-FR')}`;
+        lastUpdateElement.style.color = '#28a745';
+        
+        // Remettre la couleur normale après 2 secondes
+        setTimeout(() => {
+            lastUpdateElement.style.color = '#666';
+        }, 2000);
+    }
 }
 
 // Système de notifications
@@ -1369,7 +1409,9 @@ function updateUsersManagementDisplay() {
                 <h4>${user.name}</h4>
                 <p><strong>ID:</strong> ${user.userId}</p>
                 <p><strong>Équipe:</strong> ${user.teamName}</p>
-                <p><strong>Progression:</strong> ${user.foundCheckpoints?.length || 0} points trouvés</p>
+                <p><strong>Points trouvés:</strong> ${user.foundCheckpoints?.join(', ') || 'Aucun'}</p>
+                <p><strong>Points débloqués:</strong> ${user.unlockedCheckpoints?.join(', ') || '[0]'}</p>
+                <p><strong>Dernière activité:</strong> ${formatDate(user.updatedAt) || 'Jamais'}</p>
             </div>
             <div class="management-actions">
                 <button class="reset-btn" onclick="resetUser('${user.userId}')">🔄 Reset</button>

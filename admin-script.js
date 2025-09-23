@@ -349,9 +349,6 @@ function updateTeamsDisplay() {
             
             <div class="team-actions">
                 <button class="unlock-btn" onclick="unlockNextCheckpoint('${team.id}')">
-                    🔓 Débloquer suivant
-                </button>
-                <button class="success-btn" onclick="solveNextCheckpoint('${team.id}')">
                     ✅ Résoudre suivant
                 </button>
                 <button class="reset-btn" onclick="resetTeam('${team.id}')">
@@ -625,21 +622,32 @@ async function unlockNextCheckpoint(teamId) {
         console.log(`🔧 includes check:`, currentUnlocked.includes(nextCheckpointId));
         
         if (!currentUnlocked.includes(nextCheckpointId)) {
-            // AVANT de débloquer, corriger les incohérences (checkpoints trouvés doivent être débloqués)
-            const correctedUnlocked = [...new Set([...currentUnlocked, ...foundCheckpoints, 0])]; // Merge + dédoublonner
-            const finalUnlocked = [...correctedUnlocked, nextCheckpointId];
+            // NOUVEAU : Débloquer = Résoudre automatiquement !
+            const newFoundCheckpoints = [...foundCheckpoints, nextCheckpointId];
+            const correctedUnlocked = [...new Set([...currentUnlocked, ...newFoundCheckpoints, 0])];
             
-            console.log(`🔧 Avant update Firebase:`, {
-                correctedUnlocked,
+            // Trouver le prochain checkpoint à débloquer après celui qu'on vient de résoudre
+            const nextToUnlock = teamRoute.find(id => 
+                id !== 0 && !newFoundCheckpoints.includes(id) && !correctedUnlocked.includes(id)
+            );
+            
+            const finalUnlocked = nextToUnlock ? 
+                [...correctedUnlocked, nextToUnlock] : correctedUnlocked;
+            
+            console.log(`🔧 Avant update Firebase (DÉBLOQUER = RÉSOUDRE):`, {
+                résolu: nextCheckpointId,
+                newFoundCheckpoints,
                 finalUnlocked,
+                prochainDébloqué: nextToUnlock,
                 teamId
             });
             
             try {
                 await firebaseService.updateTeamProgress(teamId, {
+                    foundCheckpoints: newFoundCheckpoints,
                     unlockedCheckpoints: finalUnlocked
                 });
-                console.log(`✅ Firebase update réussi !`);
+                console.log(`✅ Firebase update réussi (résolu + débloqué) !`);
             } catch (error) {
                 console.error(`❌ Erreur Firebase update:`, error);
                 throw error;
@@ -655,8 +663,16 @@ async function unlockNextCheckpoint(teamId) {
         const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
         
-        console.log(`🔓 Admin rend accessible checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`✅ "${checkpointName}" rendu accessible pour ${team.name}`, 'success');
+        // Construire le message avec le prochain débloqué si applicable
+        let message = `✅ "${checkpointName}" résolu pour ${team.name}`;
+        if (nextToUnlock) {
+            const nextCheckpoint = checkpointsData.find(cp => cp.id === nextToUnlock);
+            const nextName = nextCheckpoint ? nextCheckpoint.name : `Point ${nextToUnlock}`;
+            message += ` + "${nextName}" débloqué`;
+        }
+        
+        console.log(`🔓 Admin résout checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(message, 'success');
         
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);

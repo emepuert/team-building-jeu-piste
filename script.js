@@ -1387,7 +1387,7 @@ function updateHint() {
     }
     
     // Trouver le prochain checkpoint dans la route de l'équipe (débloqué mais pas trouvé)
-    const teamRoute = currentTeam?.route || [];
+    // Réutiliser la variable teamRoute déjà déclarée
     let nextCheckpoint = null;
     
     for (const checkpointId of teamRoute) {

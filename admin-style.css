@@ -1416,3 +1416,23 @@ section h2 {
     font-style: italic;
     transition: color 0.3s ease;
 }
+
+/* Progression du parcours */
+.route-progress {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 5px;
+    border-left: 3px solid #3498db;
+}
+
+.checkpoint-progress-item {
+    padding: 0.2rem 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.checkpoint-progress-item small {
+    opacity: 0.8;
+    font-weight: normal;
+}

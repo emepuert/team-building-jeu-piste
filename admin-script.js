@@ -339,8 +339,10 @@ function updateTeamsDisplay() {
             </div>
             
             <div class="team-info">
-                <p><strong>🏆 Défis résolus:</strong> ${team.foundCheckpoints?.join(', ') || 'Aucun'}</p>
-                <p><strong>🔓 Points débloqués:</strong> ${team.unlockedCheckpoints?.join(', ') || '[0]'}</p>
+                <p><strong>📋 Progression du parcours:</strong></p>
+                <div class="route-progress">
+                    ${getRouteProgressDisplay(team)}
+                </div>
                 <p><strong>📍 Prochain objectif:</strong> ${getNextUnlockedCheckpoint(team)}</p>
                 <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
             </div>
@@ -434,6 +436,52 @@ function getTeamProgress(team) {
 function getCurrentCheckpointName(team) {
     // Logique pour obtenir le nom du checkpoint actuel
     return `Checkpoint ${team.currentCheckpoint}`;
+}
+
+function getRouteProgressDisplay(team) {
+    const foundCheckpoints = team.foundCheckpoints || [];
+    const unlockedCheckpoints = team.unlockedCheckpoints || [0];
+    const teamRoute = team.route || [];
+    
+    if (teamRoute.length === 0) {
+        return '<span style="color: #e74c3c;">❌ Aucun parcours défini</span>';
+    }
+    
+    let progressHTML = '';
+    
+    teamRoute.forEach((checkpointId, index) => {
+        const isFound = foundCheckpoints.includes(checkpointId);
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        
+        // Trouver les infos du checkpoint
+        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
+        
+        // Déterminer le statut et la couleur
+        let statusIcon, statusText, statusColor;
+        
+        if (isFound) {
+            statusIcon = '✅';
+            statusText = 'trouvé';
+            statusColor = '#27ae60';
+        } else if (isUnlocked) {
+            statusIcon = '🔓';
+            statusText = 'débloqué';
+            statusColor = '#f39c12';
+        } else {
+            statusIcon = '⏳';
+            statusText = 'à débloquer';
+            statusColor = '#95a5a6';
+        }
+        
+        progressHTML += `
+            <div class="checkpoint-progress-item" style="color: ${statusColor};">
+                ${statusIcon} ${index + 1}. ${checkpointName} <small>(${statusText})</small>
+            </div>
+        `;
+    });
+    
+    return progressHTML;
 }
 
 function getNextUnlockedCheckpoint(team) {

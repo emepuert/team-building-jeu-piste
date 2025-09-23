@@ -829,7 +829,10 @@ function setupAddressAutocomplete() {
 
 async function fetchAddressSuggestions(query) {
     try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+        // Utiliser un proxy CORS pour contourner les restrictions
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`;
+        const response = await fetch(proxyUrl + encodeURIComponent(nominatimUrl));
         const data = await response.json();
         
         addressSuggestions = data;
@@ -838,6 +841,11 @@ async function fetchAddressSuggestions(query) {
     } catch (error) {
         console.error('❌ Erreur autocomplétion:', error);
         hideSuggestions();
+        
+        // Si c'est un problème CORS, afficher une aide
+        if (error.message.includes('fetch')) {
+            console.log('💡 Solution : Cliquez directement sur la carte pour placer le point, ou utilisez les coordonnées manuellement');
+        }
     }
 }
 
@@ -1628,8 +1636,10 @@ async function searchAddress() {
     }
     
     try {
-        // Utiliser l'API Nominatim d'OpenStreetMap pour la géocodage
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+        // Utiliser un proxy CORS pour la géocodage
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+        const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+        const response = await fetch(proxyUrl + encodeURIComponent(nominatimUrl));
         const data = await response.json();
         
         if (data.length === 0) {
@@ -1661,7 +1671,7 @@ async function searchAddress() {
         
     } catch (error) {
         console.error('❌ Erreur recherche adresse:', error);
-        showNotification('Erreur lors de la recherche', 'error');
+        showNotification('Erreur recherche adresse. Cliquez sur la carte ou entrez les coordonnées manuellement.', 'warning');
     }
 }
 

@@ -538,14 +538,32 @@ async function unlockNextCheckpoint(teamId) {
         // NOUVEAU : On ajoute le checkpoint aux "unlockedCheckpoints" pour le rendre accessible
         // Mais on garde la logique basée sur foundCheckpoints comme référence
         const currentUnlocked = team.unlockedCheckpoints || [0];
+        console.log(`🔧 currentUnlocked:`, currentUnlocked);
+        console.log(`🔧 nextCheckpointId:`, nextCheckpointId);
+        console.log(`🔧 includes check:`, currentUnlocked.includes(nextCheckpointId));
+        
         if (!currentUnlocked.includes(nextCheckpointId)) {
             // AVANT de débloquer, corriger les incohérences (checkpoints trouvés doivent être débloqués)
             const correctedUnlocked = [...new Set([...currentUnlocked, ...foundCheckpoints, 0])]; // Merge + dédoublonner
+            const finalUnlocked = [...correctedUnlocked, nextCheckpointId];
             
-            await firebaseService.updateTeamProgress(teamId, {
-                unlockedCheckpoints: [...correctedUnlocked, nextCheckpointId] // Ajouter le nouveau
+            console.log(`🔧 Avant update Firebase:`, {
+                correctedUnlocked,
+                finalUnlocked,
+                teamId
             });
+            
+            try {
+                await firebaseService.updateTeamProgress(teamId, {
+                    unlockedCheckpoints: finalUnlocked
+                });
+                console.log(`✅ Firebase update réussi !`);
+            } catch (error) {
+                console.error(`❌ Erreur Firebase update:`, error);
+                throw error;
+            }
         } else {
+            console.log(`ℹ️ Checkpoint ${nextCheckpointId} déjà dans unlocked:`, currentUnlocked);
             showNotification(`Checkpoint ${nextCheckpointId} déjà accessible pour ${team.name}`, 'info');
             return;
         }

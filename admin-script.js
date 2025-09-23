@@ -312,8 +312,9 @@ function updateTeamsDisplay() {
             </div>
             
             <div class="team-info">
-                <p><strong>Checkpoints trouvés:</strong> ${team.foundCheckpoints?.join(', ') || 'Aucun'}</p>
-                <p><strong>Checkpoints débloqués:</strong> ${team.unlockedCheckpoints?.join(', ') || '[0]'}</p>
+                <p><strong>🏆 Défis résolus:</strong> ${team.foundCheckpoints?.join(', ') || 'Aucun'}</p>
+                <p><strong>🔓 Points débloqués:</strong> ${team.unlockedCheckpoints?.join(', ') || '[0]'}</p>
+                <p><strong>📍 Prochain objectif:</strong> ${getNextUnlockedCheckpoint(team)}</p>
                 <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
             </div>
             
@@ -408,6 +409,24 @@ function getCurrentCheckpointName(team) {
     return `Checkpoint ${team.currentCheckpoint}`;
 }
 
+function getNextUnlockedCheckpoint(team) {
+    const currentUnlocked = team.unlockedCheckpoints || [0];
+    const teamRoute = team.route || [];
+    
+    // Chercher le prochain checkpoint non débloqué dans la route
+    const nextCheckpointId = teamRoute.find(checkpointId => 
+        !currentUnlocked.includes(checkpointId)
+    );
+    
+    if (!nextCheckpointId) {
+        return 'Tous débloqués';
+    }
+    
+    // Trouver le nom du checkpoint
+    const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
+    return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${nextCheckpointId}`;
+}
+
 function getTeamName(teamId) {
     const team = teamsData.find(t => t.id === teamId);
     return team ? team.name : 'Équipe inconnue';
@@ -428,11 +447,36 @@ function formatDate(timestamp) {
 async function unlockNextCheckpoint(teamId) {
     try {
         const team = teamsData.find(t => t.id === teamId);
-        if (!team) return;
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
         
-        const nextCheckpointId = team.currentCheckpoint + 1;
+        // Trouver le prochain checkpoint dans la route de l'équipe
+        const currentUnlocked = team.unlockedCheckpoints || [0];
+        const teamRoute = team.route || [];
+        
+        // Chercher le prochain checkpoint non débloqué dans la route
+        const nextCheckpointId = teamRoute.find(checkpointId => 
+            !currentUnlocked.includes(checkpointId)
+        );
+        
+        if (!nextCheckpointId) {
+            showNotification(`Équipe ${team.name} a déjà tous ses checkpoints débloqués`, 'warning');
+            return;
+        }
+        
+        // Débloquer le checkpoint via Firebase
         await firebaseService.unlockCheckpointForTeam(teamId, nextCheckpointId);
-        showNotification(`✅ Checkpoint ${nextCheckpointId} débloqué pour ${team.name}`, 'success');
+        
+        // Trouver le nom du checkpoint
+        const checkpointsData = await firebaseService.getAllCheckpoints();
+        const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
+        
+        console.log(`🔓 Admin débloque checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(`✅ "${checkpointName}" débloqué pour ${team.name}`, 'success');
+        
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);
         showNotification('❌ Erreur lors du déblocage', 'error');
@@ -1409,8 +1453,8 @@ function updateUsersManagementDisplay() {
                 <h4>${user.name}</h4>
                 <p><strong>ID:</strong> ${user.userId}</p>
                 <p><strong>Équipe:</strong> ${user.teamName}</p>
-                <p><strong>Points trouvés:</strong> ${user.foundCheckpoints?.join(', ') || 'Aucun'}</p>
-                <p><strong>Points débloqués:</strong> ${user.unlockedCheckpoints?.join(', ') || '[0]'}</p>
+                <p><strong>🏆 Défis résolus:</strong> ${user.foundCheckpoints?.join(', ') || 'Aucun'}</p>
+                <p><strong>🔓 Points accessibles:</strong> ${user.unlockedCheckpoints?.join(', ') || '[0]'}</p>
                 <p><strong>Dernière activité:</strong> ${formatDate(user.updatedAt) || 'Jamais'}</p>
             </div>
             <div class="management-actions">

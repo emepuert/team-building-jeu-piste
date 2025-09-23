@@ -266,6 +266,9 @@ async function loadUserGameData() {
         // Démarrer le jeu
         startGame();
         
+        // Démarrer la synchronisation temps réel avec l'équipe
+        startTeamSync();
+        
         console.log(`✅ Utilisateur ${currentUser.name} connecté - Équipe ${team.name}`, {
             foundCheckpoints,
             unlockedCheckpoints,
@@ -1528,21 +1531,151 @@ window.calculateRouteFromPopup = calculateRouteFromPopup;
 
 // Fonction supprimée - les checkpoints sont maintenant créés via l'admin
 
-// Synchronisation temps réel des équipes
-function syncTeamData() {
-    if (!firebaseService || !currentTeamId) return;
+// Démarrer la synchronisation temps réel avec l'équipe
+function startTeamSync() {
+    if (!firebaseService || !currentTeamId) {
+        console.warn('⚠️ Impossible de démarrer la synchronisation équipe:', {firebaseService: !!firebaseService, currentTeamId});
+        return;
+    }
+    
+    console.log('🔄 Démarrage synchronisation temps réel équipe:', currentTeamId);
     
     firebaseService.onTeamChange(currentTeamId, (teamData) => {
-        console.log('🔄 Mise à jour des données de l\'équipe:', teamData);
-        // Mettre à jour l'état local avec les données de l'équipe
-        // selectedTeam n'est plus utilisé, on utilise currentUser
-        unlockedCheckpoints = teamData.unlockedCheckpoints;
-        foundCheckpoints = teamData.foundCheckpoints;
+        console.log('📡 Mise à jour reçue de l\'équipe:', teamData);
         
-        // Mettre à jour l'interface utilisateur
+        if (!teamData) {
+            console.warn('⚠️ Données d\'équipe vides reçues');
+            return;
+        }
+        
+        // Vérifier si les checkpoints débloqués ont changé (action admin)
+        const newUnlockedCheckpoints = teamData.unlockedCheckpoints || [0];
+        const currentUnlocked = unlockedCheckpoints || [0];
+        
+        const hasNewUnlocked = newUnlockedCheckpoints.some(id => !currentUnlocked.includes(id));
+        
+        if (hasNewUnlocked) {
+            console.log('🔓 Nouveaux checkpoints débloqués par admin:', {
+                avant: currentUnlocked,
+                après: newUnlockedCheckpoints,
+                nouveaux: newUnlockedCheckpoints.filter(id => !currentUnlocked.includes(id))
+            });
+            
+            // Mettre à jour les checkpoints débloqués
+            unlockedCheckpoints = [...newUnlockedCheckpoints];
+            
+            // Révéler les nouveaux checkpoints sur la carte
+            const newlyUnlocked = newUnlockedCheckpoints.filter(id => !currentUnlocked.includes(id));
+            newlyUnlocked.forEach(checkpointId => {
+                if (checkpointId !== 0) { // Ignorer le lobby
+                    revealCheckpointOnMap(checkpointId);
+                }
+            });
+            
+            // Mettre à jour l'interface
+            updateUI();
+            
+            // Notification à l'utilisateur
+            if (newlyUnlocked.length > 0) {
+                const checkpointNames = newlyUnlocked.map(id => {
+                    const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
+                    return cp ? cp.name : `Point ${id}`;
+                }).join(', ');
+                
+                showNotification(`🎯 Admin a débloqué : ${checkpointNames}`, 'success');
+            }
+        }
+        
+        // Synchroniser les checkpoints trouvés (ne pas écraser les progrès locaux)
+        const teamFoundCheckpoints = teamData.foundCheckpoints || [];
+        const localFoundCheckpoints = foundCheckpoints || [];
+        
+        // Prendre le maximum entre local et équipe (ne jamais perdre de progrès)
+        const mergedFoundCheckpoints = [...new Set([...localFoundCheckpoints, ...teamFoundCheckpoints])];
+        
+        if (mergedFoundCheckpoints.length !== localFoundCheckpoints.length) {
+            console.log('📊 Synchronisation checkpoints trouvés:', {
+                local: localFoundCheckpoints,
+                équipe: teamFoundCheckpoints,
+                fusionné: mergedFoundCheckpoints
+            });
+            
+            foundCheckpoints = mergedFoundCheckpoints;
+            updateUI();
+        }
+        
+        // Mettre à jour les infos d'équipe
         showTeamInfo();
         updateProgress();
     });
+}
+
+// Révéler un checkpoint sur la carte (appelé quand l'admin débloque)
+function revealCheckpointOnMap(checkpointId) {
+    const markerData = checkpointMarkers.find(m => m.id === checkpointId);
+    
+    if (markerData && markerData.hidden) {
+        const checkpoint = markerData.checkpoint;
+        
+        console.log(`🎭 Révélation du checkpoint ${checkpoint.name} (débloqué par admin)`);
+        
+        // Créer le cercle de proximité
+        const circle = L.circle(checkpoint.coordinates, {
+            color: '#f39c12', // Orange pour indiquer débloqué par admin
+            fillColor: '#f39c12',
+            fillOpacity: 0.1,
+            radius: GAME_CONFIG.proximityThreshold,
+            weight: 2,
+            opacity: 0.6
+        }).addTo(map);
+        
+        // Créer le marqueur
+        const markerIcon = L.divIcon({
+            className: 'checkpoint-marker admin-unlocked',
+            html: checkpoint.emoji,
+            iconSize: [30, 30],
+            iconAnchor: [15, 15]
+        });
+        
+        // Créer le contenu du popup
+        let popupContent = `
+            <div style="text-align: center;">
+                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                <p>🔓 Débloqué par l'admin</p>
+                <p><em>${checkpoint.hint}</em></p>
+                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+        `;
+        
+        // Ajouter le bouton GPS
+        if (userPosition) {
+            popupContent += `
+                <br>
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
+                        style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
+                               color: white; border: none; padding: 0.5rem 1rem; 
+                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                               margin-top: 0.5rem;">
+                    🧭 Calculer l'itinéraire GPS
+                </button>
+            `;
+        }
+        
+        popupContent += '</div>';
+        
+        const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
+            .addTo(map)
+            .bindPopup(popupContent);
+        
+        // Mettre à jour les données du marqueur
+        markerData.marker = marker;
+        markerData.circle = circle;
+        markerData.hidden = false;
+        
+        // Animation de zoom vers le nouveau checkpoint
+        setTimeout(() => {
+            centerMapOnCheckpoint(checkpoint);
+        }, 500);
+    }
 }
 
 // Synchronisation temps réel des checkpoints

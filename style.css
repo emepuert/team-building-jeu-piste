@@ -544,6 +544,25 @@ button:active {
     transform: none;
 }
 
+.checkpoint-marker.admin-unlocked {
+    background: #f39c12;
+    border: 3px solid #fff;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+    animation: adminPulse 2s infinite;
+}
+
+@keyframes adminPulse {
+    0% {
+        box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(243, 156, 18, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+    }
+}
+
 /* Responsive design */
 @media (max-width: 768px) {  
       

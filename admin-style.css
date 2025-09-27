@@ -398,6 +398,10 @@ section h2 {
     background: #9b59b6;
 }
 
+.help-request-type.photo {
+    background: #e67e22;
+}
+
 .help-request-content {
     margin: 1rem 0;
     padding: 1rem;

@@ -697,7 +697,7 @@ function foundCheckpoint(checkpoint) {
     // Pour les checkpoints photo, ne pas marquer comme trouvé immédiatement
     // Attendre la validation admin
     if (checkpoint.type !== 'photo') {
-        foundCheckpoints.push(checkpoint.id);
+    foundCheckpoints.push(checkpoint.id);
     }
     
     // Supprimer la route actuelle puisque le point est atteint
@@ -1339,10 +1339,10 @@ function updatePlayerRouteProgress() {
                 statusColor = '#e67e22';
                 clickable = true; // Peut cliquer pour zoomer
             } else {
-                statusIcon = '🎯';
-                statusText = 'accessible';
-                statusColor = '#f39c12';
-                clickable = true; // Peut cliquer pour zoomer
+            statusIcon = '🎯';
+            statusText = 'accessible';
+            statusColor = '#f39c12';
+            clickable = true; // Peut cliquer pour zoomer
             }
         } else {
             statusIcon = '🔒';
@@ -1371,6 +1371,9 @@ function updatePlayerRouteProgress() {
             if (checkpoint?.type === 'final') {
                 // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
                 helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
+            } else if (checkpoint?.type === 'photo') {
+                // Checkpoint photo accessible → bouton validation forcée
+                helpButtons = `<button class="help-btn-small" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">📸</button>`;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
@@ -1709,6 +1712,7 @@ window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
 window.requestLocationHelpFor = requestLocationHelpFor;
 window.requestRiddleHelpFor = requestRiddleHelpFor;
+window.requestPhotoHelpFor = requestPhotoHelpFor;
 window.showPhotoChallenge = showPhotoChallenge;
 
 // Fonction supprimée - les checkpoints sont maintenant créés via l'admin
@@ -1954,6 +1958,28 @@ async function requestLocationHelpFor(checkpointId) {
         
     } catch (error) {
         console.error('❌ Erreur demande d\'aide localisation:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Demander l'aide pour forcer la validation d'une photo
+async function requestPhotoHelpFor(checkpointId) {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande la validation forcée de la photo "${checkpointName}".`;
+        
+        await firebaseService.createHelpRequest(currentTeamId, checkpointId, 'photo', message);
+        showNotification(`Demande d'aide envoyée pour la photo "${checkpointName}"`, 'success');
+        console.log(`📸 Demande validation forcée envoyée pour: ${checkpointName}`);
+        
+    } catch (error) {
+        console.error('❌ Erreur envoi demande aide photo:', error);
         showNotification('Erreur lors de l\'envoi de la demande', 'error');
     }
 }

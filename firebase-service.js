@@ -235,6 +235,34 @@ class FirebaseService {
                         });
                     }
                 }
+            } else if (helpData.type === 'photo') {
+                // Forcer la validation de la photo (même logique que riddle)
+                const team = await this.getTeam(helpData.teamId);
+                if (team) {
+                    const foundCheckpoints = team.foundCheckpoints || [];
+                    if (!foundCheckpoints.includes(helpData.checkpointId)) {
+                        foundCheckpoints.push(helpData.checkpointId);
+                        
+                        // Débloquer aussi le prochain checkpoint selon la route
+                        const teamRoute = team.route || [];
+                        const currentIndex = teamRoute.indexOf(helpData.checkpointId);
+                        const nextCheckpointId = currentIndex >= 0 && currentIndex < teamRoute.length - 1 
+                            ? teamRoute[currentIndex + 1] 
+                            : null;
+                        
+                        const unlockedCheckpoints = team.unlockedCheckpoints || [];
+                        if (nextCheckpointId && !unlockedCheckpoints.includes(nextCheckpointId)) {
+                            unlockedCheckpoints.push(nextCheckpointId);
+                        }
+                        
+                        await this.updateTeamProgress(helpData.teamId, {
+                            foundCheckpoints,
+                            unlockedCheckpoints
+                        });
+                        
+                        console.log(`📸 Validation forcée photo pour équipe ${team.name}`);
+                    }
+                }
             }
         }
         

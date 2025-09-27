@@ -467,8 +467,12 @@ function updateHelpRequestsDisplay() {
             checkpointName
         });
         
-        const typeText = helpRequest.type === 'location' ? 'Localisation' : 'Énigme';
-        const typeIcon = helpRequest.type === 'location' ? '📍' : '🧩';
+        const typeText = helpRequest.type === 'location' ? 'Localisation' : 
+                         helpRequest.type === 'riddle' ? 'Énigme' : 
+                         helpRequest.type === 'photo' ? 'Validation Photo' : 'Aide';
+        const typeIcon = helpRequest.type === 'location' ? '📍' : 
+                        helpRequest.type === 'riddle' ? '🧩' : 
+                        helpRequest.type === 'photo' ? '📸' : '❓';
         
         return `
             <div class="help-request-card">

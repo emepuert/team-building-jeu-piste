@@ -1510,3 +1510,29 @@ section h2 {
     opacity: 0.8;
     font-weight: normal;
 }
+
+/* ===== INFO BOX POUR FORMULAIRES ===== */
+.info-box {
+    background: rgba(52, 152, 219, 0.1);
+    border: 2px solid rgba(52, 152, 219, 0.3);
+    border-radius: 10px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.info-box p {
+    margin: 0 0 0.5rem 0;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.info-box ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #34495e;
+}
+
+.info-box li {
+    margin: 0.3rem 0;
+    font-size: 0.9rem;
+}

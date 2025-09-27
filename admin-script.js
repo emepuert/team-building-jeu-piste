@@ -2115,11 +2115,16 @@ function updateDynamicContent() {
             content += `
                 <div>
                     <label class="field-label">Instructions pour la photo :</label>
-                    <textarea id="photo-instructions" placeholder="Prenez une photo de... et envoyez-la via WhatsApp" rows="3" required></textarea>
+                    <textarea id="photo-instructions" placeholder="Prenez une photo de... avec votre caméra" rows="3" required></textarea>
                 </div>
-                <div>
-                    <label class="field-label">Numéro WhatsApp admin :</label>
-                    <input type="tel" id="photo-whatsapp" placeholder="+352 XX XX XX XX" required>
+                <div class="info-box">
+                    <p><strong>ℹ️ Système de photos intégré :</strong></p>
+                    <ul>
+                        <li>📷 Caméra intégrée dans l'application</li>
+                        <li>🗜️ Compression automatique (max 1MB)</li>
+                        <li>✅ Validation directe dans l'interface admin</li>
+                        <li>🚫 Plus besoin de WhatsApp</li>
+                    </ul>
                 </div>
             `;
             break;
@@ -2205,15 +2210,14 @@ async function createCheckpoint() {
                 
             case 'photo':
                 const photoInstructions = document.getElementById('photo-instructions')?.value.trim();
-                const photoWhatsapp = document.getElementById('photo-whatsapp')?.value.trim();
                 
-                if (!photoInstructions || !photoWhatsapp) {
-                    showNotification('Veuillez remplir les instructions et le numéro WhatsApp', 'error');
+                if (!photoInstructions) {
+                    showNotification('Veuillez remplir les instructions pour la photo', 'error');
                     return;
                 }
                 
                 clueData.text = photoInstructions;
-                clueData.whatsapp = photoWhatsapp;
+                // Plus besoin de WhatsApp - système intégré
                 break;
                 
             case 'info':

@@ -1275,7 +1275,7 @@ function updateUI() {
 
 function updatePlayerRouteProgress() {
     const routeListElement = document.getElementById('player-route-list');
-
+    
     if (!currentTeam || !currentTeam.route) {
         routeListElement.innerHTML = '<p style="color: #e74c3c;">❌ Aucun parcours défini</p>';
         return;
@@ -1370,9 +1370,9 @@ function updatePlayerRouteProgress() {
                  style="color: ${statusColor}; ${cursorStyle}" 
                  ${clickHandler}>
                 <div class="checkpoint-info">
-                    ${statusIcon} ${index + 1}. ${checkpointName} 
-                    <small>(${statusText})</small>
-                    ${clickable && userPosition ? ' 🧭' : ''}
+                ${statusIcon} ${index + 1}. ${checkpointName} 
+                <small>(${statusText})</small>
+                ${clickable && userPosition ? ' 🧭' : ''}
                 </div>
                 <div class="checkpoint-actions">
                     ${helpButtons}

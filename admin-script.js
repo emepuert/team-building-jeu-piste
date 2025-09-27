@@ -350,7 +350,13 @@ function updateTeamsDisplay() {
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${getTeamProgress(team)}%"></div>
                 </div>
-                <small>${team.foundCheckpoints.filter(id => id !== 0).length} / ${team.route.filter(id => id !== 0).length} défis résolus (validés)</small>
+                <small>${team.foundCheckpoints.filter(id => {
+                    const cp = checkpointsData.find(c => c.id === id);
+                    return cp && !cp.isLobby;
+                }).length} / ${team.route.filter(id => {
+                    const cp = checkpointsData.find(c => c.id === id);
+                    return cp && !cp.isLobby;
+                }).length} défis résolus (validés)</small>
             </div>
             
             <div class="team-info">
@@ -527,9 +533,16 @@ function getTeamStatusText(team) {
 }
 
 function getTeamProgress(team) {
-    // Exclure le lobby (ID 0) du calcul de progression
-    const nonLobbyFound = team.foundCheckpoints.filter(id => id !== 0);
-    const nonLobbyTotal = team.route.filter(id => id !== 0).length;
+    // ⚡ CORRIGER : Exclure le lobby par sa propriété isLobby, pas par ID
+    const nonLobbyFound = team.foundCheckpoints.filter(id => {
+        const cp = checkpointsData.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    });
+    
+    const nonLobbyTotal = team.route.filter(id => {
+        const cp = checkpointsData.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    }).length;
     
     if (nonLobbyTotal === 0) return 0;
     
@@ -538,6 +551,7 @@ function getTeamProgress(team) {
     console.log(`📊 Progression ${team.name}: ${nonLobbyFound.length}/${nonLobbyTotal} (${Math.round((nonLobbyFound.length / nonLobbyTotal) * 100)}%)`, {
         foundCheckpoints: team.foundCheckpoints,
         nonLobbyFound: nonLobbyFound,
+        nonLobbyTotal: nonLobbyTotal,
         route: team.route
     });
     

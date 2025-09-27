@@ -2301,18 +2301,38 @@ async function loadCheckpointsForRoute() {
             item.draggable = true;
             item.dataset.checkpointId = checkpoint.id;
             item.innerHTML = `
+                <input type="checkbox" id="create-checkpoint-${checkpoint.id}" 
+                       value="${checkpoint.id}" 
+                       onchange="updateCreateRouteSelection()">
                 <span class="drag-handle">⋮⋮</span>
                 <span class="checkpoint-info">${checkpoint.emoji} ${checkpoint.name}</span>
                 <span class="checkpoint-type">${checkpoint.type}</span>
             `;
+            
+            // Ajouter les événements drag & drop
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            
             orderList.appendChild(item);
         });
+        
+        // Configurer le drop zone pour la création
+        orderList.addEventListener('dragover', handleDragOver);
+        orderList.addEventListener('drop', handleCreateRouteDrop);
 
-        // Ajouter la fonctionnalité drag & drop
-        setupDragAndDrop();
     } catch (error) {
         console.error('❌ Erreur chargement checkpoints:', error);
     }
+}
+
+function updateCreateRouteSelection() {
+    // Pas besoin de faire quoi que ce soit, l'ordre sera récupéré au moment de la création
+    console.log('☑️ Sélection mise à jour pour création');
+}
+
+function handleCreateRouteDrop(e) {
+    e.preventDefault();
+    console.log('🔄 Drag & drop dans création de parcours');
 }
 
 function setupDragAndDrop() {
@@ -2360,19 +2380,29 @@ function getDragAfterElement(container, y) {
 
 async function createRoute() {
     const name = document.getElementById('route-name').value.trim();
-    const orderItems = document.querySelectorAll('.checkpoint-order-item');
     
     if (!name) {
         showNotification('Veuillez entrer un nom de parcours', 'error');
         return;
     }
 
-    if (orderItems.length === 0) {
-        showNotification('Aucun checkpoint disponible', 'error');
+    // Récupérer seulement les checkpoints COCHÉS dans l'ordre DOM
+    const allItems = document.querySelectorAll('#checkpoint-order-list .checkpoint-order-item');
+    const route = [];
+    
+    allItems.forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            route.push(parseInt(checkbox.value));
+        }
+    });
+
+    if (route.length === 0) {
+        showNotification('Veuillez sélectionner au moins un checkpoint', 'error');
         return;
     }
 
-    const route = Array.from(orderItems).map(item => parseInt(item.dataset.checkpointId));
+    console.log('🛤️ Création parcours avec ordre:', route);
 
     try {
         const routeData = {
@@ -3160,3 +3190,4 @@ async function handleEditTeam() {
 // Exposer les nouvelles fonctions globalement
 window.toggleCheckpointSelection = toggleCheckpointSelection;
 window.removeCheckpointFromSelection = removeCheckpointFromSelection;
+window.updateCreateRouteSelection = updateCreateRouteSelection;

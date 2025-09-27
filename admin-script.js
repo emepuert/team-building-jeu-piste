@@ -2874,15 +2874,19 @@ async function loadCheckpointsForRouteEdit(currentRoute = []) {
 }
 
 function toggleCheckpointSelection(checkpointId, isSelected) {
-    if (isSelected) {
-        if (!selectedCheckpoints.includes(checkpointId)) {
-            selectedCheckpoints.push(checkpointId);
-        }
-    } else {
-        selectedCheckpoints = selectedCheckpoints.filter(id => id !== checkpointId);
-    }
+    // Reconstruire l'ordre selon l'ordre DOM actuel
+    const allItems = document.querySelectorAll('#checkpoints-list .checkpoint-order-item');
+    selectedCheckpoints = [];
     
-    // Pas besoin - tout est géré par les checkboxes dans la liste principale
+    // Parcourir dans l'ordre DOM et ajouter seulement les cochés
+    allItems.forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            selectedCheckpoints.push(parseInt(checkbox.value));
+        }
+    });
+    
+    console.log('☑️ Ordre après sélection:', selectedCheckpoints);
 }
 
 function removeCheckpointFromSelection(checkpointId) {
@@ -2923,10 +2927,18 @@ function handleDrop(e) {
     e.preventDefault();
     
     // Reconstruire l'ordre des checkpoints selon l'ordre des éléments DOM dans la liste principale
-    const items = document.querySelectorAll('#checkpoints-list .checkpoint-order-item input[type="checkbox"]:checked');
-    selectedCheckpoints = Array.from(items).map(input => parseInt(input.value));
+    const allItems = document.querySelectorAll('#checkpoints-list .checkpoint-order-item');
+    selectedCheckpoints = [];
     
-    // Pas besoin - tout géré par les checkboxes
+    // Parcourir dans l'ordre DOM et ajouter seulement les cochés
+    allItems.forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            selectedCheckpoints.push(parseInt(checkbox.value));
+        }
+    });
+    
+    console.log('🔄 Nouvel ordre après drag & drop:', selectedCheckpoints);
 }
 
 function getDragAfterElement(container, y) {

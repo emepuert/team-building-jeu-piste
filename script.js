@@ -1339,10 +1339,10 @@ function updatePlayerRouteProgress() {
                 statusColor = '#e67e22';
                 clickable = true; // Peut cliquer pour zoomer
             } else {
-            statusIcon = '🎯';
-            statusText = 'accessible';
-            statusColor = '#f39c12';
-            clickable = true; // Peut cliquer pour zoomer
+                statusIcon = '🎯';
+                statusText = 'accessible';
+                statusColor = '#f39c12';
+                clickable = true; // Peut cliquer pour zoomer
             }
         } else {
             statusIcon = '🔒';
@@ -1373,8 +1373,11 @@ function updatePlayerRouteProgress() {
                 // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
                 helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
             } else if (checkpoint?.type === 'photo') {
-                // Checkpoint photo accessible → bouton validation forcée
-                helpButtons = `<button class="help-btn-small photo-validation" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">📸</button>`;
+                // Checkpoint photo accessible → boutons reprendre + validation forcée
+                helpButtons = `
+                    <button class="help-btn-small photo-location" onclick="showPhotoChallenge(GAME_CONFIG.checkpoints.find(cp => cp.id === ${checkpointId}))" title="Reprendre une photo">📸</button>
+                    <button class="help-btn-small photo-validation" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
+                `;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
@@ -2296,21 +2299,41 @@ function showAdminRefusalNotification(type, data) {
         message += `\n\n💬 Note de l'admin : "${data.adminNotes}"`;
     }
     
-    // Afficher une notification persistante
-    showPersistentNotification(title, message);
+    // Vérifier si c'est une photo refusée pour ajouter le bouton reprendre
+    const isPhotoRefusal = (type === 'validation' && checkpoint?.type === 'photo') || 
+                          (type === 'aide' && data.type === 'photo');
+    
+    // Afficher une notification persistante avec bouton reprendre si c'est une photo
+    showPersistentNotification(title, message, isPhotoRefusal ? checkpoint : null);
 }
 
-// Notification persistante avec bouton OK
-function showPersistentNotification(title, message) {
+// Notification persistante avec bouton OK (et bouton reprendre photo si applicable)
+function showPersistentNotification(title, message, photoCheckpoint = null) {
     // Créer le modal de notification
     const modal = document.createElement('div');
     modal.className = 'modal';
     modal.style.display = 'flex';
+    
+    // Boutons selon le contexte
+    let buttonsHTML = '';
+    if (photoCheckpoint) {
+        // Photo refusée → boutons Reprendre + OK
+        buttonsHTML = `
+            <div style="display: flex; gap: 0.5rem; width: 100%;">
+                <button id="notification-retry-btn" class="photo-btn success" style="flex: 1;">📸 Reprendre photo</button>
+                <button id="notification-ok-btn" class="photo-btn" style="flex: 1;">OK</button>
+            </div>
+        `;
+    } else {
+        // Notification normale → juste OK
+        buttonsHTML = `<button id="notification-ok-btn" class="photo-btn" style="width: 100%;">OK</button>`;
+    }
+    
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 400px;">
             <h2 style="color: #e74c3c; margin-bottom: 1rem;">${title}</h2>
             <p style="white-space: pre-line; margin-bottom: 1.5rem;">${message}</p>
-            <button id="notification-ok-btn" class="photo-btn" style="width: 100%;">OK</button>
+            ${buttonsHTML}
         </div>
     `;
     
@@ -2321,6 +2344,17 @@ function showPersistentNotification(title, message) {
     okBtn.addEventListener('click', () => {
         document.body.removeChild(modal);
     });
+    
+    // Gérer le bouton reprendre photo
+    if (photoCheckpoint) {
+        const retryBtn = modal.querySelector('#notification-retry-btn');
+        retryBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+            // Relancer le défi photo
+            showPhotoChallenge(photoCheckpoint);
+            console.log(`📸 Reprise du défi photo pour: ${photoCheckpoint.name}`);
+        });
+    }
     
     // Auto-suppression après 30 secondes
     setTimeout(() => {

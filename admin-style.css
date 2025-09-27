@@ -1536,3 +1536,105 @@ section h2 {
     margin: 0.3rem 0;
     font-size: 0.9rem;
 }
+
+/* ===== INTERFACE ÉLÉGANTE CHECKPOINTS PARCOURS ===== */
+.selected-checkpoint-item {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px solid rgba(52, 152, 219, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    cursor: move;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.selected-checkpoint-item:hover {
+    background: linear-gradient(135deg, #f1ff33 0%, #f8f9fa 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.2);
+    border-color: rgba(52, 152, 219, 0.4);
+}
+
+.selected-checkpoint-item.dragging {
+    opacity: 0.7;
+    transform: rotate(2deg);
+    z-index: 1000;
+}
+
+.checkpoint-drag-handle {
+    display: flex;
+    align-items: center;
+    margin-right: 1rem;
+    cursor: move;
+}
+
+.drag-icon {
+    color: #7f8c8d;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: color 0.2s ease;
+}
+
+.selected-checkpoint-item:hover .drag-icon {
+    color: #3498db;
+}
+
+.checkpoint-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.checkpoint-number {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+}
+
+.checkpoint-name {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 1rem;
+}
+
+.checkpoint-remove-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3);
+    position: absolute;
+    top: -8px;
+    right: -8px;
+}
+
+.checkpoint-remove-btn:hover {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+.checkpoint-remove-btn svg {
+    width: 14px;
+    height: 14px;
+}

@@ -2895,9 +2895,19 @@ function updateSelectedCheckpointsOrder() {
         item.draggable = true;
         item.dataset.checkpointId = checkpointId;
         item.innerHTML = `
-            <span class="drag-handle">⋮⋮</span>
-            <span class="checkpoint-info">${index + 1}. ${checkpointName}</span>
-            <button class="remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer">×</button>
+            <div class="checkpoint-drag-handle">
+                <span class="drag-icon">⋮⋮</span>
+            </div>
+            <div class="checkpoint-content">
+                <span class="checkpoint-number">${index + 1}</span>
+                <span class="checkpoint-name">${checkpointName}</span>
+            </div>
+            <button class="checkpoint-remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer ce checkpoint">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
         `;
         
         // Ajouter les événements drag & drop
@@ -2993,9 +3003,29 @@ async function handleEditRoute() {
         
         await firebaseService.updateRoute(currentEditingRouteId, routeData);
         
+        // Mettre à jour toutes les équipes qui utilisent ce parcours
+        const teamsUsingRoute = managementTeamsData.filter(team => 
+            team.route && JSON.stringify(team.route.sort()) === JSON.stringify(selectedCheckpoints.sort())
+        );
+        
+        if (teamsUsingRoute.length > 0) {
+            showNotification(`🔄 Mise à jour de ${teamsUsingRoute.length} équipe(s) utilisant ce parcours...`, 'info');
+            
+            for (const team of teamsUsingRoute) {
+                await firebaseService.updateTeamProgress(team.id, {
+                    route: selectedCheckpoints,
+                    // Réinitialiser la progression si le parcours a changé
+                    foundCheckpoints: [],
+                    unlockedCheckpoints: [0],
+                    currentCheckpoint: 0
+                });
+            }
+        }
+        
         hideEditRouteModal();
-        showNotification(`✅ Parcours "${newName}" modifié avec succès`, 'success');
+        showNotification(`✅ Parcours "${newName}" et ${teamsUsingRoute.length} équipe(s) mis à jour`, 'success');
         loadRoutes();
+        loadManagementData(); // Recharger les équipes
         
     } catch (error) {
         console.error('❌ Erreur modification parcours:', error);

@@ -1289,6 +1289,14 @@ function updatePlayerRouteProgress() {
         const isFound = foundCheckpoints.includes(checkpointId);
         const isUnlocked = unlockedCheckpoints.includes(checkpointId);
         
+        // Debug pour voir l'état de chaque checkpoint
+        console.log(`🔍 Checkpoint ${checkpointId} état:`, {
+            isFound,
+            isUnlocked,
+            foundCheckpoints,
+            unlockedCheckpoints
+        });
+        
         // Trouver les infos du checkpoint
         const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
         const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
@@ -1734,6 +1742,10 @@ function startTeamSync() {
                 nouveaux: firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id))
             });
             foundCheckpoints = [...firebaseFoundCheckpoints];
+            
+            // Mettre à jour l'affichage après synchronisation
+            updatePlayerRouteProgress();
+            updateProgress();
         } else {
             console.log('📱 foundCheckpoints locaux à jour:', {
                 local: localFoundCheckpoints,

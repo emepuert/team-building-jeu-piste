@@ -93,6 +93,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
+    // Éviter la double initialisation
+    if (window.appInitialized) {
+        console.log('⚠️ App déjà initialisée, on ignore');
+        return;
+    }
+    window.appInitialized = true;
+    
     console.log('🚀 Initialisation du jeu de piste...');
     
     // Initialiser Firebase Service
@@ -1702,12 +1709,24 @@ function startTeamSync() {
             }
         }
         
-        // 1 ÉQUIPE = 1 JOUEUR : pas de fusion des foundCheckpoints
-        // Les checkpoints trouvés restent strictement locaux au joueur
-        console.log('📱 1 joueur par équipe - pas de fusion des foundCheckpoints:', {
-            local: foundCheckpoints,
-            équipe_ignorée: teamData.foundCheckpoints || []
-        });
+        // 1 ÉQUIPE = 1 JOUEUR : Synchroniser foundCheckpoints avec Firebase
+        const firebaseFoundCheckpoints = teamData.foundCheckpoints || [];
+        const localFoundCheckpoints = foundCheckpoints || [];
+        
+        // Si Firebase a plus de checkpoints trouvés, on synchronise
+        if (firebaseFoundCheckpoints.length > localFoundCheckpoints.length) {
+            console.log('🔄 Synchronisation foundCheckpoints depuis Firebase:', {
+                local: localFoundCheckpoints,
+                firebase: firebaseFoundCheckpoints,
+                nouveaux: firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id))
+            });
+            foundCheckpoints = [...firebaseFoundCheckpoints];
+        } else {
+            console.log('📱 foundCheckpoints locaux à jour:', {
+                local: localFoundCheckpoints,
+                firebase: firebaseFoundCheckpoints
+            });
+        }
         
         // Mettre à jour les infos d'équipe
         showTeamInfo();
@@ -1791,6 +1810,8 @@ function syncCheckpoints() {
         console.warn('⚠️ Firebase Service non disponible pour la synchronisation des checkpoints');
         return;
     }
+    
+    console.log('🔄 Synchronisation des checkpoints...');
     
     firebaseService.getCheckpoints().then((checkpoints) => {
         console.log('🔄 Checkpoints synchronisés:', checkpoints);

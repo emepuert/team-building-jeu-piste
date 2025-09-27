@@ -2965,7 +2965,7 @@ async function handleEditRoute() {
 
 // ===== MODIFICATION DES ÉQUIPES =====
 
-let currentEditingTeamId = null;
+// currentEditingTeamId déjà déclaré plus haut dans le fichier
 
 async function editTeam(teamId) {
     try {

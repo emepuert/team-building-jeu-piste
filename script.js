@@ -1438,27 +1438,33 @@ function updateProgress() {
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     
-    // ⚡ UTILISER currentTeam.foundCheckpoints au lieu de la variable globale
-    // pour éviter les désynchronisations
-    const teamFoundCheckpoints = currentTeam?.foundCheckpoints || foundCheckpoints || [];
+    if (!currentTeam) {
+        progressFill.style.width = '0%';
+        progressText.textContent = '0 / 0 défis résolus';
+        return;
+    }
     
-    // Exclure le lobby du décompte de progression
-    const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
-    const nonLobbyFound = teamFoundCheckpoints.filter(id => {
+    // 🎯 UTILISER LA MÊME LOGIQUE QUE L'ADMIN (getTeamProgress)
+    const nonLobbyFound = currentTeam.foundCheckpoints.filter(id => {
         const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
         return cp && !cp.isLobby;
     });
     
-    const percentage = (nonLobbyFound.length / nonLobbyCheckpoints.length) * 100;
+    const nonLobbyTotal = currentTeam.route.filter(id => {
+        const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
+        return cp && !cp.isLobby;
+    }).length;
+    
+    const percentage = nonLobbyTotal === 0 ? 0 : Math.round((nonLobbyFound.length / nonLobbyTotal) * 100);
     
     progressFill.style.width = `${percentage}%`;
-    progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyCheckpoints.length} défis résolus`;
+    progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyTotal} défis résolus`;
     
-    console.log('📊 Progression mise à jour:', {
-        teamFoundCheckpoints: teamFoundCheckpoints.length,
-        nonLobbyFound: nonLobbyFound.length,
-        nonLobbyTotal: nonLobbyCheckpoints.length,
-        percentage: Math.round(percentage)
+    console.log('📊 Progression mise à jour (logique admin):', {
+        foundCheckpoints: currentTeam.foundCheckpoints,
+        nonLobbyFound: nonLobbyFound,
+        nonLobbyTotal: nonLobbyTotal,
+        percentage: percentage
     });
 }
 

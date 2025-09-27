@@ -1812,6 +1812,9 @@ function startTeamSync() {
         
         // Plus besoin de vérifier les demandes d'aide - intégrées dans le parcours
     });
+    
+    // Écouter les notifications de refus d'aide/validation
+    setupNotificationListeners();
 }
 
 // Révéler un checkpoint sur la carte (appelé quand l'admin débloque)
@@ -1928,6 +1931,7 @@ async function syncCheckpoints() {
 
 // Variables pour le système d'aide
 let currentHelpRequests = [];
+let processedNotifications = new Set(); // Pour éviter les doublons
 
 // ===== SYSTÈME DE PHOTOS =====
 
@@ -2232,6 +2236,98 @@ function blobToBase64(blob) {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
     });
+}
+
+// ===== SYSTÈME DE NOTIFICATIONS =====
+
+// Configurer les listeners pour les notifications de refus
+function setupNotificationListeners() {
+    if (!firebaseService || !currentTeamId) {
+        console.warn('⚠️ Impossible de configurer les notifications - service non disponible');
+        return;
+    }
+    
+    // Écouter les demandes d'aide résolues
+    firebaseService.onTeamHelpRequestsResolved(currentTeamId, (resolvedRequests) => {
+        resolvedRequests.forEach(request => {
+            // Éviter les doublons
+            if (processedNotifications.has(request.id)) return;
+            processedNotifications.add(request.id);
+            
+            if (request.action === 'denied') {
+                showAdminRefusalNotification('aide', request);
+            }
+        });
+    });
+    
+    // Écouter les validations résolues
+    firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
+        resolvedValidations.forEach(validation => {
+            // Éviter les doublons
+            if (processedNotifications.has(validation.id)) return;
+            processedNotifications.add(validation.id);
+            
+            if (validation.status === 'rejected') {
+                showAdminRefusalNotification('validation', validation);
+            }
+        });
+    });
+}
+
+// Afficher une notification de refus admin
+function showAdminRefusalNotification(type, data) {
+    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === data.checkpointId);
+    const checkpointName = checkpoint ? checkpoint.name : `Point ${data.checkpointId}`;
+    
+    let title, message;
+    
+    if (type === 'aide') {
+        const helpType = data.type === 'location' ? 'localisation' : 
+                        data.type === 'riddle' ? 'énigme' : 
+                        data.type === 'photo' ? 'validation photo' : 'aide';
+        title = `❌ Demande d'aide refusée`;
+        message = `Votre demande d'aide (${helpType}) pour "${checkpointName}" a été refusée par l'admin.`;
+    } else {
+        title = `❌ Validation refusée`;
+        message = `Votre validation pour "${checkpointName}" a été refusée par l'admin.`;
+    }
+    
+    if (data.adminNotes) {
+        message += `\n\n💬 Note de l'admin : "${data.adminNotes}"`;
+    }
+    
+    // Afficher une notification persistante
+    showPersistentNotification(title, message);
+}
+
+// Notification persistante avec bouton OK
+function showPersistentNotification(title, message) {
+    // Créer le modal de notification
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.display = 'flex';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <h2 style="color: #e74c3c; margin-bottom: 1rem;">${title}</h2>
+            <p style="white-space: pre-line; margin-bottom: 1.5rem;">${message}</p>
+            <button id="notification-ok-btn" class="photo-btn" style="width: 100%;">OK</button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Gérer la fermeture
+    const okBtn = modal.querySelector('#notification-ok-btn');
+    okBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // Auto-suppression après 30 secondes
+    setTimeout(() => {
+        if (document.body.contains(modal)) {
+            document.body.removeChild(modal);
+        }
+    }, 30000);
 }
 
 // Anciennes fonctions d'aide supprimées - remplacées par les fonctions spécifiques par checkpoint

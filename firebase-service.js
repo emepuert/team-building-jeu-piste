@@ -165,6 +165,23 @@ class FirebaseService {
         });
     }
 
+    // Écouter les validations résolues pour une équipe (pour notifications user)
+    onTeamValidationsResolved(teamId, callback) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.VALIDATIONS),
+            where('teamId', '==', teamId),
+            where('status', 'in', ['approved', 'rejected']),
+            orderBy('updatedAt', 'desc')
+        );
+        return onSnapshot(q, (snapshot) => {
+            const resolvedValidations = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            callback(resolvedValidations);
+        });
+    }
+
     // ===== SYSTÈME D'AIDE =====
     
     // Créer une demande d'aide
@@ -299,6 +316,23 @@ class FirebaseService {
             id: doc.id,
             ...doc.data()
         }));
+    }
+
+    // Écouter les demandes d'aide résolues pour une équipe (pour notifications user)
+    onTeamHelpRequestsResolved(teamId, callback) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.HELP_REQUESTS),
+            where('teamId', '==', teamId),
+            where('status', '==', 'resolved'),
+            orderBy('resolvedAt', 'desc')
+        );
+        return onSnapshot(q, (snapshot) => {
+            const resolvedRequests = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            callback(resolvedRequests);
+        });
     }
 
     // ===== ADMIN - VUE D'ENSEMBLE =====

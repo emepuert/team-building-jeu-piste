@@ -359,11 +359,53 @@ section h2 {
     gap: 0.5rem;
 }
 
-.approve-btn { background: #27ae60; color: white; }
-.approve-btn:hover { background: #229954; }
+.approve-btn {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
 
-.reject-btn { background: #e74c3c; color: white; }
-.reject-btn:hover { background: #c0392b; }
+.approve-btn:hover {
+    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+}
+
+.reject-btn {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.reject-btn:hover {
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+}
 
 /* Demandes d'aide */
 .help-request-card {
@@ -416,32 +458,50 @@ section h2 {
 }
 
 .grant-btn { 
-    background: #27ae60; 
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
     color: white;
-    padding: 0.5rem 1rem;
     border: none;
-    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
     font-family: "Oswald", sans-serif;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.85rem;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
-.grant-btn:hover { background: #229954; }
+.grant-btn:hover { 
+    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+}
 
 .deny-btn { 
-    background: #e74c3c; 
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
     color: white;
-    padding: 0.5rem 1rem;
     border: none;
-    border-radius: 10px;
+    padding: 0.6rem 1.2rem;
+    border-radius: 12px;
     font-family: "Oswald", sans-serif;
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.85rem;
     cursor: pointer;
-    transition: background-color 0.2s ease;
-    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
-.deny-btn:hover { background: #c0392b; }
+.deny-btn:hover { 
+    background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+}
 
 /* Actions rapides - Version compacte */
 .actions-grid {

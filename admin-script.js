@@ -2999,6 +2999,21 @@ async function handleEditRoute() {
         const oldRoute = routesData.find(r => r.id === parseInt(currentEditingRouteId));
         console.log('🔍 Ancien parcours:', oldRoute);
         
+        // Debug : afficher tous les parcours disponibles
+        console.log('🔍 Tous les parcours:', routesData.map(r => ({
+            id: r.id,
+            name: r.name,
+            route: r.route,
+            length: r.route.length
+        })));
+        
+        // Debug : afficher les parcours de toutes les équipes
+        console.log('🔍 Parcours des équipes:', managementTeamsData.map(t => ({
+            name: t.name,
+            route: t.route,
+            length: t.route?.length || 0
+        })));
+        
         const teamsUsingRoute = managementTeamsData.filter(team => {
             if (!team.route || !oldRoute) return false;
             
@@ -3009,7 +3024,11 @@ async function handleEditRoute() {
             
             console.log(`🔍 Équipe ${team.name}:`, {
                 teamRoute: team.route,
+                teamRouteLength: team.route.length,
                 oldRoute: oldRoute.route,
+                oldRouteLength: oldRoute.route.length,
+                teamRouteStr,
+                oldRouteStr,
                 matches
             });
             
@@ -3017,6 +3036,26 @@ async function handleEditRoute() {
         });
         
         console.log(`🔍 ${teamsUsingRoute.length} équipe(s) utilisent l'ancien parcours`);
+        
+        // Si aucune équipe ne correspond, chercher les équipes qui utilisent un parcours similaire
+        if (teamsUsingRoute.length === 0) {
+            console.log('🔍 Recherche d\'équipes avec parcours similaires...');
+            managementTeamsData.forEach(team => {
+                if (!team.route) return;
+                
+                // Chercher quel parcours cette équipe utilise
+                const matchingRoute = routesData.find(route => {
+                    const teamRouteStr = JSON.stringify([...team.route].sort());
+                    const routeStr = JSON.stringify([...route.route].sort());
+                    return teamRouteStr === routeStr;
+                });
+                
+                console.log(`🔍 Équipe ${team.name} utilise:`, {
+                    teamRoute: team.route,
+                    matchingRoute: matchingRoute ? `${matchingRoute.name} (ID: ${matchingRoute.id})` : 'Aucun parcours correspondant'
+                });
+            });
+        }
         
         const routeData = {
             name: newName,

@@ -1269,9 +1269,16 @@ function updateUI() {
 
 function updatePlayerRouteProgress() {
     const routeListElement = document.getElementById('player-route-list');
-    
+
     if (!currentTeam || !currentTeam.route) {
         routeListElement.innerHTML = '<p style="color: #e74c3c;">❌ Aucun parcours défini</p>';
+        return;
+    }
+    
+    // Vérifier que les checkpoints sont chargés
+    if (!GAME_CONFIG.checkpoints || GAME_CONFIG.checkpoints.length === 0) {
+        console.warn('⚠️ updatePlayerRouteProgress appelé avant le chargement des checkpoints');
+        routeListElement.innerHTML = '<p style="color: #f39c12;">🔄 Chargement des points...</p>';
         return;
     }
     
@@ -1285,6 +1292,12 @@ function updatePlayerRouteProgress() {
         // Trouver les infos du checkpoint
         const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
         const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
+        
+        // Debug pour voir si le checkpoint est trouvé
+        if (!checkpoint) {
+            console.warn(`⚠️ Checkpoint ${checkpointId} non trouvé dans GAME_CONFIG.checkpoints:`, 
+                GAME_CONFIG.checkpoints.map(cp => cp.id));
+        }
         
         // Déterminer le statut et la couleur
         let statusIcon, statusText, statusColor, clickable = false;
@@ -1835,6 +1848,10 @@ function syncCheckpoints() {
         if (isMapInitialized) {
             addCheckpointsToMap();
         }
+        
+        // Mettre à jour l'affichage du parcours maintenant que les checkpoints sont chargés
+        updatePlayerRouteProgress();
+        updateUI();
     }).catch((error) => {
         console.error('❌ Erreur lors de la synchronisation des checkpoints:', error);
         showNotification('❌ Erreur de chargement des points. Rechargez la page.', 'error');

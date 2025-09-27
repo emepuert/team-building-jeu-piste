@@ -768,7 +768,7 @@ function foundCheckpoint(checkpoint) {
         const isGameComplete = nonLobbyFound.length >= nonLobbyRoute.length && nonLobbyRoute.length > 0;
         
         if (!isGameComplete) {
-            showClue(checkpoint.clue);
+            showClue(checkpoint.clue, checkpoint);
         } else {
             console.log('🏁 Dernier checkpoint - pas d\'indice, seulement modal de victoire');
         }
@@ -839,7 +839,13 @@ function foundCheckpoint(checkpoint) {
     }
 }
 
-function showClue(clue) {
+function showClue(clue, checkpoint = null) {
+    // Si c'est un checkpoint photo, afficher le modal photo
+    if (checkpoint && checkpoint.type === 'photo') {
+        showPhotoChallenge(checkpoint);
+        return;
+    }
+    
     // Si l'indice contient une énigme, afficher la modal d'énigme
     if (clue.riddle) {
         showRiddle(clue);
@@ -1344,8 +1350,8 @@ function updatePlayerRouteProgress() {
             });
             
             if (checkpoint?.type === 'final') {
-                // Point d'arrivée débloqué → pas d'aide nécessaire (parcours terminé)
-                helpButtons = ''; // Aucun bouton d'aide
+                // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
+                helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
@@ -1525,6 +1531,17 @@ function setupEventListeners() {
         document.getElementById('clue-modal').style.display = 'none';
     });
     
+    // Événements pour le modal photo
+    document.querySelector('#photo-modal .close').addEventListener('click', () => {
+        document.getElementById('photo-modal').style.display = 'none';
+        resetPhotoInterface();
+    });
+    
+    document.getElementById('start-camera-btn').addEventListener('click', startCamera);
+    document.getElementById('take-photo-btn').addEventListener('click', takePhoto);
+    document.getElementById('retake-photo-btn').addEventListener('click', retakePhoto);
+    document.getElementById('submit-photo-btn').addEventListener('click', submitPhoto);
+    
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';
         console.log('🎮 Modal de succès fermé - exploration continue');
@@ -1673,6 +1690,7 @@ window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
 window.requestLocationHelpFor = requestLocationHelpFor;
 window.requestRiddleHelpFor = requestRiddleHelpFor;
+window.showPhotoChallenge = showPhotoChallenge;
 
 // Fonction supprimée - les checkpoints sont maintenant créés via l'admin
 
@@ -1879,6 +1897,13 @@ function syncCheckpoints() {
 // Variables pour le système d'aide
 let currentHelpRequests = [];
 
+// ===== SYSTÈME DE PHOTOS =====
+
+// Variables pour la gestion des photos
+let currentPhotoCheckpoint = null;
+let cameraStream = null;
+let capturedPhotoBlob = null;
+
 // Appeler la synchronisation après l'initialisation
 // syncTeamData(); // Fonction supprimée - synchronisation gérée dans loadTeamGameData()
 
@@ -1940,6 +1965,219 @@ async function requestRiddleHelpFor(checkpointId) {
         console.error('❌ Erreur demande d\'aide énigme:', error);
         showNotification('Erreur lors de l\'envoi de la demande', 'error');
     }
+}
+
+// ===== FONCTIONS PHOTOS =====
+
+// Afficher le modal photo pour un checkpoint
+function showPhotoChallenge(checkpoint) {
+    if (!checkpoint || checkpoint.type !== 'photo') {
+        console.error('❌ Checkpoint invalide pour défi photo:', checkpoint);
+        return;
+    }
+    
+    currentPhotoCheckpoint = checkpoint;
+    
+    // Afficher les instructions
+    document.getElementById('photo-instructions').textContent = checkpoint.clue.text || 'Prenez une photo selon les instructions.';
+    
+    // Réinitialiser l'interface
+    resetPhotoInterface();
+    
+    // Afficher le modal
+    document.getElementById('photo-modal').style.display = 'flex';
+    
+    console.log('📸 Modal photo ouvert pour:', checkpoint.name);
+}
+
+// Réinitialiser l'interface photo
+function resetPhotoInterface() {
+    // Arrêter la caméra si active
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    
+    // Réinitialiser les éléments
+    document.getElementById('camera-video').style.display = 'none';
+    document.getElementById('start-camera-btn').style.display = 'block';
+    document.getElementById('take-photo-btn').style.display = 'none';
+    document.getElementById('retake-photo-btn').style.display = 'none';
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('photo-actions').style.display = 'none';
+    
+    capturedPhotoBlob = null;
+}
+
+// Démarrer la caméra
+async function startCamera() {
+    try {
+        const constraints = {
+            video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                facingMode: 'environment' // Caméra arrière par défaut
+            }
+        };
+        
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('camera-video');
+        video.srcObject = cameraStream;
+        video.style.display = 'block';
+        
+        // Mettre à jour les boutons
+        document.getElementById('start-camera-btn').style.display = 'none';
+        document.getElementById('take-photo-btn').style.display = 'block';
+        
+        showNotification('📷 Caméra activée', 'success');
+        
+    } catch (error) {
+        console.error('❌ Erreur accès caméra:', error);
+        showNotification('❌ Impossible d\'accéder à la caméra', 'error');
+    }
+}
+
+// Prendre une photo
+function takePhoto() {
+    const video = document.getElementById('camera-video');
+    const canvas = document.getElementById('photo-canvas');
+    const context = canvas.getContext('2d');
+    
+    // Définir la taille du canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Dessiner l'image du video sur le canvas
+    context.drawImage(video, 0, 0);
+    
+    // Convertir en blob avec compression
+    canvas.toBlob((blob) => {
+        compressPhoto(blob);
+    }, 'image/jpeg', 0.8); // Qualité 80%
+}
+
+// Compresser la photo pour respecter la limite de 1MB
+function compressPhoto(originalBlob) {
+    const maxSize = 1024 * 1024; // 1MB
+    let quality = 0.8;
+    
+    function compress(blob, currentQuality) {
+        if (blob.size <= maxSize || currentQuality <= 0.1) {
+            // Photo acceptable ou qualité minimale atteinte
+            capturedPhotoBlob = blob;
+            displayPhoto(blob);
+            return;
+        }
+        
+        // Réduire la qualité et recompresser
+        const canvas = document.getElementById('photo-canvas');
+        canvas.toBlob((newBlob) => {
+            compress(newBlob, currentQuality - 0.1);
+        }, 'image/jpeg', currentQuality - 0.1);
+    }
+    
+    compress(originalBlob, quality);
+}
+
+// Afficher la photo capturée
+function displayPhoto(blob) {
+    const img = document.getElementById('captured-photo');
+    const url = URL.createObjectURL(blob);
+    img.src = url;
+    
+    // Afficher les infos
+    const sizeKB = Math.round(blob.size / 1024);
+    const quality = blob.size > 500000 ? 'Haute' : blob.size > 200000 ? 'Moyenne' : 'Optimisée';
+    
+    document.getElementById('photo-size').textContent = `${sizeKB} KB`;
+    document.getElementById('photo-quality').textContent = quality;
+    
+    // Arrêter la caméra
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    
+    // Mettre à jour l'interface
+    document.getElementById('camera-video').style.display = 'none';
+    document.getElementById('take-photo-btn').style.display = 'none';
+    document.getElementById('retake-photo-btn').style.display = 'block';
+    document.getElementById('photo-preview').style.display = 'block';
+    document.getElementById('photo-actions').style.display = 'block';
+    
+    console.log('📸 Photo capturée:', sizeKB + 'KB');
+}
+
+// Reprendre une photo
+function retakePhoto() {
+    // Nettoyer l'ancienne photo
+    if (capturedPhotoBlob) {
+        URL.revokeObjectURL(document.getElementById('captured-photo').src);
+        capturedPhotoBlob = null;
+    }
+    
+    // Redémarrer la caméra
+    startCamera();
+    
+    // Cacher la prévisualisation
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('photo-actions').style.display = 'none';
+    document.getElementById('retake-photo-btn').style.display = 'none';
+}
+
+// Envoyer la photo pour validation
+async function submitPhoto() {
+    if (!capturedPhotoBlob || !currentPhotoCheckpoint) {
+        showNotification('❌ Aucune photo à envoyer', 'error');
+        return;
+    }
+    
+    try {
+        // Convertir le blob en base64
+        const base64 = await blobToBase64(capturedPhotoBlob);
+        
+        // Créer la demande de validation avec la photo
+        const validationData = {
+            teamId: currentTeamId,
+            checkpointId: currentPhotoCheckpoint.id,
+            type: 'photo',
+            data: {
+                photo: base64,
+                size: capturedPhotoBlob.size,
+                timestamp: new Date().toISOString()
+            },
+            message: `Photo envoyée pour "${currentPhotoCheckpoint.name}"`
+        };
+        
+        await firebaseService.createValidationRequest(
+            validationData.teamId,
+            validationData.checkpointId,
+            validationData.type,
+            JSON.stringify(validationData.data)
+        );
+        
+        // Fermer le modal
+        document.getElementById('photo-modal').style.display = 'none';
+        resetPhotoInterface();
+        
+        showNotification(`📸 Photo envoyée pour validation de "${currentPhotoCheckpoint.name}"`, 'success');
+        
+        console.log('📸 Photo envoyée pour validation:', currentPhotoCheckpoint.name);
+        
+    } catch (error) {
+        console.error('❌ Erreur envoi photo:', error);
+        showNotification('❌ Erreur lors de l\'envoi', 'error');
+    }
+}
+
+// Convertir un blob en base64
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 // Anciennes fonctions d'aide supprimées - remplacées par les fonctions spécifiques par checkpoint

@@ -307,13 +307,13 @@ function startRealtimeSync() {
     
     // Plus de synchronisation utilisateurs - 1 équipe = 1 joueur
     
-    // Ancien système de validation désactivé - remplacé par le système d'aide
-    // firebaseService.onValidationRequests((validations) => {
-    //     console.log('⏳ Validations en attente:', validations);
-    //     validationsData = validations;
-    //     updateValidationsDisplay();
-    //     updateStats();
-    // });
+    // Système de validation (pour les photos)
+    firebaseService.onValidationRequests((validations) => {
+        console.log('⏳ Validations en attente:', validations);
+        validationsData = validations;
+        updateValidationsDisplay();
+        updateStats();
+    });
     
     // Écouter les demandes d'aide
     firebaseService.onHelpRequests((helpRequests) => {
@@ -389,30 +389,58 @@ function updateValidationsDisplay() {
         return;
     }
     
-    validationsContainer.innerHTML = validationsData.map(validation => `
-        <div class="validation-card">
-            <div class="validation-header">
-                <div>
-                    <h4>${getTeamName(validation.teamId)} - ${getCheckpointName(validation.checkpointId)}</h4>
-                    <span class="validation-type">${validation.type.toUpperCase()}</span>
+    validationsContainer.innerHTML = validationsData.map(validation => {
+        const team = teamsData.find(t => t.id === validation.teamId);
+        const teamName = team ? team.name : 'Équipe inconnue';
+        const checkpoint = checkpointsData.find(cp => cp.id === validation.checkpointId);
+        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${validation.checkpointId}`;
+        
+        let contentHTML = '';
+        
+        if (validation.type === 'photo') {
+            try {
+                const data = JSON.parse(validation.data);
+                const sizeKB = Math.round(data.size / 1024);
+                
+                contentHTML = `
+                    <div class="photo-validation">
+                        <img src="${data.photo}" alt="Photo validation" style="max-width: 100%; max-height: 300px; border-radius: 10px; margin: 1rem 0;">
+                        <p><strong>Taille:</strong> ${sizeKB} KB</p>
+                        <p><strong>Envoyée:</strong> ${new Date(data.timestamp).toLocaleString('fr-FR')}</p>
+                    </div>
+                `;
+            } catch (error) {
+                contentHTML = `<p><strong>Données:</strong> ${validation.data}</p>`;
+            }
+        } else {
+            contentHTML = `<p><strong>Données:</strong> ${validation.data}</p>`;
+        }
+        
+        return `
+            <div class="validation-card">
+                <div class="validation-header">
+                    <div>
+                        <h4>${teamName} - ${checkpointName}</h4>
+                        <span class="validation-type">${validation.type === 'photo' ? '📸 PHOTO' : validation.type.toUpperCase()}</span>
+                    </div>
+                    <small>${formatDate(validation.createdAt)}</small>
                 </div>
-                <small>${formatDate(validation.createdAt)}</small>
+                
+                <div class="validation-content">
+                    ${contentHTML}
+                </div>
+                
+                <div class="validation-actions">
+                    <button class="approve-btn" onclick="approveValidation('${validation.id}')">
+                        ✅ Approuver
+                    </button>
+                    <button class="reject-btn" onclick="rejectValidation('${validation.id}')">
+                        ❌ Rejeter
+                    </button>
+                </div>
             </div>
-            
-            <div class="validation-content">
-                <p><strong>Données:</strong> ${validation.data}</p>
-            </div>
-            
-            <div class="validation-actions">
-                <button class="approve-btn" onclick="approveValidation('${validation.id}')">
-                    ✅ Approuver
-                </button>
-                <button class="reject-btn" onclick="rejectValidation('${validation.id}')">
-                    ❌ Rejeter
-                </button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Mise à jour de l'affichage des demandes d'aide
@@ -472,7 +500,7 @@ function updateHelpRequestsDisplay() {
 // Mise à jour des statistiques
 function updateStats() {
     document.getElementById('active-teams-count').textContent = teamsData.filter(t => t.status === 'active').length;
-    // document.getElementById('pending-validations-count').textContent = validationsData.length; // Système obsolète
+    document.getElementById('pending-validations-count').textContent = validationsData.length; // Réactivé pour les photos
     document.getElementById('help-requests-count').textContent = helpRequestsData.length;
     document.getElementById('completed-teams-count').textContent = teamsData.filter(t => getTeamStatus(t) === 'completed').length;
 }

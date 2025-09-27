@@ -121,6 +121,42 @@
                 <button id="close-success-btn">Continuer l'exploration</button>
             </div>
         </div>
+        
+        <!-- Modal pour les photos -->
+        <div id="photo-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>📸 Défi Photo</h2>
+                <div id="photo-content">
+                    <p id="photo-instructions"></p>
+                    
+                    <div id="photo-capture-section">
+                        <div id="camera-container">
+                            <video id="camera-video" autoplay playsinline></video>
+                            <canvas id="photo-canvas" style="display: none;"></canvas>
+                        </div>
+                        
+                        <div id="photo-controls">
+                            <button id="start-camera-btn" class="photo-btn">📷 Activer caméra</button>
+                            <button id="take-photo-btn" class="photo-btn" style="display: none;">📸 Prendre photo</button>
+                            <button id="retake-photo-btn" class="photo-btn" style="display: none;">🔄 Reprendre</button>
+                        </div>
+                        
+                        <div id="photo-preview" style="display: none;">
+                            <img id="captured-photo" alt="Photo capturée">
+                            <div id="photo-info">
+                                <p>Taille: <span id="photo-size"></span></p>
+                                <p>Qualité: <span id="photo-quality"></span></p>
+                            </div>
+                        </div>
+                        
+                        <div id="photo-actions" style="display: none;">
+                            <button id="submit-photo-btn" class="photo-btn success">✅ Envoyer pour validation</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

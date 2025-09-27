@@ -366,13 +366,43 @@ class FirebaseService {
     async resetTeam(teamId) {
         console.log(`🔄 Firebase: Reset équipe ${teamId}`);
         try {
+            // 1. Reset les données de l'équipe
             await this.updateTeamProgress(teamId, {
                 currentCheckpoint: 0,
                 foundCheckpoints: [],
                 unlockedCheckpoints: [0],
                 status: 'active'
             });
+            
+            // 2. Supprimer toutes les demandes d'aide de cette équipe
+            const helpRequestsQuery = query(
+                collection(this.db, DB_COLLECTIONS.HELP_REQUESTS),
+                where('teamId', '==', teamId)
+            );
+            const helpRequestsSnapshot = await getDocs(helpRequestsQuery);
+            
+            let deletedHelpRequests = 0;
+            for (const doc of helpRequestsSnapshot.docs) {
+                await deleteDoc(doc.ref);
+                deletedHelpRequests++;
+            }
+            
+            // 3. Supprimer toutes les validations de cette équipe
+            const validationsQuery = query(
+                collection(this.db, DB_COLLECTIONS.VALIDATIONS),
+                where('teamId', '==', teamId)
+            );
+            const validationsSnapshot = await getDocs(validationsQuery);
+            
+            let deletedValidations = 0;
+            for (const doc of validationsSnapshot.docs) {
+                await deleteDoc(doc.ref);
+                deletedValidations++;
+            }
+            
             console.log(`✅ Firebase: Équipe ${teamId} resetée avec succès`);
+            console.log(`🧹 Nettoyé: ${deletedHelpRequests} demandes d'aide, ${deletedValidations} validations`);
+            
         } catch (error) {
             console.error(`❌ Firebase: Erreur reset équipe ${teamId}:`, error);
             throw error;
@@ -528,6 +558,24 @@ class FirebaseService {
                 console.log(`🗑️ Checkpoint supprimé: ${checkpointDoc.id}`);
             }
             
+            // Supprimer toutes les demandes d'aide
+            const helpRequestsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.HELP_REQUESTS));
+            let helpRequestsCount = 0;
+            for (const helpDoc of helpRequestsSnapshot.docs) {
+                await deleteDoc(helpDoc.ref);
+                helpRequestsCount++;
+                console.log(`🗑️ Demande d'aide supprimée: ${helpDoc.id}`);
+            }
+            
+            // Supprimer toutes les validations
+            const validationsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.VALIDATIONS));
+            let validationsCount = 0;
+            for (const validationDoc of validationsSnapshot.docs) {
+                await deleteDoc(validationDoc.ref);
+                validationsCount++;
+                console.log(`🗑️ Validation supprimée: ${validationDoc.id}`);
+            }
+            
             // Supprimer toutes les routes
             const routesSnapshot = await getDocs(collection(this.db, 'routes'));
             let routesCount = 0;
@@ -537,16 +585,54 @@ class FirebaseService {
                 console.log(`🗑️ Route supprimée: ${routeDoc.id}`);
             }
             
-            console.log(`✅ Nettoyage terminé: ${usersCount} users, ${teamsCount} teams, ${checkpointsCount} checkpoints, ${routesCount} routes`);
+            console.log(`✅ Nettoyage terminé: ${usersCount} users, ${teamsCount} teams, ${helpRequestsCount} help requests, ${validationsCount} validations, ${checkpointsCount} checkpoints, ${routesCount} routes`);
             return {
                 users: usersCount,
                 teams: teamsCount,
+                helpRequests: helpRequestsCount,
+                validations: validationsCount,
                 checkpoints: checkpointsCount,
                 routes: routesCount
             };
             
         } catch (error) {
             console.error('❌ Erreur nettoyage complet:', error);
+            throw error;
+        }
+    }
+
+    // Nettoyer seulement les demandes d'aide et validations (pour les tests)
+    async cleanupHelpAndValidations() {
+        console.log('🧹 Nettoyage des demandes d\'aide et validations...');
+        
+        try {
+            let helpRequestsCount = 0;
+            let validationsCount = 0;
+            
+            // Supprimer toutes les demandes d'aide
+            const helpRequestsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.HELP_REQUESTS));
+            for (const helpDoc of helpRequestsSnapshot.docs) {
+                await deleteDoc(helpDoc.ref);
+                helpRequestsCount++;
+                console.log(`🗑️ Demande d'aide supprimée: ${helpDoc.id}`);
+            }
+            
+            // Supprimer toutes les validations
+            const validationsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.VALIDATIONS));
+            for (const validationDoc of validationsSnapshot.docs) {
+                await deleteDoc(validationDoc.ref);
+                validationsCount++;
+                console.log(`🗑️ Validation supprimée: ${validationDoc.id}`);
+            }
+            
+            console.log(`✅ Nettoyage terminé: ${helpRequestsCount} demandes d'aide, ${validationsCount} validations`);
+            return {
+                helpRequests: helpRequestsCount,
+                validations: validationsCount
+            };
+            
+        } catch (error) {
+            console.error('❌ Erreur nettoyage demandes/validations:', error);
             throw error;
         }
     }

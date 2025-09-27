@@ -1438,9 +1438,13 @@ function updateProgress() {
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('progress-text');
     
+    // ⚡ UTILISER currentTeam.foundCheckpoints au lieu de la variable globale
+    // pour éviter les désynchronisations
+    const teamFoundCheckpoints = currentTeam?.foundCheckpoints || foundCheckpoints || [];
+    
     // Exclure le lobby du décompte de progression
     const nonLobbyCheckpoints = GAME_CONFIG.checkpoints.filter(cp => !cp.isLobby);
-    const nonLobbyFound = foundCheckpoints.filter(id => {
+    const nonLobbyFound = teamFoundCheckpoints.filter(id => {
         const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
         return cp && !cp.isLobby;
     });
@@ -1449,6 +1453,13 @@ function updateProgress() {
     
     progressFill.style.width = `${percentage}%`;
     progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyCheckpoints.length} défis résolus`;
+    
+    console.log('📊 Progression mise à jour:', {
+        teamFoundCheckpoints: teamFoundCheckpoints.length,
+        nonLobbyFound: nonLobbyFound.length,
+        nonLobbyTotal: nonLobbyCheckpoints.length,
+        percentage: Math.round(percentage)
+    });
 }
 
 function updateHint() {
@@ -1798,9 +1809,12 @@ function startTeamSync() {
             });
             foundCheckpoints = [...firebaseFoundCheckpoints];
             
-            // Mettre à jour l'affichage après synchronisation
+            // ⚡ MISE À JOUR IMMÉDIATE de l'affichage après synchronisation
             updatePlayerRouteProgress();
             updateProgress();
+            updateUI(); // Force la mise à jour complète
+            
+            console.log('✅ Interface mise à jour après sync foundCheckpoints');
         } else {
             console.log('📱 foundCheckpoints locaux à jour:', {
                 local: localFoundCheckpoints,

@@ -1257,7 +1257,7 @@ function updateUI() {
     updateProgress();
     updatePlayerRouteProgress();
     updateHint();
-    updateHelpUI();
+    // updateHelpUI(); // Plus nécessaire - boutons intégrés dans le parcours
 }
 
 function updatePlayerRouteProgress() {
@@ -1300,13 +1300,28 @@ function updatePlayerRouteProgress() {
         const clickHandler = clickable && userPosition ? `onclick="zoomToCheckpoint(${checkpointId})"` : '';
         const cursorStyle = clickable && userPosition ? 'cursor: pointer;' : '';
         
+        // Déterminer les boutons d'aide selon le statut
+        let helpButtons = '';
+        if (!isFound && !isUnlocked) {
+            // Checkpoint verrouillé → bouton demander localisation
+            helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
+        } else if (isUnlocked && !isFound && checkpoint?.clue?.riddle) {
+            // Checkpoint débloqué avec énigme non résolue → bouton aide énigme
+            helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
+        }
+        
         progressHTML += `
             <div class="player-checkpoint-item" 
                  style="color: ${statusColor}; ${cursorStyle}" 
                  ${clickHandler}>
-                ${statusIcon} ${index + 1}. ${checkpointName} 
-                <small>(${statusText})</small>
-                ${clickable && userPosition ? ' 🧭' : ''}
+                <div class="checkpoint-info">
+                    ${statusIcon} ${index + 1}. ${checkpointName} 
+                    <small>(${statusText})</small>
+                    ${clickable && userPosition ? ' 🧭' : ''}
+                </div>
+                <div class="checkpoint-actions">
+                    ${helpButtons}
+                </div>
             </div>
         `;
     });
@@ -1482,9 +1497,7 @@ function setupEventListeners() {
         }
     });
     
-    // Boutons d'aide
-    document.getElementById('request-location-help').addEventListener('click', requestLocationHelp);
-    document.getElementById('request-riddle-help').addEventListener('click', requestRiddleHelp);
+    // Anciens boutons d'aide supprimés - maintenant intégrés dans le parcours
     
     // Fermer les modales en cliquant à l'extérieur
     window.addEventListener('click', (event) => {
@@ -1613,6 +1626,8 @@ function calculateRouteFromPopup(checkpointId) {
 // Exposer les fonctions pour les tests et les popups
 window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
+window.requestLocationHelpFor = requestLocationHelpFor;
+window.requestRiddleHelpFor = requestRiddleHelpFor;
 
 // Fonction supprimée - les checkpoints sont maintenant créés via l'admin
 
@@ -1801,7 +1816,67 @@ syncTeamData();
 // Variables pour le système d'aide
 let currentHelpRequests = [];
 
-// Demander l'aide pour la localisation
+// Demander l'aide pour la localisation d'un checkpoint spécifique
+async function requestLocationHelpFor(checkpointId) {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande la localisation de "${checkpointName}".`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            checkpointId,
+            'location',
+            message
+        );
+        
+        showNotification(`📍 Demande de localisation envoyée pour "${checkpointName}"`, 'success');
+        
+        // Actualiser l'interface
+        updateUI();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide localisation:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Demander l'aide pour résoudre une énigme spécifique
+async function requestRiddleHelpFor(checkpointId) {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande l'aide pour l'énigme "${checkpointName}".`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            checkpointId,
+            'riddle',
+            message
+        );
+        
+        showNotification(`🧩 Demande d'aide envoyée pour l'énigme "${checkpointName}"`, 'success');
+        
+        // Actualiser l'interface
+        updateUI();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide énigme:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Demander l'aide pour la localisation (fonction générale - obsolète)
 async function requestLocationHelp() {
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');

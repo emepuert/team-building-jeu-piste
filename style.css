@@ -660,6 +660,9 @@ button:active {
     border-left: 3px solid currentColor;
     transition: all 0.3s ease;
     font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .player-checkpoint-item:hover {
@@ -670,6 +673,50 @@ button:active {
 .player-checkpoint-item small {
     opacity: 0.8;
     font-weight: normal;
+}
+
+.checkpoint-info {
+    flex: 1;
+}
+
+.checkpoint-actions {
+    display: flex;
+    gap: 0.3rem;
+    margin-left: 0.5rem;
+}
+
+.help-btn-small {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(243, 156, 18, 0.3);
+    min-width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.help-btn-small:hover {
+    background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(243, 156, 18, 0.4);
+}
+
+.help-btn-small:active {
+    transform: translateY(0);
+}
+
+.help-btn-small:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 /* Section d'aide */

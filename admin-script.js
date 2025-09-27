@@ -2856,11 +2856,17 @@ async function loadCheckpointsForRouteEdit(currentRoute = []) {
                 <span class="checkpoint-info">${checkpoint.emoji} ${checkpoint.name}</span>
                 <span class="checkpoint-type">${checkpoint.type}</span>
             `;
+            
+            // Ajouter les événements drag & drop
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            
             checkpointsList.appendChild(item);
         });
         
-        // Mettre à jour l'ordre initial
-        updateSelectedCheckpointsOrder();
+        // Configurer le drop zone pour la liste principale
+        checkpointsList.addEventListener('dragover', handleDragOver);
+        checkpointsList.addEventListener('drop', handleDrop);
         
     } catch (error) {
         console.error('❌ Erreur chargement checkpoints pour modification:', error);
@@ -2876,47 +2882,7 @@ function toggleCheckpointSelection(checkpointId, isSelected) {
         selectedCheckpoints = selectedCheckpoints.filter(id => id !== checkpointId);
     }
     
-    updateSelectedCheckpointsOrder();
-}
-
-function updateSelectedCheckpointsOrder() {
-    const orderContainer = document.getElementById('selected-checkpoints-order');
-    
-    if (selectedCheckpoints.length === 0) {
-        orderContainer.innerHTML = '<p>Sélectionnez des checkpoints ci-dessus</p>';
-        return;
-    }
-    
-    orderContainer.innerHTML = '';
-    selectedCheckpoints.forEach((checkpointId, index) => {
-        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
-        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
-        
-        const item = document.createElement('div');
-        item.className = 'selected-checkpoint-item';
-        item.draggable = true;
-        item.dataset.checkpointId = checkpointId;
-        item.innerHTML = `
-            <div class="checkpoint-drag-handle">
-                <span class="drag-icon">⋮⋮</span>
-            </div>
-            <div class="checkpoint-content">
-                <span class="checkpoint-number">${index + 1}</span>
-                <span class="checkpoint-name">${checkpointName}</span>
-                <button class="checkpoint-remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer ce checkpoint">×</button>
-            </div>
-        `;
-        
-        // Ajouter les événements drag & drop
-        item.addEventListener('dragstart', handleDragStart);
-        item.addEventListener('dragend', handleDragEnd);
-        
-        orderContainer.appendChild(item);
-    });
-    
-    // Configurer le drop zone
-    orderContainer.addEventListener('dragover', handleDragOver);
-    orderContainer.addEventListener('drop', handleDrop);
+    // Pas besoin - tout est géré par les checkboxes dans la liste principale
 }
 
 function removeCheckpointFromSelection(checkpointId) {
@@ -2926,7 +2892,7 @@ function removeCheckpointFromSelection(checkpointId) {
     const checkbox = document.getElementById(`checkpoint-${checkpointId}`);
     if (checkbox) checkbox.checked = false;
     
-    updateSelectedCheckpointsOrder();
+    // Pas besoin - tout géré par les checkboxes
 }
 
 // Gestion du drag & drop pour réorganiser
@@ -2956,15 +2922,15 @@ function handleDragOver(e) {
 function handleDrop(e) {
     e.preventDefault();
     
-    // Reconstruire l'ordre des checkpoints selon l'ordre des éléments DOM
-    const items = document.querySelectorAll('.selected-checkpoint-item');
-    selectedCheckpoints = Array.from(items).map(item => parseInt(item.dataset.checkpointId));
+    // Reconstruire l'ordre des checkpoints selon l'ordre des éléments DOM dans la liste principale
+    const items = document.querySelectorAll('#checkpoints-list .checkpoint-order-item input[type="checkbox"]:checked');
+    selectedCheckpoints = Array.from(items).map(input => parseInt(input.value));
     
-    updateSelectedCheckpointsOrder();
+    // Pas besoin - tout géré par les checkboxes
 }
 
 function getDragAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.selected-checkpoint-item:not(.dragging)')];
+    const draggableElements = [...container.querySelectorAll('.checkpoint-order-item:not(.dragging)')];
     
     return draggableElements.reduce((closest, child) => {
         const box = child.getBoundingClientRect();

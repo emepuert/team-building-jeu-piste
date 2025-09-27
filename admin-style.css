@@ -1676,10 +1676,4 @@ section h2 {
     margin-right: 0.5rem;
 }
 
-#selected-checkpoints-order {
-    min-height: 80px;
-    padding: 1rem;
-    border: 2px dashed #f1ff33;
-    border-radius: 10px;
-    background: rgba(241, 255, 51, 0.1);
-}
+/* Plus besoin - tout dans la liste principale */

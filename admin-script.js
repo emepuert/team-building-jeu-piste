@@ -2995,6 +2995,29 @@ async function handleEditRoute() {
     }
     
     try {
+        // D'abord, identifier les équipes qui utilisent l'ANCIEN parcours
+        const oldRoute = routesData.find(r => r.id === parseInt(currentEditingRouteId));
+        console.log('🔍 Ancien parcours:', oldRoute);
+        
+        const teamsUsingRoute = managementTeamsData.filter(team => {
+            if (!team.route || !oldRoute) return false;
+            
+            // Comparer avec l'ancien parcours
+            const teamRouteStr = JSON.stringify([...team.route].sort());
+            const oldRouteStr = JSON.stringify([...oldRoute.route].sort());
+            const matches = teamRouteStr === oldRouteStr;
+            
+            console.log(`🔍 Équipe ${team.name}:`, {
+                teamRoute: team.route,
+                oldRoute: oldRoute.route,
+                matches
+            });
+            
+            return matches;
+        });
+        
+        console.log(`🔍 ${teamsUsingRoute.length} équipe(s) utilisent l'ancien parcours`);
+        
         const routeData = {
             name: newName,
             route: selectedCheckpoints,
@@ -3003,22 +3026,24 @@ async function handleEditRoute() {
         
         await firebaseService.updateRoute(currentEditingRouteId, routeData);
         
-        // Mettre à jour toutes les équipes qui utilisent ce parcours
-        const teamsUsingRoute = managementTeamsData.filter(team => 
-            team.route && JSON.stringify(team.route.sort()) === JSON.stringify(selectedCheckpoints.sort())
-        );
-        
         if (teamsUsingRoute.length > 0) {
             showNotification(`🔄 Mise à jour de ${teamsUsingRoute.length} équipe(s) utilisant ce parcours...`, 'info');
             
             for (const team of teamsUsingRoute) {
-                await firebaseService.updateTeamProgress(team.id, {
+                console.log(`🔄 Mise à jour équipe ${team.name} (${team.id})`);
+                
+                const updateData = {
                     route: selectedCheckpoints,
                     // Réinitialiser la progression si le parcours a changé
                     foundCheckpoints: [],
                     unlockedCheckpoints: [0],
                     currentCheckpoint: 0
-                });
+                };
+                
+                console.log('📝 Données de mise à jour:', updateData);
+                
+                await firebaseService.updateTeamProgress(team.id, updateData);
+                console.log(`✅ Équipe ${team.name} mise à jour`);
             }
         }
         

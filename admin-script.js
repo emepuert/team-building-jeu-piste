@@ -1293,8 +1293,20 @@ function setupModalEvents() {
     // Modal création utilisateur supprimée - 1 équipe = 1 joueur
     
     // Modal modification parcours équipe
-    document.getElementById('cancel-edit-team-route-btn').addEventListener('click', hideEditTeamRouteModal);
-    document.getElementById('edit-team-route-form').addEventListener('submit', handleEditTeamRoute);
+    const cancelEditTeamRouteBtn = document.getElementById('cancel-edit-team-route-btn');
+    const editTeamRouteForm = document.getElementById('edit-team-route-form');
+    
+    if (cancelEditTeamRouteBtn) {
+        cancelEditTeamRouteBtn.addEventListener('click', hideEditTeamRouteModal);
+    } else {
+        console.warn('⚠️ Élément cancel-edit-team-route-btn non trouvé');
+    }
+    
+    if (editTeamRouteForm) {
+        editTeamRouteForm.addEventListener('submit', handleEditTeamRoute);
+    } else {
+        console.warn('⚠️ Élément edit-team-route-form non trouvé');
+    }
     
     // Modal création checkpoint
     document.getElementById('cancel-checkpoint-btn').addEventListener('click', hideCreateCheckpointModal);
@@ -1326,18 +1338,42 @@ function setupModalEvents() {
     });
     
     // Modal modification parcours
-    document.getElementById('cancel-edit-route-btn').addEventListener('click', hideEditRouteModal);
-    document.getElementById('edit-route-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleEditRoute();
-    });
+    const cancelEditRouteBtn = document.getElementById('cancel-edit-route-btn');
+    const editRouteForm = document.getElementById('edit-route-form');
+    
+    if (cancelEditRouteBtn) {
+        cancelEditRouteBtn.addEventListener('click', hideEditRouteModal);
+    } else {
+        console.warn('⚠️ Élément cancel-edit-route-btn non trouvé');
+    }
+    
+    if (editRouteForm) {
+        editRouteForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleEditRoute();
+        });
+    } else {
+        console.warn('⚠️ Élément edit-route-form non trouvé');
+    }
     
     // Modal modification équipe
-    document.getElementById('cancel-edit-team-btn').addEventListener('click', hideEditTeamModal);
-    document.getElementById('edit-team-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        handleEditTeam();
-    });
+    const cancelEditTeamBtn = document.getElementById('cancel-edit-team-btn');
+    const editTeamForm = document.getElementById('edit-team-form');
+    
+    if (cancelEditTeamBtn) {
+        cancelEditTeamBtn.addEventListener('click', hideEditTeamModal);
+    } else {
+        console.warn('⚠️ Élément cancel-edit-team-btn non trouvé');
+    }
+    
+    if (editTeamForm) {
+        editTeamForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleEditTeam();
+        });
+    } else {
+        console.warn('⚠️ Élément edit-team-form non trouvé');
+    }
     
     // Modal visualisation parcours
     document.getElementById('close-routes-map-btn').addEventListener('click', hideRoutesMapModal);

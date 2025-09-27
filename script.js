@@ -1357,7 +1357,8 @@ function updatePlayerRouteProgress() {
         let helpButtons = '';
         if (!isFound && !isUnlocked) {
             // Checkpoint verrouillé → bouton demander localisation
-            helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
+            const locationClass = checkpoint?.type === 'photo' ? 'photo-location' : '';
+            helpButtons = `<button class="help-btn-small ${locationClass}" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
         } else if (isUnlocked && !isFound) {
             // Checkpoint débloqué mais pas trouvé → vérifier le type et s'il a une énigme
             console.log(`🔍 Debug checkpoint ${checkpointId}:`, {
@@ -1373,7 +1374,7 @@ function updatePlayerRouteProgress() {
                 helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
             } else if (checkpoint?.type === 'photo') {
                 // Checkpoint photo accessible → bouton validation forcée
-                helpButtons = `<button class="help-btn-small" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">📸</button>`;
+                helpButtons = `<button class="help-btn-small photo-validation" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">📸</button>`;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;

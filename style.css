@@ -808,6 +808,27 @@ button:active {
     box-shadow: none;
 }
 
+/* Styles spécifiques pour les boutons d'aide photo */
+.help-btn-small.photo-location {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    box-shadow: 0 1px 4px rgba(52, 152, 219, 0.3);
+}
+
+.help-btn-small.photo-location:hover {
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.4);
+}
+
+.help-btn-small.photo-validation {
+    background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+    box-shadow: 0 1px 4px rgba(230, 126, 34, 0.3);
+}
+
+.help-btn-small.photo-validation:hover {
+    background: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
+    box-shadow: 0 2px 6px rgba(230, 126, 34, 0.4);
+}
+
 /* Section d'aide */
 #help-section {
     background: rgba(255, 193, 7, 0.1);

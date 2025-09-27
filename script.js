@@ -694,7 +694,11 @@ function checkProximityToCheckpoints() {
 function foundCheckpoint(checkpoint) {
     if (foundCheckpoints.includes(checkpoint.id)) return;
     
-    foundCheckpoints.push(checkpoint.id);
+    // Pour les checkpoints photo, ne pas marquer comme trouvé immédiatement
+    // Attendre la validation admin
+    if (checkpoint.type !== 'photo') {
+        foundCheckpoints.push(checkpoint.id);
+    }
     
     // Supprimer la route actuelle puisque le point est atteint
     if (currentRoute) {
@@ -792,7 +796,8 @@ function foundCheckpoint(checkpoint) {
     }
     
     // Sauvegarder la progression dans Firebase (équipe seulement)
-    if (firebaseService && currentTeam && currentTeamId) {
+    // Mais PAS pour les checkpoints photo (attendre validation admin)
+    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'photo') {
         // Plus besoin d'utilisateurs - équipe directement
         
         // Mettre à jour l'équipe aussi pour que l'admin voit les changements
@@ -803,10 +808,11 @@ function foundCheckpoint(checkpoint) {
         
         console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
             teamId: currentTeamId,
-            teamId: currentTeamId,
             foundCheckpoints, 
             unlockedCheckpoints
         });
+    } else if (checkpoint.type === 'photo') {
+        console.log('📸 Checkpoint photo - attente validation admin');
     }
     
     // Mettre à jour l'interface

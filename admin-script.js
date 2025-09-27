@@ -774,8 +774,49 @@ async function resetTeam(teamId) {
 
 async function approveValidation(validationId) {
     try {
+        // Récupérer les infos de la validation avant de l'approuver
+        const validation = validationsData.find(v => v.id === validationId);
+        if (!validation) {
+            showNotification('Validation non trouvée', 'error');
+            return;
+        }
+        
+        // Approuver la validation
         await firebaseService.updateValidation(validationId, 'approved', 'Validé par admin');
-        showNotification('✅ Validation approuvée', 'success');
+        
+        // Marquer le checkpoint comme trouvé pour l'équipe
+        const team = teamsData.find(t => t.id === validation.teamId);
+        if (team) {
+            const foundCheckpoints = team.foundCheckpoints || [];
+            const unlockedCheckpoints = team.unlockedCheckpoints || [0];
+            
+            // Ajouter le checkpoint aux trouvés s'il n'y est pas déjà
+            if (!foundCheckpoints.includes(validation.checkpointId)) {
+                foundCheckpoints.push(validation.checkpointId);
+                
+                // Débloquer le checkpoint suivant dans le parcours
+                const teamRoute = team.route || [];
+                const currentIndex = teamRoute.indexOf(validation.checkpointId);
+                const nextCheckpointId = currentIndex >= 0 && currentIndex < teamRoute.length - 1
+                    ? teamRoute[currentIndex + 1]
+                    : null;
+                
+                if (nextCheckpointId && !unlockedCheckpoints.includes(nextCheckpointId)) {
+                    unlockedCheckpoints.push(nextCheckpointId);
+                    console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpointId}`);
+                }
+                
+                // Mettre à jour la progression de l'équipe
+                await firebaseService.updateTeamProgress(validation.teamId, {
+                    foundCheckpoints,
+                    unlockedCheckpoints
+                });
+                
+                console.log(`✅ Photo validée et progression mise à jour pour ${team.name}`);
+            }
+        }
+        
+        showNotification('✅ Validation approuvée et progression mise à jour', 'success');
     } catch (error) {
         console.error('Erreur approbation:', error);
         showNotification('❌ Erreur lors de l\'approbation', 'error');

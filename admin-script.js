@@ -1293,7 +1293,7 @@ function setupModalEvents() {
     // Modal création utilisateur supprimée - 1 équipe = 1 joueur
     
     // Modal modification parcours équipe
-    document.getElementById('cancel-edit-route-btn').addEventListener('click', hideEditTeamRouteModal);
+    document.getElementById('cancel-edit-team-route-btn').addEventListener('click', hideEditTeamRouteModal);
     document.getElementById('edit-team-route-form').addEventListener('submit', handleEditTeamRoute);
     
     // Modal création checkpoint

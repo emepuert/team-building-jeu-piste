@@ -255,8 +255,8 @@ async function loadTeamGameData() {
         // Afficher les infos de l'équipe
         showTeamInfo();
         
-        // Démarrer le jeu
-        startGame();
+        // Démarrer le jeu (attendre que les checkpoints soient chargés)
+        await startGame();
         
         // Démarrer la synchronisation temps réel avec l'équipe
         startTeamSync();
@@ -298,7 +298,7 @@ function showLoginError(message) {
 
 // Fonction supprimée - doublon avec la fonction showTeamInfo() ligne 270
 
-function startGame() {
+async function startGame() {
     // Vérifier si le jeu est déjà démarré
     if (isGameStarted) {
         console.log('⚠️ Jeu déjà démarré, on ignore');
@@ -314,8 +314,8 @@ function startGame() {
     // Configurer les événements
     setupEventListeners();
     
-    // Synchroniser et ajouter les checkpoints depuis Firebase
-    syncCheckpoints();
+    // Synchroniser et ajouter les checkpoints depuis Firebase AVANT de continuer
+    await syncCheckpoints();
     
     // Mettre à jour l'interface
     updateUI();
@@ -1852,7 +1852,7 @@ function revealCheckpointOnMap(checkpointId) {
 }
 
 // Synchronisation temps réel des checkpoints
-function syncCheckpoints() {
+async function syncCheckpoints() {
     if (!firebaseService) {
         console.warn('⚠️ Firebase Service non disponible pour la synchronisation des checkpoints');
         return;
@@ -1860,7 +1860,8 @@ function syncCheckpoints() {
     
     console.log('🔄 Synchronisation des checkpoints...');
     
-    firebaseService.getCheckpoints().then((checkpoints) => {
+    try {
+        const checkpoints = await firebaseService.getCheckpoints();
         console.log('🔄 Checkpoints synchronisés:', checkpoints);
         
         if (!checkpoints || checkpoints.length === 0) {
@@ -1886,10 +1887,10 @@ function syncCheckpoints() {
         // Mettre à jour l'affichage du parcours maintenant que les checkpoints sont chargés
         updatePlayerRouteProgress();
         updateUI();
-    }).catch((error) => {
+    } catch (error) {
         console.error('❌ Erreur lors de la synchronisation des checkpoints:', error);
         showNotification('❌ Erreur de chargement des points. Rechargez la page.', 'error');
-    });
+    }
 }
 
 // ===== SYSTÈME D'AIDE =====
@@ -2181,6 +2182,5 @@ function blobToBase64(blob) {
 }
 
 // Anciennes fonctions d'aide supprimées - remplacées par les fonctions spécifiques par checkpoint
-syncCheckpoints();
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

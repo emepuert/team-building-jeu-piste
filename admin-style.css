@@ -365,6 +365,80 @@ section h2 {
 .reject-btn { background: #e74c3c; color: white; }
 .reject-btn:hover { background: #c0392b; }
 
+/* Demandes d'aide */
+.help-request-card {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border-left: 4px solid #e67e22;
+}
+
+.help-request-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.help-request-type {
+    background: #e67e22;
+    color: white;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.help-request-type.location {
+    background: #3498db;
+}
+
+.help-request-type.riddle {
+    background: #9b59b6;
+}
+
+.help-request-content {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(241, 255, 51, 0.1);
+    border-radius: 10px;
+    border-left: 3px solid #f1ff33;
+}
+
+.help-request-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.grant-btn { 
+    background: #27ae60; 
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 10px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.8rem;
+}
+.grant-btn:hover { background: #229954; }
+
+.deny-btn { 
+    background: #e74c3c; 
+    color: white;
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 10px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    font-size: 0.8rem;
+}
+.deny-btn:hover { background: #c0392b; }
+
 /* Actions rapides - Version compacte */
 .actions-grid {
     display: grid;

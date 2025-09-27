@@ -1257,6 +1257,7 @@ function updateUI() {
     updateProgress();
     updatePlayerRouteProgress();
     updateHint();
+    updateHelpUI();
 }
 
 function updatePlayerRouteProgress() {
@@ -1481,6 +1482,10 @@ function setupEventListeners() {
         }
     });
     
+    // Boutons d'aide
+    document.getElementById('request-location-help').addEventListener('click', requestLocationHelp);
+    document.getElementById('request-riddle-help').addEventListener('click', requestRiddleHelp);
+    
     // Fermer les modales en cliquant à l'extérieur
     window.addEventListener('click', (event) => {
         const clueModal = document.getElementById('clue-modal');
@@ -1679,6 +1684,9 @@ function startTeamSync() {
         // Mettre à jour les infos d'équipe
         showTeamInfo();
         updateProgress();
+        
+        // Vérifier les demandes d'aide
+        checkHelpRequests();
     });
 }
 
@@ -1787,6 +1795,207 @@ function syncCheckpoints() {
 
 // Appeler la synchronisation après l'initialisation
 syncTeamData();
+
+// ===== SYSTÈME D'AIDE =====
+
+// Variables pour le système d'aide
+let currentHelpRequests = [];
+
+// Demander l'aide pour la localisation
+async function requestLocationHelp() {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    // Trouver le prochain checkpoint non débloqué
+    const teamRoute = currentTeam?.route || [];
+    let targetCheckpointId = null;
+    
+    for (const checkpointId of teamRoute) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
+        
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        if (!isUnlocked) {
+            targetCheckpointId = checkpointId;
+            break;
+        }
+    }
+    
+    if (!targetCheckpointId) {
+        showNotification('Aucun point à débloquer', 'info');
+        return;
+    }
+    
+    try {
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande la localisation du prochain point.`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            targetCheckpointId,
+            'location',
+            message
+        );
+        
+        showNotification('📍 Demande de localisation envoyée à l\'admin', 'success');
+        
+        // Désactiver le bouton et afficher le statut
+        document.getElementById('request-location-help').disabled = true;
+        showHelpStatus('Demande de localisation en cours... L\'admin va vous aider bientôt.');
+        
+        // Actualiser les demandes d'aide
+        checkHelpRequests();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide localisation:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Demander l'aide pour résoudre une énigme
+async function requestRiddleHelp() {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    // Trouver le checkpoint avec énigme non résolue
+    const teamRoute = currentTeam?.route || [];
+    let targetCheckpointId = null;
+    
+    for (const checkpointId of teamRoute) {
+        if (checkpointId === 0) continue; // Ignorer le lobby
+        
+        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        const isFound = foundCheckpoints.includes(checkpointId);
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        
+        // Chercher un checkpoint débloqué, avec énigme, mais pas résolu
+        if (isUnlocked && !isFound && checkpoint?.clue?.riddle) {
+            targetCheckpointId = checkpointId;
+            break;
+        }
+    }
+    
+    if (!targetCheckpointId) {
+        showNotification('Aucune énigme en cours à résoudre', 'info');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === targetCheckpointId);
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande l'aide pour l'énigme "${checkpoint?.name || 'inconnue'}".`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            targetCheckpointId,
+            'riddle',
+            message
+        );
+        
+        showNotification('🧩 Demande d\'aide pour l\'énigme envoyée à l\'admin', 'success');
+        
+        // Désactiver le bouton et afficher le statut
+        document.getElementById('request-riddle-help').disabled = true;
+        showHelpStatus('Demande d\'aide pour l\'énigme en cours... L\'admin va vous aider bientôt.');
+        
+        // Actualiser les demandes d'aide
+        checkHelpRequests();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide énigme:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Afficher le statut d'aide
+function showHelpStatus(message) {
+    const helpStatus = document.getElementById('help-status');
+    const helpStatusText = document.getElementById('help-status-text');
+    
+    helpStatusText.textContent = message;
+    helpStatus.style.display = 'block';
+}
+
+// Cacher le statut d'aide
+function hideHelpStatus() {
+    document.getElementById('help-status').style.display = 'none';
+}
+
+// Vérifier les demandes d'aide en cours
+async function checkHelpRequests() {
+    if (!firebaseService || !currentTeamId) return;
+    
+    try {
+        currentHelpRequests = await firebaseService.getTeamHelpRequests(currentTeamId);
+        updateHelpUI();
+    } catch (error) {
+        console.error('❌ Erreur vérification demandes d\'aide:', error);
+    }
+}
+
+// Mettre à jour l'interface d'aide
+function updateHelpUI() {
+    const helpSection = document.getElementById('help-section');
+    const locationBtn = document.getElementById('request-location-help');
+    const riddleBtn = document.getElementById('request-riddle-help');
+    
+    // Vérifier s'il y a des demandes en cours
+    const hasLocationRequest = currentHelpRequests.some(req => req.type === 'location');
+    const hasRiddleRequest = currentHelpRequests.some(req => req.type === 'riddle');
+    
+    // Désactiver les boutons si des demandes sont en cours
+    locationBtn.disabled = hasLocationRequest;
+    riddleBtn.disabled = hasRiddleRequest;
+    
+    // Déterminer quels boutons afficher
+    let showLocationBtn = false;
+    let showRiddleBtn = false;
+    
+    if (currentTeam?.route) {
+        const teamRoute = currentTeam.route;
+        
+        // Bouton localisation : s'il y a un checkpoint non débloqué
+        for (const checkpointId of teamRoute) {
+            if (checkpointId === 0) continue;
+            if (!unlockedCheckpoints.includes(checkpointId)) {
+                showLocationBtn = true;
+                break;
+            }
+        }
+        
+        // Bouton énigme : s'il y a un checkpoint débloqué avec énigme non résolue
+        for (const checkpointId of teamRoute) {
+            if (checkpointId === 0) continue;
+            
+            const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+            const isFound = foundCheckpoints.includes(checkpointId);
+            const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+            
+            if (isUnlocked && !isFound && checkpoint?.clue?.riddle) {
+                showRiddleBtn = true;
+                break;
+            }
+        }
+    }
+    
+    // Afficher/cacher les boutons
+    locationBtn.style.display = showLocationBtn ? 'block' : 'none';
+    riddleBtn.style.display = showRiddleBtn ? 'block' : 'none';
+    
+    // Afficher/cacher la section d'aide
+    helpSection.style.display = (showLocationBtn || showRiddleBtn) ? 'block' : 'none';
+    
+    // Afficher le statut si des demandes sont en cours
+    if (hasLocationRequest || hasRiddleRequest) {
+        const messages = [];
+        if (hasLocationRequest) messages.push('Demande de localisation en cours');
+        if (hasRiddleRequest) messages.push('Demande d\'aide énigme en cours');
+        showHelpStatus(messages.join(' • '));
+    } else {
+        hideHelpStatus();
+    }
+}
 syncCheckpoints();
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

@@ -671,3 +671,70 @@ button:active {
     opacity: 0.8;
     font-weight: normal;
 }
+
+/* Section d'aide */
+#help-section {
+    background: rgba(255, 193, 7, 0.1);
+    border: 2px solid rgba(255, 193, 7, 0.3);
+    border-radius: 15px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+#help-section h3 {
+    color: #f39c12;
+    margin-bottom: 0.8rem;
+    font-size: 1rem;
+}
+
+#help-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.help-btn {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+}
+
+.help-btn:hover {
+    background: linear-gradient(135deg, #e67e22 0%, #f39c12 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.4);
+}
+
+.help-btn:active {
+    transform: translateY(0);
+}
+
+.help-btn:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+#help-status {
+    background: rgba(52, 152, 219, 0.1);
+    border: 1px solid rgba(52, 152, 219, 0.3);
+    border-radius: 8px;
+    padding: 0.8rem;
+    margin-top: 0.8rem;
+}
+
+#help-status-text {
+    color: #2980b9;
+    font-size: 0.9rem;
+    margin: 0;
+    font-weight: 500;
+}

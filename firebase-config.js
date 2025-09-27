@@ -17,7 +17,8 @@ export const DB_COLLECTIONS = {
     CHECKPOINTS: 'checkpoints', 
     GAME_SESSIONS: 'game_sessions',
     VALIDATIONS: 'validations',
-    USERS: 'users'
+    USERS: 'users',
+    HELP_REQUESTS: 'help_requests'
 };
 
 // Types d'épreuves

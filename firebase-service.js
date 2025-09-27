@@ -150,6 +150,114 @@ class FirebaseService {
         });
     }
 
+    // ===== SYSTÈME D'AIDE =====
+    
+    // Créer une demande d'aide
+    async createHelpRequest(teamId, checkpointId, type, message = '') {
+        const helpData = {
+            id: `help_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            teamId,
+            checkpointId,
+            type, // 'location' (demande localisation) ou 'riddle' (résoudre énigme)
+            message, // Message optionnel de l'équipe
+            status: 'pending',
+            createdAt: serverTimestamp(),
+            resolvedAt: null,
+            adminNotes: ''
+        };
+        
+        await setDoc(doc(this.db, DB_COLLECTIONS.HELP_REQUESTS, helpData.id), helpData);
+        return helpData.id;
+    }
+
+    // Résoudre une demande d'aide (pour l'admin)
+    async resolveHelpRequest(helpId, action, adminNotes = '') {
+        const helpRef = doc(this.db, DB_COLLECTIONS.HELP_REQUESTS, helpId);
+        const helpDoc = await getDoc(helpRef);
+        
+        if (!helpDoc.exists()) {
+            throw new Error('Demande d\'aide non trouvée');
+        }
+        
+        const helpData = helpDoc.data();
+        
+        // Marquer la demande comme résolue
+        await updateDoc(helpRef, {
+            status: 'resolved',
+            action, // 'granted' (accordée) ou 'denied' (refusée)
+            adminNotes,
+            resolvedAt: serverTimestamp()
+        });
+        
+        // Si accordée, effectuer l'action correspondante
+        if (action === 'granted') {
+            if (helpData.type === 'location') {
+                // Débloquer le checkpoint (le rendre accessible)
+                await this.unlockCheckpointForTeam(helpData.teamId, helpData.checkpointId);
+            } else if (helpData.type === 'riddle') {
+                // Marquer l'énigme comme résolue (ajouter aux trouvés)
+                const team = await this.getTeam(helpData.teamId);
+                if (team) {
+                    const foundCheckpoints = team.foundCheckpoints || [];
+                    if (!foundCheckpoints.includes(helpData.checkpointId)) {
+                        foundCheckpoints.push(helpData.checkpointId);
+                        
+                        // Débloquer aussi le prochain checkpoint selon la route
+                        const teamRoute = team.route || [];
+                        const currentIndex = teamRoute.indexOf(helpData.checkpointId);
+                        const nextCheckpointId = currentIndex >= 0 && currentIndex < teamRoute.length - 1 
+                            ? teamRoute[currentIndex + 1] 
+                            : null;
+                        
+                        const unlockedCheckpoints = team.unlockedCheckpoints || [];
+                        if (nextCheckpointId && !unlockedCheckpoints.includes(nextCheckpointId)) {
+                            unlockedCheckpoints.push(nextCheckpointId);
+                        }
+                        
+                        await this.updateTeamProgress(helpData.teamId, {
+                            foundCheckpoints,
+                            unlockedCheckpoints
+                        });
+                    }
+                }
+            }
+        }
+        
+        return helpData;
+    }
+
+    // Écouter les nouvelles demandes d'aide (pour l'admin)
+    onHelpRequests(callback) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.HELP_REQUESTS),
+            where('status', '==', 'pending'),
+            orderBy('createdAt', 'desc')
+        );
+        
+        return onSnapshot(q, (snapshot) => {
+            const helpRequests = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            callback(helpRequests);
+        });
+    }
+
+    // Obtenir les demandes d'aide d'une équipe
+    async getTeamHelpRequests(teamId) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.HELP_REQUESTS),
+            where('teamId', '==', teamId),
+            where('status', '==', 'pending')
+        );
+        
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+    }
+
     // ===== ADMIN - VUE D'ENSEMBLE =====
     
     // Écouter toutes les équipes (pour l'admin)

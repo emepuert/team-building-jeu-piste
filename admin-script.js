@@ -8,6 +8,7 @@ let isAuthenticated = false;
 let currentUser = null;
 let teamsData = [];
 let validationsData = [];
+let helpRequestsData = [];
 // let usersData = []; // Supprimé - 1 équipe = 1 joueur
 let managementTeamsData = [];
 
@@ -306,13 +307,21 @@ function startRealtimeSync() {
     
     // Plus de synchronisation utilisateurs - 1 équipe = 1 joueur
     
-    // Écouter les validations en attente (temporairement désactivé - problème d'index Firebase)
+    // Ancien système de validation désactivé - remplacé par le système d'aide
     // firebaseService.onValidationRequests((validations) => {
     //     console.log('⏳ Validations en attente:', validations);
     //     validationsData = validations;
     //     updateValidationsDisplay();
     //     updateStats();
     // });
+    
+    // Écouter les demandes d'aide
+    firebaseService.onHelpRequests((helpRequests) => {
+        console.log('🆘 Demandes d\'aide reçues:', helpRequests);
+        helpRequestsData = helpRequests;
+        updateHelpRequestsDisplay();
+        updateStats();
+    });
 }
 
 // Mise à jour de l'affichage des équipes
@@ -400,10 +409,58 @@ function updateValidationsDisplay() {
     `).join('');
 }
 
+// Mise à jour de l'affichage des demandes d'aide
+function updateHelpRequestsDisplay() {
+    const helpRequestsContainer = document.getElementById('help-requests-list');
+    
+    if (helpRequestsData.length === 0) {
+        helpRequestsContainer.innerHTML = '<p class="no-data">Aucune demande d\'aide en attente</p>';
+        return;
+    }
+    
+    helpRequestsContainer.innerHTML = helpRequestsData.map(helpRequest => {
+        const team = teamsData.find(t => t.id === helpRequest.teamId);
+        const teamName = team ? team.name : 'Équipe inconnue';
+        
+        // Trouver les infos du checkpoint
+        const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
+        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${helpRequest.checkpointId}`;
+        
+        const typeText = helpRequest.type === 'location' ? 'Localisation' : 'Énigme';
+        const typeIcon = helpRequest.type === 'location' ? '📍' : '🧩';
+        
+        return `
+            <div class="help-request-card">
+                <div class="help-request-header">
+                    <div>
+                        <h4>${teamName} - ${checkpointName}</h4>
+                        <span class="help-request-type ${helpRequest.type}">${typeIcon} ${typeText}</span>
+                    </div>
+                    <small>${formatDate(helpRequest.createdAt)}</small>
+                </div>
+                
+                <div class="help-request-content">
+                    <p><strong>Message:</strong> ${helpRequest.message}</p>
+                </div>
+                
+                <div class="help-request-actions">
+                    <button class="grant-btn" onclick="grantHelpRequest('${helpRequest.id}')">
+                        ✅ Accorder l'aide
+                    </button>
+                    <button class="deny-btn" onclick="denyHelpRequest('${helpRequest.id}')">
+                        ❌ Refuser
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 // Mise à jour des statistiques
 function updateStats() {
     document.getElementById('active-teams-count').textContent = teamsData.filter(t => t.status === 'active').length;
-    document.getElementById('pending-validations-count').textContent = validationsData.length;
+    // document.getElementById('pending-validations-count').textContent = validationsData.length; // Système obsolète
+    document.getElementById('help-requests-count').textContent = helpRequestsData.length;
     document.getElementById('completed-teams-count').textContent = teamsData.filter(t => getTeamStatus(t) === 'completed').length;
 }
 
@@ -1105,6 +1162,64 @@ function hideSuggestions() {
     currentSuggestionIndex = -1;
 }
 
+// ===== GESTION DES DEMANDES D'AIDE =====
+
+async function grantHelpRequest(helpId) {
+    try {
+        const helpRequest = helpRequestsData.find(h => h.id === helpId);
+        if (!helpRequest) {
+            showNotification('Demande d\'aide non trouvée', 'error');
+            return;
+        }
+        
+        const team = teamsData.find(t => t.id === helpRequest.teamId);
+        const teamName = team ? team.name : 'Équipe inconnue';
+        const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${helpRequest.checkpointId}`;
+        
+        const typeText = helpRequest.type === 'location' ? 'localisation' : 'résolution d\'énigme';
+        
+        if (!confirm(`Accorder l'aide (${typeText}) pour "${checkpointName}" à l'équipe "${teamName}" ?`)) {
+            return;
+        }
+        
+        showNotification('🔄 Traitement de la demande d\'aide...', 'info');
+        
+        await firebaseService.resolveHelpRequest(helpId, 'granted', `Aide accordée par admin`);
+        
+        showNotification(`✅ Aide accordée à l'équipe "${teamName}" pour "${checkpointName}"`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'accord d\'aide:', error);
+        showNotification('❌ Erreur lors du traitement', 'error');
+    }
+}
+
+async function denyHelpRequest(helpId) {
+    const reason = prompt('Raison du refus (optionnel):') || 'Refusé par admin';
+    
+    try {
+        const helpRequest = helpRequestsData.find(h => h.id === helpId);
+        if (!helpRequest) {
+            showNotification('Demande d\'aide non trouvée', 'error');
+            return;
+        }
+        
+        const team = teamsData.find(t => t.id === helpRequest.teamId);
+        const teamName = team ? team.name : 'Équipe inconnue';
+        
+        showNotification('🔄 Refus de la demande d\'aide...', 'info');
+        
+        await firebaseService.resolveHelpRequest(helpId, 'denied', reason);
+        
+        showNotification(`❌ Demande d'aide refusée pour l'équipe "${teamName}"`, 'info');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du refus d\'aide:', error);
+        showNotification('❌ Erreur lors du traitement', 'error');
+    }
+}
+
 // Exposer les fonctions globalement pour les onclick
 window.initializeAdmin = initializeAdmin;
 window.unlockNextCheckpoint = unlockNextCheckpoint;
@@ -1120,6 +1235,8 @@ window.editTeamRoute = editTeamRoute;
 window.fixTeamDataConsistency = fixTeamDataConsistency;
 window.cleanupAllUsers = cleanupAllUsers;
 window.cleanupAllData = cleanupAllData;
+window.grantHelpRequest = grantHelpRequest;
+window.denyHelpRequest = denyHelpRequest;
 
     console.log('✅ Admin Script initialisé');
 

@@ -1292,15 +1292,19 @@ function updatePlayerRouteProgress() {
     let progressHTML = '';
     
     teamRoute.forEach((checkpointId, index) => {
-        const isFound = foundCheckpoints.includes(checkpointId);
-        const isUnlocked = unlockedCheckpoints.includes(checkpointId);
+        // Utiliser les données de l'équipe directement pour éviter les désynchronisations
+        const teamFoundCheckpoints = currentTeam.foundCheckpoints || [];
+        const teamUnlockedCheckpoints = currentTeam.unlockedCheckpoints || [0];
+        
+        const isFound = teamFoundCheckpoints.includes(checkpointId);
+        const isUnlocked = teamUnlockedCheckpoints.includes(checkpointId);
         
         // Debug pour voir l'état de chaque checkpoint
         console.log(`🔍 Checkpoint ${checkpointId} état:`, {
             isFound,
             isUnlocked,
-            foundCheckpoints,
-            unlockedCheckpoints
+            teamFoundCheckpoints,
+            teamUnlockedCheckpoints
         });
         
         // Trouver les infos du checkpoint
@@ -1778,6 +1782,7 @@ function startTeamSync() {
         // Mettre à jour les infos d'équipe
         showTeamInfo();
         updateProgress();
+        updatePlayerRouteProgress(); // S'assurer que l'affichage est toujours à jour
         
         // Plus besoin de vérifier les demandes d'aide - intégrées dans le parcours
     });

@@ -774,12 +774,21 @@ async function resetTeam(teamId) {
 
 async function approveValidation(validationId) {
     try {
+        console.log('🔍 Debug approveValidation:', {
+            validationId,
+            validationsData: validationsData.length,
+            validations: validationsData.map(v => ({ id: v.id, teamId: v.teamId, checkpointId: v.checkpointId }))
+        });
+        
         // Récupérer les infos de la validation avant de l'approuver
         const validation = validationsData.find(v => v.id === validationId);
         if (!validation) {
+            console.error('❌ Validation non trouvée:', { validationId, available: validationsData.map(v => v.id) });
             showNotification('Validation non trouvée', 'error');
             return;
         }
+        
+        console.log('✅ Validation trouvée:', validation);
         
         // Approuver la validation
         await firebaseService.updateValidation(validationId, 'approved', 'Validé par admin');

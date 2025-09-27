@@ -1331,10 +1331,19 @@ function updatePlayerRouteProgress() {
             statusText = 'trouvé';
             statusColor = '#27ae60';
         } else if (isUnlocked) {
-            statusIcon = '🎯';
-            statusText = 'accessible';
-            statusColor = '#f39c12';
-            clickable = true; // Peut cliquer pour zoomer
+            // Vérifier si c'est un checkpoint photo en attente de validation
+            if (checkpoint?.type === 'photo') {
+                // TODO: Vérifier s'il y a une validation en attente pour ce checkpoint
+                statusIcon = '📸';
+                statusText = 'en attente validation';
+                statusColor = '#e67e22';
+                clickable = true; // Peut cliquer pour zoomer
+            } else {
+                statusIcon = '🎯';
+                statusText = 'accessible';
+                statusColor = '#f39c12';
+                clickable = true; // Peut cliquer pour zoomer
+            }
         } else {
             statusIcon = '🔒';
             statusText = 'verrouillé';

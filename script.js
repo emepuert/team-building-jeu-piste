@@ -1344,8 +1344,8 @@ function updatePlayerRouteProgress() {
             });
             
             if (checkpoint?.type === 'final') {
-                // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
-                helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
+                // Point d'arrivée débloqué → pas d'aide nécessaire (parcours terminé)
+                helpButtons = ''; // Aucun bouton d'aide
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;

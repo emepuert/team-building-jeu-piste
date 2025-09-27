@@ -1305,9 +1305,15 @@ function updatePlayerRouteProgress() {
         if (!isFound && !isUnlocked) {
             // Checkpoint verrouillé → bouton demander localisation
             helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
-        } else if (isUnlocked && !isFound && checkpoint?.clue?.riddle) {
-            // Checkpoint débloqué avec énigme non résolue → bouton aide énigme
-            helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
+        } else if (isUnlocked && !isFound) {
+            // Checkpoint débloqué mais pas trouvé → vérifier s'il a une énigme
+            if (checkpoint?.clue?.riddle) {
+                // Avec énigme → bouton aide énigme
+                helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
+            } else {
+                // Sans énigme → bouton aide générale (localisation physique)
+                helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander de l'aide pour trouver ce point">📍</button>`;
+            }
         }
         
         progressHTML += `

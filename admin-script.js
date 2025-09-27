@@ -318,9 +318,15 @@ function startRealtimeSync() {
     // Écouter les demandes d'aide
     firebaseService.onHelpRequests((helpRequests) => {
         console.log('🆘 Demandes d\'aide reçues:', helpRequests);
+        console.log('🔍 Nombre de demandes:', helpRequests.length);
         helpRequestsData = helpRequests;
         updateHelpRequestsDisplay();
         updateStats();
+        
+        // Debug: afficher une notification si nouvelle demande
+        if (helpRequests.length > 0) {
+            console.log('📢 Nouvelle demande d\'aide détectée !');
+        }
     });
 }
 

@@ -2845,15 +2845,16 @@ async function loadCheckpointsForRouteEdit(currentRoute = []) {
             const isSelected = currentRoute.includes(checkpoint.id);
             
             const item = document.createElement('div');
-            item.className = 'checkpoint-item';
+            item.className = 'checkpoint-order-item';
+            item.draggable = true;
+            item.dataset.checkpointId = checkpoint.id;
             item.innerHTML = `
-                <span class="drag-handle">⋮⋮</span>
                 <input type="checkbox" id="checkpoint-${checkpoint.id}" 
                        value="${checkpoint.id}" ${isSelected ? 'checked' : ''}
                        onchange="toggleCheckpointSelection(${checkpoint.id}, this.checked)">
-                <label for="checkpoint-${checkpoint.id}">
-                    ${checkpoint.emoji} ${checkpoint.name}
-                </label>
+                <span class="drag-handle">⋮⋮</span>
+                <span class="checkpoint-info">${checkpoint.emoji} ${checkpoint.name}</span>
+                <span class="checkpoint-type">${checkpoint.type}</span>
             `;
             checkpointsList.appendChild(item);
         });

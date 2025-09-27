@@ -1668,48 +1668,12 @@ section h2 {
     overflow-y: auto;
 }
 
-.checkpoint-item {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0.5rem;
-    margin: 0.2rem 0;
-    border-radius: 8px;
-    transition: background 0.2s ease;
-    background: white;
-    border: 1px solid #e0e0e0;
-    white-space: nowrap;
-}
-
-.checkpoint-item:hover {
-    background: rgba(52, 152, 219, 0.05);
-}
-
-.checkpoint-item .drag-handle {
-    color: #7f8c8d;
-    font-size: 1rem;
-    cursor: move;
-    user-select: none;
-}
-
-.checkpoint-item input[type="checkbox"] {
+.checkpoint-order-item input[type="checkbox"] {
     width: 16px;
     height: 16px;
     cursor: pointer;
     accent-color: #3498db;
-}
-
-.checkpoint-item label {
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.9rem;
-    color: #2c3e50;
-    flex: 1;
-}
-
-.checkpoint-item input[type="checkbox"]:checked + label {
-    color: #3498db;
-    font-weight: 600;
+    margin-right: 0.5rem;
 }
 
 #selected-checkpoints-order {

@@ -77,6 +77,21 @@ class FirebaseService {
         });
     }
 
+    async updateTeam(teamId, updateData) {
+        try {
+            const teamRef = doc(this.db, DB_COLLECTIONS.TEAMS, teamId);
+            await updateDoc(teamRef, {
+                ...updateData,
+                updatedAt: serverTimestamp()
+            });
+            console.log(`✅ Équipe ${teamId} mise à jour`);
+            return teamId;
+        } catch (error) {
+            console.error('❌ Erreur mise à jour équipe:', error);
+            throw error;
+        }
+    }
+
     // Écouter les changements d'une équipe en temps réel
     onTeamChange(teamId, callback) {
         const teamRef = doc(this.db, DB_COLLECTIONS.TEAMS, teamId);
@@ -767,6 +782,30 @@ class FirebaseService {
             }));
         } catch (error) {
             console.error('❌ Erreur récupération parcours:', error);
+            throw error;
+        }
+    }
+
+    async updateRoute(routeId, updateData) {
+        try {
+            const q = query(
+                collection(this.db, 'routes'),
+                where('id', '==', parseInt(routeId))
+            );
+            const querySnapshot = await getDocs(q);
+            
+            if (querySnapshot.empty) {
+                throw new Error('Parcours non trouvé');
+            }
+            
+            for (const docSnapshot of querySnapshot.docs) {
+                await updateDoc(docSnapshot.ref, updateData);
+            }
+            
+            console.log(`✅ Parcours ${routeId} mis à jour`);
+            return routeId;
+        } catch (error) {
+            console.error('❌ Erreur mise à jour parcours:', error);
             throw error;
         }
     }

@@ -1273,6 +1273,8 @@ window.deleteTeam = deleteTeam;
 // window.deleteUser = deleteUser; // Supprimé - 1 équipe = 1 joueur
 // window.resetUser = resetUser; // Supprimé - 1 équipe = 1 joueur
 window.editTeamRoute = editTeamRoute;
+window.editTeam = editTeam;
+window.editRoute = editRoute;
 window.fixTeamDataConsistency = fixTeamDataConsistency;
 window.cleanupAllUsers = cleanupAllUsers;
 window.cleanupAllData = cleanupAllData;
@@ -1321,6 +1323,20 @@ function setupModalEvents() {
     document.getElementById('create-route-form').addEventListener('submit', (e) => {
         e.preventDefault();
         createRoute();
+    });
+    
+    // Modal modification parcours
+    document.getElementById('cancel-edit-route-btn').addEventListener('click', hideEditRouteModal);
+    document.getElementById('edit-route-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleEditRoute();
+    });
+    
+    // Modal modification équipe
+    document.getElementById('cancel-edit-team-btn').addEventListener('click', hideEditTeamModal);
+    document.getElementById('edit-team-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        handleEditTeam();
     });
     
     // Modal visualisation parcours
@@ -1721,6 +1737,7 @@ function updateTeamsManagementDisplay() {
                 <p><strong>Créée:</strong> ${formatDate(team.createdAt)}</p>
             </div>
             <div class="management-actions">
+                <button class="edit-btn" onclick="editTeam('${team.id}')">✏️ Modifier équipe</button>
                 <button class="edit-route-btn" onclick="editTeamRoute('${team.id}')">🛤️ Modifier parcours</button>
                 <button class="delete-btn" onclick="deleteTeam('${team.id}')">🗑️ Supprimer</button>
             </div>
@@ -2428,6 +2445,7 @@ async function loadRoutes() {
                     <p><strong>Longueur:</strong> ${route.route.length} points</p>
                     ${issues.length > 0 ? `<div class="item-issues">❌ ${issues.join(', ')}</div>` : ''}
                 <div class="item-actions">
+                    <button onclick="editRoute('${route.id}')" class="edit-btn">✏️ Modifier</button>
                     <button onclick="deleteRoute('${route.id}')" class="warning-btn">🗑️ Supprimer</button>
                 </div>
             </div>
@@ -2721,3 +2739,315 @@ function displayRoutesOnMap(routes, checkpoints, checkpointMarkers) {
     
     legendList.innerHTML = legendHTML;
 }
+
+// ===== MODIFICATION DES PARCOURS =====
+
+// Variables pour la modification de parcours
+let currentEditingRouteId = null;
+let selectedCheckpoints = [];
+
+async function editRoute(routeId) {
+    try {
+        currentEditingRouteId = routeId;
+        const route = routesData.find(r => r.id === parseInt(routeId));
+        
+        if (!route) {
+            showNotification('Parcours non trouvé', 'error');
+            return;
+        }
+        
+        // Remplir les informations actuelles
+        document.getElementById('edit-route-name').textContent = route.name;
+        document.getElementById('edit-route-name-input').value = route.name;
+        
+        const checkpointNames = route.route.map(id => {
+            const checkpoint = checkpointsData.find(cp => cp.id === id);
+            return checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${id}`;
+        }).join(' → ');
+        document.getElementById('edit-current-checkpoints').textContent = checkpointNames;
+        
+        // Charger les checkpoints disponibles
+        await loadCheckpointsForRouteEdit(route.route);
+        
+        // Afficher le modal
+        document.getElementById('edit-route-modal').style.display = 'flex';
+        document.body.classList.add('modal-open');
+        
+    } catch (error) {
+        console.error('❌ Erreur ouverture modal modification parcours:', error);
+        showNotification('Erreur lors de l\'ouverture', 'error');
+    }
+}
+
+function hideEditRouteModal() {
+    document.getElementById('edit-route-modal').style.display = 'none';
+    document.getElementById('edit-route-form').reset();
+    document.body.classList.remove('modal-open');
+    currentEditingRouteId = null;
+    selectedCheckpoints = [];
+}
+
+async function loadCheckpointsForRouteEdit(currentRoute = []) {
+    try {
+        const checkpoints = await firebaseService.getAllCheckpoints();
+        const checkpointsList = document.getElementById('checkpoints-list');
+        
+        if (checkpoints.length === 0) {
+            checkpointsList.innerHTML = '<p style="text-align: center; color: #666;">Aucun checkpoint disponible</p>';
+            return;
+        }
+        
+        // Initialiser les checkpoints sélectionnés avec le parcours actuel
+        selectedCheckpoints = [...currentRoute];
+        
+        checkpointsList.innerHTML = '';
+        checkpoints.forEach(checkpoint => {
+            const isSelected = currentRoute.includes(checkpoint.id);
+            
+            const item = document.createElement('div');
+            item.className = 'checkpoint-checkbox-item';
+            item.innerHTML = `
+                <input type="checkbox" id="checkpoint-${checkpoint.id}" 
+                       value="${checkpoint.id}" ${isSelected ? 'checked' : ''}
+                       onchange="toggleCheckpointSelection(${checkpoint.id}, this.checked)">
+                <label for="checkpoint-${checkpoint.id}">
+                    ${checkpoint.emoji} ${checkpoint.name} (${checkpoint.type})
+                </label>
+            `;
+            checkpointsList.appendChild(item);
+        });
+        
+        // Mettre à jour l'ordre initial
+        updateSelectedCheckpointsOrder();
+        
+    } catch (error) {
+        console.error('❌ Erreur chargement checkpoints pour modification:', error);
+    }
+}
+
+function toggleCheckpointSelection(checkpointId, isSelected) {
+    if (isSelected) {
+        if (!selectedCheckpoints.includes(checkpointId)) {
+            selectedCheckpoints.push(checkpointId);
+        }
+    } else {
+        selectedCheckpoints = selectedCheckpoints.filter(id => id !== checkpointId);
+    }
+    
+    updateSelectedCheckpointsOrder();
+}
+
+function updateSelectedCheckpointsOrder() {
+    const orderContainer = document.getElementById('selected-checkpoints-order');
+    
+    if (selectedCheckpoints.length === 0) {
+        orderContainer.innerHTML = '<p>Sélectionnez des checkpoints ci-dessus</p>';
+        return;
+    }
+    
+    orderContainer.innerHTML = '';
+    selectedCheckpoints.forEach((checkpointId, index) => {
+        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
+        
+        const item = document.createElement('div');
+        item.className = 'selected-checkpoint-item';
+        item.draggable = true;
+        item.dataset.checkpointId = checkpointId;
+        item.innerHTML = `
+            <span class="drag-handle">⋮⋮</span>
+            <span class="checkpoint-info">${index + 1}. ${checkpointName}</span>
+            <button class="remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer">×</button>
+        `;
+        
+        // Ajouter les événements drag & drop
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+        
+        orderContainer.appendChild(item);
+    });
+    
+    // Configurer le drop zone
+    orderContainer.addEventListener('dragover', handleDragOver);
+    orderContainer.addEventListener('drop', handleDrop);
+}
+
+function removeCheckpointFromSelection(checkpointId) {
+    selectedCheckpoints = selectedCheckpoints.filter(id => id !== checkpointId);
+    
+    // Décocher la checkbox correspondante
+    const checkbox = document.getElementById(`checkpoint-${checkpointId}`);
+    if (checkbox) checkbox.checked = false;
+    
+    updateSelectedCheckpointsOrder();
+}
+
+// Gestion du drag & drop pour réorganiser
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = e.target;
+    e.target.classList.add('dragging');
+}
+
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    draggedElement = null;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    const afterElement = getDragAfterElement(e.currentTarget, e.clientY);
+    
+    if (afterElement == null) {
+        e.currentTarget.appendChild(draggedElement);
+    } else {
+        e.currentTarget.insertBefore(draggedElement, afterElement);
+    }
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    
+    // Reconstruire l'ordre des checkpoints selon l'ordre des éléments DOM
+    const items = document.querySelectorAll('.selected-checkpoint-item');
+    selectedCheckpoints = Array.from(items).map(item => parseInt(item.dataset.checkpointId));
+    
+    updateSelectedCheckpointsOrder();
+}
+
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.selected-checkpoint-item:not(.dragging)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+async function handleEditRoute() {
+    const newName = document.getElementById('edit-route-name-input').value.trim();
+    
+    if (!newName) {
+        showNotification('Veuillez entrer un nom de parcours', 'error');
+        return;
+    }
+    
+    if (selectedCheckpoints.length === 0) {
+        showNotification('Veuillez sélectionner au moins un checkpoint', 'error');
+        return;
+    }
+    
+    try {
+        const routeData = {
+            name: newName,
+            route: selectedCheckpoints,
+            updatedAt: new Date()
+        };
+        
+        await firebaseService.updateRoute(currentEditingRouteId, routeData);
+        
+        hideEditRouteModal();
+        showNotification(`✅ Parcours "${newName}" modifié avec succès`, 'success');
+        loadRoutes();
+        
+    } catch (error) {
+        console.error('❌ Erreur modification parcours:', error);
+        showNotification('Erreur lors de la modification', 'error');
+    }
+}
+
+// ===== MODIFICATION DES ÉQUIPES =====
+
+let currentEditingTeamId = null;
+
+async function editTeam(teamId) {
+    try {
+        currentEditingTeamId = teamId;
+        const team = managementTeamsData.find(t => t.id === teamId);
+        
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        // Remplir les informations actuelles
+        document.getElementById('edit-team-current-info').innerHTML = `
+            <p><strong>Nom actuel:</strong> ${team.name}</p>
+            <p><strong>Couleur actuelle:</strong> <span style="color: ${team.color};">●</span> ${team.color}</p>
+            <p><strong>Créée le:</strong> ${formatDate(team.createdAt)}</p>
+            <p><strong>Parcours:</strong> ${team.route.join(' → ')}</p>
+        `;
+        
+        // Pré-remplir le formulaire
+        document.getElementById('edit-team-name-input').value = team.name;
+        document.getElementById('edit-team-color-input').value = team.color;
+        document.getElementById('edit-team-password-input').value = ''; // Mot de passe vide par défaut
+        
+        // Afficher le modal
+        document.getElementById('edit-team-modal').style.display = 'flex';
+        document.body.classList.add('modal-open');
+        
+    } catch (error) {
+        console.error('❌ Erreur ouverture modal modification équipe:', error);
+        showNotification('Erreur lors de l\'ouverture', 'error');
+    }
+}
+
+function hideEditTeamModal() {
+    document.getElementById('edit-team-modal').style.display = 'none';
+    document.getElementById('edit-team-form').reset();
+    document.body.classList.remove('modal-open');
+    currentEditingTeamId = null;
+}
+
+async function handleEditTeam() {
+    const newName = document.getElementById('edit-team-name-input').value.trim();
+    const newColor = document.getElementById('edit-team-color-input').value;
+    const newPassword = document.getElementById('edit-team-password-input').value.trim();
+    
+    if (!newName) {
+        showNotification('Veuillez entrer un nom d\'équipe', 'error');
+        return;
+    }
+    
+    try {
+        const team = managementTeamsData.find(t => t.id === currentEditingTeamId);
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        // Préparer les données de mise à jour
+        const updateData = {
+            name: newName,
+            color: newColor,
+            updatedAt: new Date()
+        };
+        
+        // Ajouter le mot de passe seulement s'il est fourni
+        if (newPassword) {
+            updateData.password = newPassword;
+        }
+        
+        await firebaseService.updateTeam(currentEditingTeamId, updateData);
+        
+        hideEditTeamModal();
+        showNotification(`✅ Équipe "${newName}" modifiée avec succès`, 'success');
+        loadManagementData();
+        
+    } catch (error) {
+        console.error('❌ Erreur modification équipe:', error);
+        showNotification('Erreur lors de la modification', 'error');
+    }
+}
+
+// Exposer les nouvelles fonctions globalement
+window.toggleCheckpointSelection = toggleCheckpointSelection;
+window.removeCheckpointFromSelection = removeCheckpointFromSelection;

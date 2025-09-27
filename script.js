@@ -1779,12 +1779,18 @@ function startTeamSync() {
         const firebaseFoundCheckpoints = teamData.foundCheckpoints || [];
         const localFoundCheckpoints = foundCheckpoints || [];
         
-        // Si Firebase a plus de checkpoints trouvés, on synchronise
-        if (firebaseFoundCheckpoints.length > localFoundCheckpoints.length) {
+        // Vérifier s'il y a des différences (pas juste la longueur)
+        const firebaseSet = new Set(firebaseFoundCheckpoints);
+        const localSet = new Set(localFoundCheckpoints);
+        const hasNewFromFirebase = firebaseFoundCheckpoints.some(id => !localSet.has(id));
+        const hasDifferentLength = firebaseFoundCheckpoints.length !== localFoundCheckpoints.length;
+        
+        if (hasNewFromFirebase || hasDifferentLength) {
             console.log('🔄 Synchronisation foundCheckpoints depuis Firebase:', {
                 local: localFoundCheckpoints,
                 firebase: firebaseFoundCheckpoints,
-                nouveaux: firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id))
+                nouveaux: firebaseFoundCheckpoints.filter(id => !localSet.has(id)),
+                longueurDifférente: hasDifferentLength
             });
             foundCheckpoints = [...firebaseFoundCheckpoints];
             

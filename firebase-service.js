@@ -171,13 +171,14 @@ class FirebaseService {
             collection(this.db, DB_COLLECTIONS.VALIDATIONS),
             where('teamId', '==', teamId),
             where('status', 'in', ['approved', 'rejected']),
-            orderBy('updatedAt', 'desc')
+            orderBy('validatedAt', 'desc')
         );
         return onSnapshot(q, (snapshot) => {
             const resolvedValidations = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
+            console.log(`🔔 Firebase: ${resolvedValidations.length} validations résolues pour équipe ${teamId}:`, resolvedValidations.map(v => ({ id: v.id, status: v.status, adminNotes: v.adminNotes })));
             callback(resolvedValidations);
         });
     }

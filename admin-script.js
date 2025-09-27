@@ -350,7 +350,7 @@ function updateTeamsDisplay() {
                 <div class="progress-bar">
                     <div class="progress-fill" style="width: ${getTeamProgress(team)}%"></div>
                 </div>
-                <small>${team.foundCheckpoints.filter(id => id !== 0).length} / ${team.route.filter(id => id !== 0).length} défis résolus</small>
+                <small>${team.foundCheckpoints.filter(id => id !== 0).length} / ${team.route.filter(id => id !== 0).length} défis résolus (validés)</small>
             </div>
             
             <div class="team-info">
@@ -532,6 +532,15 @@ function getTeamProgress(team) {
     const nonLobbyTotal = team.route.filter(id => id !== 0).length;
     
     if (nonLobbyTotal === 0) return 0;
+    
+    // ⚠️ IMPORTANT: On compte SEULEMENT les checkpoints réellement trouvés (foundCheckpoints)
+    // Les photos en attente de validation ne sont PAS comptées comme trouvées
+    console.log(`📊 Progression ${team.name}: ${nonLobbyFound.length}/${nonLobbyTotal} (${Math.round((nonLobbyFound.length / nonLobbyTotal) * 100)}%)`, {
+        foundCheckpoints: team.foundCheckpoints,
+        nonLobbyFound: nonLobbyFound,
+        route: team.route
+    });
+    
     return Math.round((nonLobbyFound.length / nonLobbyTotal) * 100);
 }
 

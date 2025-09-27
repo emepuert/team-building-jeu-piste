@@ -2845,13 +2845,14 @@ async function loadCheckpointsForRouteEdit(currentRoute = []) {
             const isSelected = currentRoute.includes(checkpoint.id);
             
             const item = document.createElement('div');
-            item.className = 'checkpoint-checkbox-item';
+            item.className = 'checkpoint-item';
             item.innerHTML = `
+                <span class="drag-handle">⋮⋮</span>
                 <input type="checkbox" id="checkpoint-${checkpoint.id}" 
                        value="${checkpoint.id}" ${isSelected ? 'checked' : ''}
                        onchange="toggleCheckpointSelection(${checkpoint.id}, this.checked)">
                 <label for="checkpoint-${checkpoint.id}">
-                    ${checkpoint.emoji} ${checkpoint.name} (${checkpoint.type})
+                    ${checkpoint.emoji} ${checkpoint.name}
                 </label>
             `;
             checkpointsList.appendChild(item);
@@ -2901,13 +2902,8 @@ function updateSelectedCheckpointsOrder() {
             <div class="checkpoint-content">
                 <span class="checkpoint-number">${index + 1}</span>
                 <span class="checkpoint-name">${checkpointName}</span>
+                <button class="checkpoint-remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer ce checkpoint">×</button>
             </div>
-            <button class="checkpoint-remove-btn" onclick="removeCheckpointFromSelection(${checkpointId})" title="Retirer ce checkpoint">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-            </button>
         `;
         
         // Ajouter les événements drag & drop

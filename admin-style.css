@@ -1588,6 +1588,7 @@ section h2 {
     display: flex;
     align-items: center;
     gap: 0.8rem;
+    position: relative;
 }
 
 .checkpoint-number {
@@ -1614,27 +1615,107 @@ section h2 {
     background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
     color: white;
     border: none;
-    border-radius: 8px;
-    width: 32px;
-    height: 32px;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
     box-shadow: 0 2px 6px rgba(231, 76, 60, 0.3);
-    position: absolute;
-    top: -8px;
-    right: -8px;
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+    flex-shrink: 0;
 }
 
 .checkpoint-remove-btn:hover {
     background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
-    transform: scale(1.1);
+    transform: scale(1.15);
     box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
 }
 
-.checkpoint-remove-btn svg {
-    width: 14px;
-    height: 14px;
+.checkpoint-remove-btn:active {
+    transform: scale(0.95);
+}
+
+/* ===== CONSTRUCTEUR DE PARCOURS UNIFIÉ ===== */
+.route-builder {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 15px;
+    border: 2px solid #dee2e6;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.route-builder h3 {
+    margin-bottom: 1.5rem;
+    color: #260806;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+#checkpoints-list {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 2px dashed #3498db;
+    border-radius: 10px;
+    background: rgba(52, 152, 219, 0.05);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.checkpoint-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.5rem;
+    margin: 0.2rem 0;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+    background: white;
+    border: 1px solid #e0e0e0;
+    white-space: nowrap;
+}
+
+.checkpoint-item:hover {
+    background: rgba(52, 152, 219, 0.05);
+}
+
+.checkpoint-item .drag-handle {
+    color: #7f8c8d;
+    font-size: 1rem;
+    cursor: move;
+    user-select: none;
+}
+
+.checkpoint-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #3498db;
+}
+
+.checkpoint-item label {
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.checkpoint-item input[type="checkbox"]:checked + label {
+    color: #3498db;
+    font-weight: 600;
+}
+
+#selected-checkpoints-order {
+    min-height: 80px;
+    padding: 1rem;
+    border: 2px dashed #f1ff33;
+    border-radius: 10px;
+    background: rgba(241, 255, 51, 0.1);
 }

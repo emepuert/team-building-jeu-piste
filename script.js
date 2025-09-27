@@ -2250,60 +2250,31 @@ function setupNotificationListeners() {
         return;
     }
     
-    console.log('🔔 Configuration des listeners de notifications pour équipe:', currentTeamId);
-    
     // Écouter les demandes d'aide résolues
     firebaseService.onTeamHelpRequestsResolved(currentTeamId, (resolvedRequests) => {
-        console.log('🔔 Demandes d\'aide résolues reçues:', resolvedRequests.length);
-        
         resolvedRequests.forEach(request => {
-            console.log('🔍 Traitement demande d\'aide:', {
-                id: request.id,
-                action: request.action,
-                type: request.type,
-                checkpointId: request.checkpointId,
-                alreadyProcessed: processedNotifications.has(request.id)
-            });
-            
             // Éviter les doublons
             if (processedNotifications.has(request.id)) return;
             processedNotifications.add(request.id);
             
             if (request.action === 'denied') {
-                console.log('❌ Demande d\'aide refusée détectée, affichage notification');
                 showAdminRefusalNotification('aide', request);
-            } else if (request.action === 'granted') {
-                console.log('✅ Demande d\'aide accordée détectée');
             }
         });
     });
     
     // Écouter les validations résolues
     firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
-        console.log('🔔 Validations résolues reçues:', resolvedValidations.length);
-        
         resolvedValidations.forEach(validation => {
-            console.log('🔍 Traitement validation:', {
-                id: validation.id,
-                status: validation.status,
-                checkpointId: validation.checkpointId,
-                alreadyProcessed: processedNotifications.has(validation.id)
-            });
-            
             // Éviter les doublons
             if (processedNotifications.has(validation.id)) return;
             processedNotifications.add(validation.id);
             
             if (validation.status === 'rejected') {
-                console.log('❌ Validation refusée détectée, affichage notification');
                 showAdminRefusalNotification('validation', validation);
-            } else if (validation.status === 'approved') {
-                console.log('✅ Validation approuvée détectée');
             }
         });
     });
-    
-    console.log('✅ Listeners de notifications configurés');
 }
 
 // Afficher une notification de refus admin

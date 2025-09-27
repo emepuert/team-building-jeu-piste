@@ -1307,6 +1307,13 @@ function updatePlayerRouteProgress() {
             helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
         } else if (isUnlocked && !isFound) {
             // Checkpoint débloqué mais pas trouvé → vérifier s'il a une énigme
+            console.log(`🔍 Debug checkpoint ${checkpointId}:`, {
+                checkpoint,
+                hasClue: !!checkpoint?.clue,
+                hasRiddle: !!checkpoint?.clue?.riddle,
+                riddleData: checkpoint?.clue?.riddle
+            });
+            
             if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;

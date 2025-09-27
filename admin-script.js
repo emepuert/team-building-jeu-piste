@@ -432,6 +432,13 @@ function updateHelpRequestsDisplay() {
         const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
         const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${helpRequest.checkpointId}`;
         
+        console.log(`🔍 Debug demande d'aide:`, {
+            helpRequest,
+            checkpointsData: checkpointsData.length,
+            checkpoint,
+            checkpointName
+        });
+        
         const typeText = helpRequest.type === 'location' ? 'Localisation' : 'Énigme';
         const typeIcon = helpRequest.type === 'location' ? '📍' : '🧩';
         
@@ -1426,6 +1433,8 @@ async function loadManagementData() {
         // Charger les checkpoints et parcours
         await loadCheckpoints();
         await loadRoutes();
+        
+        console.log(`✅ Données chargées: ${checkpointsData.length} checkpoints, ${routesData.length} routes`);
         
         // Mettre à jour les statuts de configuration
         updateConfigurationStatus();

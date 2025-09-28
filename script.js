@@ -175,11 +175,108 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ===== PROTECTION ANTI-RECHARGEMENT =====
+let gameStarted = false;
+let gameProtectionActive = false;
+
+// Activer la protection quand le jeu commence
+function enableGameProtection() {
+    if (gameProtectionActive) return;
+    
+    gameProtectionActive = true;
+    console.log('🛡️ Protection anti-rechargement activée');
+    
+    // Protection rechargement/fermeture de page
+    window.addEventListener('beforeunload', (event) => {
+        if (gameStarted && currentTeam) {
+            const message = '⚠️ Êtes-vous sûr de vouloir quitter ? Votre progression sera sauvegardée mais vous devrez vous reconnecter.';
+            event.preventDefault();
+            event.returnValue = message; // Chrome
+            return message; // Firefox/Safari
+        }
+    });
+    
+    // Protection navigation arrière (mobile)
+    window.addEventListener('popstate', (event) => {
+        if (gameStarted && currentTeam) {
+            const confirmLeave = confirm('⚠️ Voulez-vous vraiment quitter le jeu ? Votre progression sera sauvegardée.');
+            if (!confirmLeave) {
+                // Remettre l'état dans l'historique
+                history.pushState(null, null, window.location.href);
+            }
+        }
+    });
+    
+    // Ajouter un état dans l'historique pour capturer le retour
+    history.pushState(null, null, window.location.href);
+}
+
+// Désactiver la protection (fin de jeu)
+function disableGameProtection() {
+    gameProtectionActive = false;
+    gameStarted = false;
+    console.log('🔓 Protection anti-rechargement désactivée');
+}
+
+// Déconnexion propre de l'équipe
+function disconnectTeam() {
+    console.log('🚪 Déconnexion de l\'équipe...');
+    
+    try {
+        // Désactiver la protection avant de déconnecter
+        disableGameProtection();
+        
+        // Nettoyer les données locales
+        safeLocalStorage().removeItem('currentTeamId');
+        
+        // Réinitialiser les variables
+        currentTeam = null;
+        currentTeamId = null;
+        foundCheckpoints = [];
+        unlockedCheckpoints = [0];
+        gameStarted = false;
+        
+        // Nettoyer la carte
+        if (map) {
+            checkpointMarkers.forEach(markerData => {
+                if (markerData.marker) {
+                    map.removeLayer(markerData.marker);
+                }
+                if (markerData.circle) {
+                    map.removeLayer(markerData.circle);
+                }
+            });
+            checkpointMarkers = [];
+            
+            if (currentRoute) {
+                map.removeLayer(currentRoute);
+                currentRoute = null;
+            }
+        }
+        
+        // Masquer les infos équipe
+        document.getElementById('team-info').style.display = 'none';
+        
+        // Réafficher le modal de connexion
+        showTeamLoginModal();
+        
+        // Notification de déconnexion
+        showNotification('🚪 Déconnexion réussie', 'success');
+        
+        console.log('✅ Déconnexion terminée');
+        
+    } catch (error) {
+        logError(error, 'Team Disconnect', true);
+        showNotification('Erreur lors de la déconnexion', 'error');
+    }
+}
+
 // Exposer les fonctions de monitoring globalement
 window.healthCheck = healthCheck;
 window.showMetrics = showMetrics;
 window.errorLog = errorLog;
 window.enableDebugMode = enableDebugMode;
+window.disableGameProtection = disableGameProtection;
 
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
@@ -509,6 +606,12 @@ async function loadTeamGameData() {
         
         // Démarrer la synchronisation temps réel avec l'équipe
         startTeamSync();
+        
+        // Activer la protection anti-rechargement maintenant que le jeu a commencé
+        gameStarted = true;
+        enableGameProtection();
+        // Notification discrète dans la console seulement
+        console.log('🛡️ Protection anti-rechargement activée - Le jeu vous demandera confirmation avant de quitter');
         
         console.log(`✅ Équipe ${currentTeam.name} connectée`, {
             foundCheckpoints,
@@ -2036,6 +2139,19 @@ function setupEventListeners() {
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';
         console.log('🎮 Modal de succès fermé - exploration continue');
+    });
+    
+    // Bouton de déconnexion sécurisé
+    document.getElementById('disconnect-btn').addEventListener('click', () => {
+        const confirmDisconnect = confirm(
+            '🚪 Êtes-vous sûr de vouloir vous déconnecter ?\n\n' +
+            '✅ Votre progression sera sauvegardée\n' +
+            '⚠️ Vous devrez vous reconnecter pour continuer'
+        );
+        
+        if (confirmDisconnect) {
+            disconnectTeam();
+        }
     });
     
     

@@ -2450,13 +2450,7 @@ function showUnifiedDebugMenu() {
             </div>
             
             <div style="text-align: center;">
-                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-                    <strong style="font-size: 12px;">🎯 Positions Rapides:</strong>
-                    <button onclick="generateQuickPositions()" 
-                            style="background: #5D2DE6; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
-                        🔄
-                    </button>
-                </div>
+                <strong style="font-size: 12px; margin-bottom: 8px; display: block;">🎯 Positions Rapides</strong>
                 <div id="debug-quick-positions">
                     <!-- Les positions seront générées dynamiquement -->
                 </div>
@@ -2516,23 +2510,28 @@ function generateQuickPositions() {
         buttonsHTML += '<div style="margin-bottom: 8px;"><strong style="font-size: 11px; color: #5D2DE6;">📍 Checkpoints du Jeu:</strong></div>';
         
         GAME_CONFIG.checkpoints.forEach((checkpoint, index) => {
-            if (checkpoint.position && checkpoint.position.lat && checkpoint.position.lng) {
+            // Les coordonnées sont dans checkpoint.coordinates [lat, lng]
+            if (checkpoint.coordinates && checkpoint.coordinates.length >= 2) {
+                const lat = checkpoint.coordinates[0];
+                const lng = checkpoint.coordinates[1];
                 const isFound = foundCheckpoints.includes(checkpoint.id);
                 const isUnlocked = unlockedCheckpoints.includes(checkpoint.id);
                 
-                let icon = '📍';
+                let icon = checkpoint.emoji || '📍';
                 let color = '#568AC2';
                 let status = '';
                 
-                // Icônes selon le type
-                switch(checkpoint.type) {
-                    case 'lobby': icon = '🏠'; break;
-                    case 'enigma': icon = '🧩'; break;
-                    case 'photo': icon = '📸'; break;
-                    case 'audio': icon = '🎤'; break;
-                    case 'qcm': icon = '📋'; break;
-                    case 'info': icon = 'ℹ️'; break;
-                    case 'final': icon = '🏆'; break;
+                // Icônes selon le type si pas d'emoji
+                if (!checkpoint.emoji) {
+                    switch(checkpoint.type) {
+                        case 'lobby': icon = '🏠'; break;
+                        case 'enigma': icon = '🧩'; break;
+                        case 'photo': icon = '📸'; break;
+                        case 'audio': icon = '🎤'; break;
+                        case 'qcm': icon = '📋'; break;
+                        case 'info': icon = 'ℹ️'; break;
+                        case 'final': icon = '🏆'; break;
+                    }
                 }
                 
                 // Couleur selon le statut
@@ -2547,12 +2546,12 @@ function generateQuickPositions() {
                     status = ' 🔒';
                 }
                 
-                const shortName = checkpoint.name.length > 12 ? 
+                const shortName = checkpoint.name && checkpoint.name.length > 12 ? 
                     checkpoint.name.substring(0, 12) + '...' : 
-                    checkpoint.name;
+                    (checkpoint.name || `Point ${index + 1}`);
                 
                 buttonsHTML += `
-                    <button onclick="simulatePosition(${checkpoint.position.lat}, ${checkpoint.position.lng})" 
+                    <button onclick="simulatePosition(${lat}, ${lng})" 
                             style="background: ${color}; color: white; border: none; padding: 4px 8px; border-radius: 4px; margin: 1px; font-size: 10px; max-width: 120px; overflow: hidden;">
                         ${icon} ${shortName}${status}
                     </button>
@@ -2560,6 +2559,10 @@ function generateQuickPositions() {
             }
         });
         
+        buttonsHTML += '<div style="margin: 8px 0;"><strong style="font-size: 11px; color: #008000;">🌍 Positions Fixes:</strong></div>';
+    } else {
+        // Pas de checkpoints chargés
+        buttonsHTML += '<div style="margin-bottom: 8px; color: #f39c12; font-size: 11px;">⏳ Checkpoints en cours de chargement...</div>';
         buttonsHTML += '<div style="margin: 8px 0;"><strong style="font-size: 11px; color: #008000;">🌍 Positions Fixes:</strong></div>';
     }
     
@@ -2882,6 +2885,12 @@ async function syncCheckpoints() {
         // Mettre à jour l'affichage du parcours maintenant que les checkpoints sont chargés
         updatePlayerRouteProgress();
         updateUI();
+        
+        // Rafraîchir le menu debug s'il est ouvert
+        const debugPanel = document.getElementById('unified-debug-panel');
+        if (debugPanel) {
+            generateQuickPositions();
+        }
     } catch (error) {
         console.error('❌ Erreur lors de la synchronisation des checkpoints:', error);
         showNotification('❌ Erreur de chargement des points. Rechargez la page.', 'error');

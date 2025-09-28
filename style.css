@@ -789,20 +789,29 @@ button:active {
 #photo-modal .modal-content {
     max-width: 500px;
     width: 90vw;
+    max-height: 90vh; /* Limite la hauteur de la modal */
+    overflow-y: auto; /* Scroll si nécessaire */
 }
 
 #camera-container {
     position: relative;
-    margin: 1rem 0;
+    margin: var(--space-md) 0;
     text-align: center;
+    max-height: 40vh; /* Maximum 40% de la hauteur d'écran */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #camera-video {
     width: 100%;
     max-width: 400px;
+    max-height: 40vh; /* Maximum 40% de la hauteur d'écran */
     height: auto;
-    border-radius: 10px;
-    background: #000;
+    border-radius: var(--radius-lg);
+    background: var(--black);
+    object-fit: cover; /* Remplit le conteneur en gardant les proportions */
 }
 
 #photo-controls {
@@ -841,14 +850,22 @@ button:active {
 
 #photo-preview {
     text-align: center;
-    margin: 1rem 0;
+    margin: var(--space-md) 0;
+    max-height: 40vh; /* Maximum 40% de la hauteur d'écran */
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 #captured-photo {
     max-width: 100%;
-    max-height: 300px;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    max-height: 40vh; /* Maximum 40% de la hauteur d'écran */
+    width: auto;
+    height: auto;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    object-fit: contain; /* Garde les proportions sans déformation */
 }
 
 #photo-info {
@@ -866,6 +883,8 @@ button:active {
     #photo-modal .modal-content {
         width: 95vw;
         margin: 1rem auto;
+        max-height: 90vh; /* Limite la hauteur sur mobile */
+        overflow-y: auto; /* Scroll si nécessaire */
     }
     
     .photo-btn {

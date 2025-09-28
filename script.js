@@ -28,6 +28,17 @@ let firebaseService = null; // Service Firebase
 let isMapInitialized = false; // Vérifier si la carte est déjà initialisée
 let isGameStarted = false; // Vérifier si le jeu est déjà démarré
 
+// Variables pour l'épreuve audio
+let currentAudioCheckpoint = null;
+let audioContext = null;
+let audioStream = null;
+let audioAnalyser = null;
+let audioDataArray = null;
+let audioProgress = 0;
+let audioStartTime = null;
+let isAudioChallengeActive = false;
+let audioAnimationId = null;
+
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
     const poly = [];
@@ -852,6 +863,12 @@ function showClue(clue, checkpoint = null) {
         return;
     }
     
+    // Si c'est un checkpoint audio, afficher le modal audio
+    if (checkpoint && checkpoint.type === 'audio') {
+        showAudioChallenge(checkpoint);
+        return;
+    }
+    
     // Si l'indice contient une énigme, afficher la modal d'énigme
     if (clue.riddle) {
         showRiddle(clue);
@@ -1585,6 +1602,15 @@ function setupEventListeners() {
     document.getElementById('retake-photo-btn').addEventListener('click', retakePhoto);
     document.getElementById('submit-photo-btn').addEventListener('click', submitPhoto);
     
+    // Événements pour le modal audio
+    document.querySelector('#audio-modal .close').addEventListener('click', () => {
+        document.getElementById('audio-modal').style.display = 'none';
+        resetAudioInterface();
+    });
+    
+    document.getElementById('start-audio-btn').addEventListener('click', startAudioChallenge);
+    document.getElementById('stop-audio-btn').addEventListener('click', stopAudioChallenge);
+    
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';
         console.log('🎮 Modal de succès fermé - exploration continue');
@@ -2069,6 +2095,242 @@ function showPhotoChallenge(checkpoint) {
     document.getElementById('photo-modal').style.display = 'flex';
     
     console.log('📸 Modal photo ouvert pour:', checkpoint.name);
+}
+
+// Afficher le défi audio
+function showAudioChallenge(checkpoint) {
+    if (!checkpoint || checkpoint.type !== 'audio') {
+        console.error('❌ Checkpoint invalide pour défi audio:', checkpoint);
+        return;
+    }
+    
+    if (!checkpoint.clue.audioChallenge) {
+        console.error('❌ Configuration audio manquante:', checkpoint);
+        return;
+    }
+    
+    currentAudioCheckpoint = checkpoint;
+    const audioConfig = checkpoint.clue.audioChallenge;
+    
+    // Afficher les instructions
+    document.getElementById('audio-instructions').textContent = audioConfig.instructions || 'Faites du bruit pour débloquer ce checkpoint !';
+    
+    // Réinitialiser l'interface
+    resetAudioInterface();
+    
+    // Afficher le modal
+    document.getElementById('audio-modal').style.display = 'flex';
+    
+    console.log('🎤 Modal audio ouvert pour:', checkpoint.name, 'Config:', audioConfig);
+}
+
+// Réinitialiser l'interface audio
+function resetAudioInterface() {
+    // Arrêter l'audio si actif
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+    }
+    
+    // Réinitialiser les éléments
+    document.getElementById('audio-status-text').textContent = 'Appuyez sur le bouton pour commencer';
+    document.getElementById('audio-progress-container').style.display = 'none';
+    document.getElementById('start-audio-btn').style.display = 'block';
+    document.getElementById('stop-audio-btn').style.display = 'none';
+    document.getElementById('audio-feedback').innerHTML = '';
+    document.getElementById('audio-progress-fill').style.width = '0%';
+    document.getElementById('audio-timer').textContent = '0s';
+    document.getElementById('audio-level').textContent = 'Volume: 0%';
+    
+    // Réinitialiser les variables
+    audioProgress = 0;
+    audioStartTime = null;
+    isAudioChallengeActive = false;
+    audioAnimationId = null;
+}
+
+// Démarrer l'épreuve audio
+async function startAudioChallenge() {
+    if (!currentAudioCheckpoint || !currentAudioCheckpoint.clue.audioChallenge) {
+        console.error('❌ Configuration audio manquante');
+        return;
+    }
+    
+    try {
+        // Demander l'accès au microphone
+        audioStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false
+            }
+        });
+        
+        // Créer le contexte audio
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContext.createMediaStreamSource(audioStream);
+        
+        // Créer l'analyseur
+        audioAnalyser = audioContext.createAnalyser();
+        audioAnalyser.fftSize = 256;
+        const bufferLength = audioAnalyser.frequencyBinCount;
+        audioDataArray = new Uint8Array(bufferLength);
+        
+        source.connect(audioAnalyser);
+        
+        // Démarrer le défi
+        isAudioChallengeActive = true;
+        audioStartTime = Date.now();
+        audioProgress = 0;
+        
+        // Mettre à jour l'interface
+        document.getElementById('audio-status-text').textContent = 'Épreuve en cours... Faites du bruit !';
+        document.getElementById('audio-progress-container').style.display = 'block';
+        document.getElementById('start-audio-btn').style.display = 'none';
+        document.getElementById('stop-audio-btn').style.display = 'block';
+        
+        // Démarrer l'animation
+        updateAudioProgress();
+        
+        console.log('🎤 Épreuve audio démarrée');
+        
+    } catch (error) {
+        console.error('❌ Erreur accès microphone:', error);
+        showAudioFeedback('Impossible d\'accéder au microphone. Vérifiez les permissions.', 'error');
+    }
+}
+
+// Arrêter l'épreuve audio
+function stopAudioChallenge() {
+    isAudioChallengeActive = false;
+    
+    if (audioAnimationId) {
+        cancelAnimationFrame(audioAnimationId);
+        audioAnimationId = null;
+    }
+    
+    resetAudioInterface();
+    console.log('🎤 Épreuve audio arrêtée');
+}
+
+// Mettre à jour la progression audio
+function updateAudioProgress() {
+    if (!isAudioChallengeActive || !audioAnalyser || !currentAudioCheckpoint) {
+        return;
+    }
+    
+    const audioConfig = currentAudioCheckpoint.clue.audioChallenge;
+    const requiredDuration = audioConfig.duration * 1000; // en millisecondes
+    const threshold = audioConfig.threshold;
+    
+    // Analyser le niveau audio
+    audioAnalyser.getByteFrequencyData(audioDataArray);
+    
+    // Calculer le niveau moyen
+    let sum = 0;
+    for (let i = 0; i < audioDataArray.length; i++) {
+        sum += audioDataArray[i];
+    }
+    const average = sum / audioDataArray.length;
+    const volumeLevel = Math.round((average / 255) * 100);
+    
+    // Mettre à jour l'affichage du volume
+    document.getElementById('audio-level').textContent = `Volume: ${volumeLevel}%`;
+    
+    // Vérifier si le seuil est atteint
+    if (volumeLevel >= threshold) {
+        audioProgress += 16; // ~60fps, donc environ 16ms par frame
+        
+        // Mettre à jour la jauge
+        const progressPercent = Math.min((audioProgress / requiredDuration) * 100, 100);
+        document.getElementById('audio-progress-fill').style.width = `${progressPercent}%`;
+        
+        // Mettre à jour le timer
+        const elapsedSeconds = Math.floor(audioProgress / 1000);
+        const requiredSeconds = Math.floor(requiredDuration / 1000);
+        document.getElementById('audio-timer').textContent = `${elapsedSeconds}s / ${requiredSeconds}s`;
+        
+        // Vérifier si l'épreuve est réussie
+        if (audioProgress >= requiredDuration) {
+            audioChallengeSucess();
+            return;
+        }
+    } else {
+        // Niveau insuffisant, réinitialiser le progrès
+        audioProgress = Math.max(0, audioProgress - 32); // Perte plus rapide que le gain
+        
+        const progressPercent = Math.min((audioProgress / requiredDuration) * 100, 100);
+        document.getElementById('audio-progress-fill').style.width = `${progressPercent}%`;
+        
+        const elapsedSeconds = Math.floor(audioProgress / 1000);
+        const requiredSeconds = Math.floor(requiredDuration / 1000);
+        document.getElementById('audio-timer').textContent = `${elapsedSeconds}s / ${requiredSeconds}s`;
+    }
+    
+    // Continuer l'animation
+    audioAnimationId = requestAnimationFrame(updateAudioProgress);
+}
+
+// Succès de l'épreuve audio
+function audioChallengeSucess() {
+    isAudioChallengeActive = false;
+    
+    if (audioAnimationId) {
+        cancelAnimationFrame(audioAnimationId);
+        audioAnimationId = null;
+    }
+    
+    const audioConfig = currentAudioCheckpoint.clue.audioChallenge;
+    const successMessage = audioConfig.successMessage || 'Bravo ! Épreuve audio réussie !';
+    
+    // Afficher le succès
+    showAudioFeedback(successMessage, 'success');
+    
+    // Masquer les contrôles
+    document.getElementById('start-audio-btn').style.display = 'none';
+    document.getElementById('stop-audio-btn').style.display = 'none';
+    document.getElementById('audio-status-text').textContent = 'Épreuve réussie !';
+    
+    console.log('🎉 Épreuve audio réussie !');
+    
+    // Débloquer le prochain checkpoint après un délai
+    setTimeout(() => {
+        document.getElementById('audio-modal').style.display = 'none';
+        
+        // Débloquer le prochain point selon l'équipe
+        const nextCheckpointId = getNextCheckpointForTeam();
+        if (nextCheckpointId) {
+            unlockCheckpoint(nextCheckpointId);
+            
+            // Message personnalisé selon le prochain checkpoint
+            const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+            const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+            showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+            
+            // Zoomer sur le nouveau point débloqué
+            if (nextCheckpoint) {
+                console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
+                centerMapOnCheckpoint(nextCheckpoint);
+            }
+        } else {
+            showNotification('🏆 Parcours terminé ! Félicitations !');
+        }
+        
+        // Nettoyer les ressources audio
+        resetAudioInterface();
+        
+    }, 2000);
+}
+
+// Afficher un feedback audio
+function showAudioFeedback(message, type = 'info') {
+    const feedback = document.getElementById('audio-feedback');
+    feedback.textContent = message;
+    feedback.className = `audio-feedback ${type}`;
 }
 
 // Réinitialiser l'interface photo

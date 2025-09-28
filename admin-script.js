@@ -2206,6 +2206,38 @@ function updateDynamicContent() {
             `;
             break;
             
+        case 'audio':
+            content += `
+                <div>
+                    <label class="field-label">Instructions pour l'épreuve audio :</label>
+                    <textarea id="audio-instructions" placeholder="Faites du bruit pour débloquer ce checkpoint ! Criez, tapez des mains, chantez..." rows="3" required></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Seuil de volume (0-100) :</label>
+                    <input type="number" id="audio-threshold" placeholder="70" min="0" max="100" value="70" required>
+                    <small style="color: #666;">Plus le chiffre est élevé, plus il faut faire du bruit</small>
+                </div>
+                <div>
+                    <label class="field-label">Durée requise (secondes) :</label>
+                    <input type="number" id="audio-duration" placeholder="3" min="1" max="30" value="3" required>
+                    <small style="color: #666;">Temps pendant lequel maintenir le niveau sonore</small>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="audio-success" placeholder="Bravo ! Vous avez fait assez de bruit pour débloquer ce point !" rows="2"></textarea>
+                </div>
+                <div class="info-box">
+                    <p><strong>🎤 Épreuve audio :</strong></p>
+                    <ul>
+                        <li>🔊 Détection du niveau sonore via microphone</li>
+                        <li>⏱️ Validation automatique après la durée requise</li>
+                        <li>📊 Jauge de progression visuelle pour l'utilisateur</li>
+                        <li>🎯 Seuil et durée configurables</li>
+                    </ul>
+                </div>
+            `;
+            break;
+            
         case 'info':
             content += `
                 <div>
@@ -2295,6 +2327,36 @@ async function createCheckpoint() {
                 
                 clueData.text = photoInstructions;
                 // Plus besoin de WhatsApp - système intégré
+                break;
+                
+            case 'audio':
+                const audioInstructions = document.getElementById('audio-instructions')?.value.trim();
+                const audioThreshold = parseInt(document.getElementById('audio-threshold')?.value);
+                const audioDuration = parseInt(document.getElementById('audio-duration')?.value);
+                const audioSuccess = document.getElementById('audio-success')?.value.trim() || 'Bravo ! Épreuve audio réussie !';
+                
+                if (!audioInstructions || isNaN(audioThreshold) || isNaN(audioDuration)) {
+                    showNotification('Veuillez remplir tous les champs de l\'épreuve audio', 'error');
+                    return;
+                }
+                
+                if (audioThreshold < 0 || audioThreshold > 100) {
+                    showNotification('Le seuil de volume doit être entre 0 et 100', 'error');
+                    return;
+                }
+                
+                if (audioDuration < 1 || audioDuration > 30) {
+                    showNotification('La durée doit être entre 1 et 30 secondes', 'error');
+                    return;
+                }
+                
+                clueData.text = audioSuccess;
+                clueData.audioChallenge = {
+                    instructions: audioInstructions,
+                    threshold: audioThreshold,
+                    duration: audioDuration,
+                    successMessage: audioSuccess
+                };
                 break;
                 
             case 'info':

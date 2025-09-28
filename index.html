@@ -122,6 +122,40 @@
             </div>
         </div>
         
+        <!-- Modal pour l'épreuve audio -->
+        <div id="audio-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>🎤 Épreuve Audio</h2>
+                <div id="audio-content">
+                    <p id="audio-instructions"></p>
+                    
+                    <div id="audio-challenge-section">
+                        <div id="audio-status" class="audio-status">
+                            <p id="audio-status-text">Appuyez sur le bouton pour commencer</p>
+                        </div>
+                        
+                        <div id="audio-progress-container" style="display: none;">
+                            <div class="audio-progress-bar">
+                                <div id="audio-progress-fill" class="audio-progress-fill"></div>
+                            </div>
+                            <div class="audio-info">
+                                <span id="audio-timer">0s</span>
+                                <span id="audio-level">Volume: 0%</span>
+                            </div>
+                        </div>
+                        
+                        <div id="audio-controls">
+                            <button id="start-audio-btn" class="audio-btn primary">🎤 Commencer l'épreuve</button>
+                            <button id="stop-audio-btn" class="audio-btn" style="display: none;">⏹️ Arrêter</button>
+                        </div>
+                        
+                        <div id="audio-feedback" class="audio-feedback"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Modal pour les photos -->
         <div id="photo-modal" class="modal">
             <div class="modal-content">

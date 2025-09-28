@@ -925,6 +925,9 @@ async function loadTeamGameData() {
         // Démarrer la synchronisation temps réel avec l'équipe
         startTeamSync();
         
+        // Démarrer la surveillance des modifications de checkpoints
+        startCheckpointWatcher();
+        
         // Activer la protection anti-rechargement maintenant que le jeu a commencé
         gameStarted = true;
         enableGameProtection();
@@ -1828,8 +1831,18 @@ function showRiddle(clue) {
     const hintElement = document.getElementById('riddle-hint');
     const feedback = document.getElementById('riddle-feedback');
     
-    question.textContent = clue.riddle.question;
-    hintElement.textContent = clue.riddle.hint;
+    // Support des formats d'énigme (nouveau et ancien)
+    const riddleConfig = clue.riddle || clue.enigma || clue.puzzle;
+    if (!riddleConfig) {
+        console.error('❌ Configuration énigme manquante:', clue);
+        return;
+    }
+    
+    console.log('🧩 Configuration énigme trouvée:', riddleConfig);
+    console.log('🧩 Structure complète de l\'indice:', clue);
+    
+    question.textContent = riddleConfig.question;
+    hintElement.textContent = riddleConfig.hint || riddleConfig.clue || 'Aucun indice disponible';
     hintElement.style.display = 'none';
     answerInput.value = '';
     feedback.innerHTML = '';
@@ -1849,18 +1862,27 @@ function checkRiddleAnswer() {
     const riddleQuestion = document.getElementById('riddle-question').textContent;
     
     // Trouver le checkpoint correspondant à cette énigme
-    const currentCheckpoint = GAME_CONFIG.checkpoints.find(cp => 
-        cp.clue && cp.clue.riddle && cp.clue.riddle.question === riddleQuestion
-    );
+    const currentCheckpoint = GAME_CONFIG.checkpoints.find(cp => {
+        const riddleConfig = cp.clue?.riddle || cp.clue?.enigma || cp.clue?.puzzle;
+        return riddleConfig && riddleConfig.question === riddleQuestion;
+    });
     
-    if (!currentCheckpoint || !currentCheckpoint.clue || !currentCheckpoint.clue.riddle) {
+    if (!currentCheckpoint || !currentCheckpoint.clue) {
         console.error('❌ Impossible de trouver l\'énigme actuelle');
         feedback.innerHTML = '❌ Erreur système. Veuillez recharger la page.';
         feedback.className = 'error';
         return;
     }
     
-    const correctAnswer = currentCheckpoint.clue.riddle.answer.toLowerCase();
+    const riddleConfig = currentCheckpoint.clue.riddle || currentCheckpoint.clue.enigma || currentCheckpoint.clue.puzzle;
+    if (!riddleConfig) {
+        console.error('❌ Configuration énigme manquante pour la vérification');
+        feedback.innerHTML = '❌ Configuration énigme invalide.';
+        feedback.className = 'error';
+        return;
+    }
+    
+    const correctAnswer = riddleConfig.answer.toLowerCase();
     
     if (userAnswer === correctAnswer) {
         // Bonne réponse !
@@ -3211,6 +3233,50 @@ async function forceCheckpointSync() {
     showNotification('🔄 Checkpoints mis à jour !', 'info');
 }
 
+// Surveillance automatique des modifications de checkpoints
+let lastCheckpointUpdate = null;
+
+async function watchCheckpointChanges() {
+    if (!firebaseService || !currentTeam) return;
+    
+    try {
+        // Vérifier la dernière modification des checkpoints
+        const checkpoints = await firebaseService.getAllCheckpoints();
+        
+        // Calculer le timestamp de la dernière modification
+        const latestUpdate = Math.max(...checkpoints.map(cp => 
+            cp.updatedAt ? new Date(cp.updatedAt.seconds * 1000).getTime() : 0
+        ));
+        
+        // Si c'est la première vérification, juste stocker
+        if (lastCheckpointUpdate === null) {
+            lastCheckpointUpdate = latestUpdate;
+            return;
+        }
+        
+        // Si il y a eu des modifications, resynchroniser
+        if (latestUpdate > lastCheckpointUpdate) {
+            console.log('🔄 Modifications détectées, resynchronisation automatique...');
+            lastCheckpointUpdate = latestUpdate;
+            await forceCheckpointSync();
+        }
+        
+    } catch (error) {
+        console.warn('⚠️ Erreur surveillance checkpoints:', error);
+    }
+}
+
+// Démarrer la surveillance (toutes les 30 secondes)
+function startCheckpointWatcher() {
+    // Vérification initiale
+    watchCheckpointChanges();
+    
+    // Surveillance périodique
+    setInterval(watchCheckpointChanges, 30000); // 30 secondes
+    
+    console.log('👁️ Surveillance des modifications de checkpoints activée');
+}
+
 // ===== SYSTÈME D'AIDE =====
 
 // Variables pour le système d'aide
@@ -3380,8 +3446,12 @@ function showPhotoChallenge(checkpoint) {
     
     currentPhotoCheckpoint = checkpoint;
     
-    // Afficher les instructions
-    document.getElementById('photo-instructions').textContent = checkpoint.clue.text || 'Prenez une photo selon les instructions.';
+    console.log('📸 Configuration photo trouvée:', checkpoint.clue);
+    console.log('📸 Structure complète du checkpoint:', checkpoint);
+    
+    // Afficher les instructions - support de plusieurs formats
+    const instructions = checkpoint.clue.text || checkpoint.clue.instructions || 'Prenez une photo selon les instructions.';
+    document.getElementById('photo-instructions').textContent = instructions;
     
     // Réinitialiser l'interface
     resetPhotoInterface();
@@ -3456,13 +3526,17 @@ function showQCMChallenge(checkpoint) {
         return;
     }
     
-    if (!checkpoint.clue.qcm) {
+    // Support des formats QCM (nouveau et ancien)
+    const qcmConfig = checkpoint.clue.qcm || checkpoint.clue.quiz || checkpoint.clue.mcq;
+    if (!qcmConfig) {
         console.error('❌ Configuration QCM manquante:', checkpoint);
         return;
     }
     
     currentQCMCheckpoint = checkpoint;
-    const qcmConfig = checkpoint.clue.qcm;
+    
+    console.log('📋 Configuration QCM trouvée:', qcmConfig);
+    console.log('📋 Structure complète du checkpoint:', checkpoint);
     
     // Afficher la question
     document.getElementById('qcm-question').textContent = qcmConfig.question;

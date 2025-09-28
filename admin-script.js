@@ -2219,7 +2219,14 @@ function updateDynamicContent() {
                 <div>
                     <label class="field-label">Seuil de volume (0-100) :</label>
                     <input type="number" id="audio-threshold" placeholder="70" min="0" max="100" value="70" required>
-                    <small style="color: #666;">Plus le chiffre est élevé, plus il faut faire du bruit</small>
+                    <small style="color: #666;">
+                        Équivalences approximatives :<br>
+                        • 20-30 = ~40-50 dB (chuchotement)<br>
+                        • 40-50 = ~50-60 dB (conversation calme)<br>
+                        • 60-70 = ~60-70 dB (conversation normale)<br>
+                        • 80-90 = ~70-80 dB (parler fort, crier)<br>
+                        • 95+ = ~80+ dB (crier très fort, applaudir)
+                    </small>
                 </div>
                 <div>
                     <label class="field-label">Durée requise (secondes) :</label>

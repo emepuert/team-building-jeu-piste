@@ -2158,6 +2158,21 @@ function showPhotoChallenge(checkpoint) {
     console.log('📸 Modal photo ouvert pour:', checkpoint.name);
 }
 
+// Convertir le seuil de volume en description compréhensible
+function getVolumeHint(threshold) {
+    if (threshold <= 30) {
+        return `${threshold}/100 (~40-50 dB) - Chuchotement ou parler très doucement`;
+    } else if (threshold <= 50) {
+        return `${threshold}/100 (~50-60 dB) - Conversation calme`;
+    } else if (threshold <= 70) {
+        return `${threshold}/100 (~60-70 dB) - Conversation normale`;
+    } else if (threshold <= 90) {
+        return `${threshold}/100 (~70-80 dB) - Parler fort ou crier`;
+    } else {
+        return `${threshold}/100 (~80+ dB) - Crier très fort, applaudir, taper des mains`;
+    }
+}
+
 // Afficher le défi audio
 function showAudioChallenge(checkpoint) {
     if (!checkpoint || checkpoint.type !== 'audio') {
@@ -2175,6 +2190,17 @@ function showAudioChallenge(checkpoint) {
     
     // Afficher les instructions
     document.getElementById('audio-instructions').textContent = audioConfig.instructions || 'Faites du bruit pour débloquer ce checkpoint !';
+    
+    // Ajouter une indication du niveau requis
+    const thresholdHint = getVolumeHint(audioConfig.threshold);
+    const instructionsElement = document.getElementById('audio-instructions');
+    instructionsElement.innerHTML = `
+        ${audioConfig.instructions || 'Faites du bruit pour débloquer ce checkpoint !'}
+        <br><br>
+        <small style="color: #666; font-style: italic;">
+            💡 Niveau requis : ${thresholdHint} pendant ${audioConfig.duration} seconde${audioConfig.duration > 1 ? 's' : ''}
+        </small>
+    `;
     
     // Réinitialiser l'interface
     resetAudioInterface();

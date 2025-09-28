@@ -2186,15 +2186,6 @@ function updateStatus(message) {
     document.getElementById('status').textContent = message;
 }
 
-function updateCoordinatesDisplay() {
-    const coordsElement = document.getElementById('coordinates');
-    
-    if (userPosition) {
-        coordsElement.textContent = `${userPosition.lat.toFixed(6)}, ${userPosition.lng.toFixed(6)}`;
-    } else {
-        coordsElement.textContent = 'En attente de géolocalisation...';
-    }
-}
 
 function setupEventListeners() {
     // Fermer les modales
@@ -2372,7 +2363,6 @@ function simulatePosition(lat, lng) {
     
     userPosition = { lat, lng, accuracy: 10 };
     updateUserMarker();
-    updateCoordinatesDisplay();
     checkProximityToCheckpoints();
     updateHint();
     updateStatus('Position simulée');

@@ -106,6 +106,12 @@ main {
     z-index: 500 !important;
 }
 
+.leaflet-top, .leaflet-bottom {
+    position: absolute;
+    z-index: 800;
+    pointer-events: none;
+}
+
 #info-panel {
     background: rgba(246, 248, 249, 0.95);
     backdrop-filter: blur(15px);
@@ -129,13 +135,6 @@ main {
     letter-spacing: 0.5px;
 }
 
-#coordinates {
-    font-family: 'Courier New', monospace;
-    background: #ecf0f1;
-    padding: 0.5rem;
-    border-radius: 8px;
-    font-size: 0.9rem;
-}
 
 #progress-bar {
     width: 100%;

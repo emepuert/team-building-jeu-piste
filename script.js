@@ -161,9 +161,12 @@ function enableDebugMode() {
 
 // Triple-clic sur le titre pour activer le debug
 let titleClickCount = 0;
+let touchStartTime = 0;
+
 document.addEventListener('DOMContentLoaded', () => {
     const title = document.querySelector('h1');
     if (title) {
+        // Triple-clic pour debug desktop
         title.addEventListener('click', () => {
             titleClickCount++;
             if (titleClickCount >= 3) {
@@ -171,6 +174,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 titleClickCount = 0;
             }
             setTimeout(() => titleClickCount = 0, 2000);
+        });
+        
+        // Appui long pour debug mobile
+        title.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+        });
+        
+        title.addEventListener('touchend', (e) => {
+            const touchDuration = Date.now() - touchStartTime;
+            if (touchDuration >= 1000) { // Appui long de 1 seconde
+                e.preventDefault();
+                showMobileDebugPanel();
+                showNotification('🛠️ Mode debug mobile activé !', 'success');
+            }
+        });
+        
+        // Empêcher le menu contextuel sur appui long
+        title.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
         });
     }
 });
@@ -2367,6 +2389,120 @@ function simulatePosition(lat, lng) {
     updateHint();
     updateStatus('Position simulée');
 }
+
+// ===== MODE DEBUG MOBILE =====
+function showMobileDebugPanel() {
+    const existingPanel = document.getElementById('mobile-debug-panel');
+    if (existingPanel) {
+        existingPanel.remove();
+        return;
+    }
+
+    const panel = document.createElement('div');
+    panel.id = 'mobile-debug-panel';
+    panel.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border: 2px solid #5D2DE6;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        z-index: 10000;
+        width: 90vw;
+        max-width: 400px;
+        text-align: center;
+    `;
+
+    panel.innerHTML = `
+        <h3 style="margin-bottom: 15px; color: #333;">🛠️ Debug Mobile</h3>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Latitude:</label>
+            <input type="number" id="debug-lat" step="0.000001" placeholder="49.0956" 
+                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Longitude:</label>
+            <input type="number" id="debug-lng" step="0.000001" placeholder="6.1893" 
+                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <button onclick="setDebugPosition()" 
+                    style="background: #5D2DE6; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-right: 10px;">
+                📍 Définir Position
+            </button>
+            <button onclick="getCurrentDebugPosition()" 
+                    style="background: #568AC2; color: white; border: none; padding: 10px 20px; border-radius: 6px;">
+                📱 Position Actuelle
+            </button>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin-bottom: 10px;">🎯 Positions Rapides:</h4>
+            <button onclick="simulatePosition(49.095684, 6.189308)" 
+                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
+                🏠 Luxembourg Centre
+            </button>
+            <button onclick="simulatePosition(48.8566, 2.3522)" 
+                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
+                🗼 Paris
+            </button>
+            <button onclick="simulatePosition(50.8503, 4.3517)" 
+                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
+                🇧🇪 Bruxelles
+            </button>
+        </div>
+        
+        <button onclick="closeMobileDebugPanel()" 
+                style="background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 4px;">
+            ❌ Fermer
+        </button>
+    `;
+
+    document.body.appendChild(panel);
+}
+
+function setDebugPosition() {
+    const lat = parseFloat(document.getElementById('debug-lat').value);
+    const lng = parseFloat(document.getElementById('debug-lng').value);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+        alert('⚠️ Coordonnées invalides !');
+        return;
+    }
+    
+    simulatePosition(lat, lng);
+    showNotification(`📍 Position définie: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'success');
+}
+
+function getCurrentDebugPosition() {
+    if (userPosition) {
+        document.getElementById('debug-lat').value = userPosition.lat.toFixed(6);
+        document.getElementById('debug-lng').value = userPosition.lng.toFixed(6);
+        showNotification('📱 Position actuelle chargée', 'info');
+    } else {
+        showNotification('❌ Aucune position disponible', 'error');
+    }
+}
+
+function closeMobileDebugPanel() {
+    const panel = document.getElementById('mobile-debug-panel');
+    if (panel) {
+        panel.remove();
+    }
+}
+
+// Exposition globale pour les boutons et console
+window.setDebugPosition = setDebugPosition;
+window.getCurrentDebugPosition = getCurrentDebugPosition;
+window.closeMobileDebugPanel = closeMobileDebugPanel;
+window.showMobileDebugPanel = showMobileDebugPanel;
+window.simulatePosition = simulatePosition;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {

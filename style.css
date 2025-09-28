@@ -53,23 +53,23 @@ header h1 {
     right: 0;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 1.2rem;
+    font-size: 1rem;
     text-decoration: none;
-    color: rgba(38, 8, 6, 0.4);
-    transition: all 0.3s ease;
-    padding: 0.8rem;
-    border-radius: 12px;
-    background: transparent;
-    border: none;
-    opacity: 0.7;
+    color: #34495e;
+    transition: all 0.2s ease;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(52, 73, 94, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    opacity: 1;
 }
 
 .admin-link:hover {
-    color: #260806;
-    background: rgba(38, 8, 6, 0.05);
-    opacity: 1;
-    transform: translateY(-50%) rotate(90deg);
-    box-shadow: 0 2px 8px rgba(38, 8, 6, 0.1);
+    color: #2c3e50;
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-50%) translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 #status {
@@ -88,12 +88,22 @@ main {
 }
 
 #map {
-    height: 50vh;
-    min-height: 300px;
+    height: 75vh; /* 75% de la hauteur de l'écran */
+    min-height: 400px; /* Hauteur minimum pour petits écrans */
     border-radius: 0;
     box-shadow: none;
     overflow: hidden;
     border: none;
+}
+
+/* Fixer le z-index des contrôles Leaflet */
+.leaflet-control-container {
+    z-index: 500 !important;
+}
+
+.leaflet-control-zoom,
+.leaflet-control-attribution {
+    z-index: 500 !important;
 }
 
 #info-panel {
@@ -567,7 +577,7 @@ button:active {
 @media (max-width: 768px) {  
       
     #map {
-        height: 40vh;
+        height: 75vh;
         min-height: 250px;
     }
     
@@ -588,7 +598,7 @@ button:active {
 
 @media (max-width: 480px) {
     #map {
-        height: 35vh;
+        height: 75vh;
         min-height: 200px;
     }
     

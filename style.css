@@ -435,7 +435,7 @@ main {
     }
 }
 
-/* Styles pour les modales */
+/* ===== MODALES ===== */
 .modal {
     display: none;
     position: fixed;
@@ -444,26 +444,121 @@ main {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
 }
 
 .modal-content {
-    background-color: #f6f8f9;
-    margin: 10% auto;
-    padding: 2.5rem;
-    border-radius: 25px;
+    background: var(--white);
+    margin: 8% auto;
+    padding: var(--space-2xl);
+    border-radius: var(--radius-xl);
     width: 90%;
     max-width: 500px;
-    box-shadow: 0 15px 40px rgba(38, 8, 6, 0.2);
+    box-shadow: var(--shadow-lg);
     animation: modalSlideIn 0.3s ease;
     text-align: center;
-    border: 2px solid rgba(241, 255, 51, 0.3);
+    border: 1px solid var(--gray-200);
+}
+
+/* ===== SYSTÈME DE BOUTONS ===== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Variantes de boutons */
+.btn-primary {
+    background: var(--primary);
+    color: var(--white);
+    border: 1px solid var(--primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #4c25c4;
+    border-color: #4c25c4;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+    background: var(--secondary);
+    color: var(--white);
+    border: 1px solid var(--secondary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #4a7ba7;
+    border-color: #4a7ba7;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-success {
+    background: var(--success);
+    color: var(--white);
+    border: 1px solid var(--success);
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #006600;
+    border-color: #006600;
+    box-shadow: var(--shadow-md);
+}
+
+.btn-outline {
+    background: var(--white);
+    color: var(--gray-700);
+    border: 1px solid var(--gray-300);
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: var(--gray-50);
+    border-color: var(--gray-400);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--gray-600);
+    border: 1px solid transparent;
+    box-shadow: none;
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background: var(--gray-100);
+    color: var(--gray-800);
+}
+
+/* Tailles de boutons */
+.btn-sm {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 0.75rem;
+}
+
+.btn-lg {
+    padding: var(--space-lg) var(--space-xl);
+    font-size: 1rem;
 }
 
 @keyframes modalSlideIn {
     from {
-        transform: translateY(-50px);
+        transform: translateY(-30px);
         opacity: 0;
     }
     to {
@@ -472,17 +567,30 @@ main {
     }
 }
 
+.modal-content h2 {
+    font-family: var(--font-heading);
+    color: var(--gray-950);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-lg);
+    letter-spacing: -0.025em;
+}
+
 .close {
-    color: #aaa;
+    color: var(--gray-400);
     float: right;
-    font-size: 28px;
-    font-weight: bold;
+    font-size: 24px;
+    font-weight: 600;
     cursor: pointer;
     line-height: 1;
+    transition: color 0.2s ease;
+    position: absolute;
+    top: var(--space-lg);
+    right: var(--space-lg);
 }
 
 .close:hover {
-    color: #e74c3c;
+    color: var(--gray-700);
 }
 
 #clue-title {
@@ -891,24 +999,47 @@ button:active {
     box-shadow: 0 2px 6px rgba(52, 152, 219, 0.4);
 }
 
+/* Boutons d'aide harmonisés */
+.help-btn-small {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xs) var(--space-sm);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    min-width: 32px;
+    height: 32px;
+}
+
 .help-btn-small.help-resolution {
-    background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
-    box-shadow: 0 1px 4px rgba(230, 126, 34, 0.3);
+    background: #e67e22;
+    color: var(--white);
+    border: 1px solid #e67e22;
 }
 
 .help-btn-small.help-resolution:hover {
-    background: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
-    box-shadow: 0 2px 6px rgba(230, 126, 34, 0.4);
+    background: #d35400;
+    border-color: #d35400;
+    box-shadow: var(--shadow-md);
 }
 
-.help-btn-small.help-location {
-    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-    box-shadow: 0 1px 4px rgba(52, 152, 219, 0.3);
+.help-btn-small.help-location,
+.help-btn-small.photo-location {
+    background: var(--secondary);
+    color: var(--white);
+    border: 1px solid var(--secondary);
 }
 
-.help-btn-small.help-location:hover {
-    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
-    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.4);
+.help-btn-small.help-location:hover,
+.help-btn-small.photo-location:hover {
+    background: #4a7ba7;
+    border-color: #4a7ba7;
+    box-shadow: var(--shadow-md);
 }
 
 /* Section d'aide */

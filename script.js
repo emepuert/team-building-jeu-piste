@@ -1409,6 +1409,9 @@ function updatePlayerRouteProgress() {
                     <button class="help-btn-small photo-location" onclick="showPhotoChallenge(GAME_CONFIG.checkpoints.find(cp => cp.id === ${checkpointId}))" title="Reprendre une photo">📸</button>
                     <button class="help-btn-small photo-validation" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
                 `;
+            } else if (checkpoint?.type === 'audio') {
+                // Épreuve audio → bouton aide audio
+                helpButtons = `<button class="help-btn-small" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🎤</button>`;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide énigme
                 helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
@@ -1624,6 +1627,11 @@ function setupEventListeners() {
     
     document.getElementById('start-audio-btn').addEventListener('click', startAudioChallenge);
     document.getElementById('stop-audio-btn').addEventListener('click', stopAudioChallenge);
+    document.getElementById('audio-help-btn').addEventListener('click', () => {
+        if (currentAudioCheckpoint) {
+            requestAudioHelpFor(currentAudioCheckpoint.id);
+        }
+    });
     
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';
@@ -1773,6 +1781,7 @@ window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
 window.requestLocationHelpFor = requestLocationHelpFor;
 window.requestRiddleHelpFor = requestRiddleHelpFor;
+window.requestAudioHelpFor = requestAudioHelpFor;
 window.requestPhotoHelpFor = requestPhotoHelpFor;
 window.showPhotoChallenge = showPhotoChallenge;
 
@@ -2092,6 +2101,36 @@ async function requestRiddleHelpFor(checkpointId) {
         
     } catch (error) {
         console.error('❌ Erreur demande d\'aide énigme:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
+// Demander l'aide pour une épreuve audio spécifique
+async function requestAudioHelpFor(checkpointId) {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande l'aide pour l'épreuve audio "${checkpointName}" (problème de microphone ou de bruit).`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            checkpointId,
+            'audio',
+            message
+        );
+        
+        showNotification(`🎤 Demande d'aide envoyée pour l'épreuve audio "${checkpointName}"`, 'success');
+        
+        // Actualiser l'interface
+        updateUI();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide audio:', error);
         showNotification('Erreur lors de l\'envoi de la demande', 'error');
     }
 }
@@ -2625,6 +2664,7 @@ function showAdminRefusalNotification(type, data) {
     if (type === 'aide') {
         const helpType = data.type === 'location' ? 'localisation' : 
                         data.type === 'riddle' ? 'énigme' : 
+                        data.type === 'audio' ? 'épreuve audio' :
                         data.type === 'photo' ? 'validation photo' : 'aide';
         title = `❌ Demande d'aide refusée`;
         message = `Votre demande d'aide (${helpType}) pour "${checkpointName}" a été refusée par l'admin.`;

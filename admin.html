@@ -366,6 +366,48 @@
         </div>
     </div>
 
+    <!-- Modal d'édition de checkpoint -->
+    <div id="edit-checkpoint-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideEditCheckpointModal()">&times;</span>
+            <h2>✏️ Modifier le Checkpoint</h2>
+            
+            <form id="edit-checkpoint-form">
+                <input type="text" id="edit-checkpoint-name" placeholder="Nom du checkpoint" required>
+                <input type="text" id="edit-checkpoint-emoji" placeholder="Emoji (ex: 🏛️)" required>
+                
+                <div class="coordinate-display">
+                    <label>Coordonnées :</label>
+                    <div class="coordinate-inputs">
+                        <input type="number" id="edit-checkpoint-lat" placeholder="Latitude" step="any" required>
+                        <input type="number" id="edit-checkpoint-lng" placeholder="Longitude" step="any" required>
+                    </div>
+                </div>
+                
+                <select id="edit-checkpoint-type" required>
+                    <option value="">-- Type de checkpoint --</option>
+                    <option value="lobby">🏠 Lobby (point de départ)</option>
+                    <option value="enigma">🧩 Énigme</option>
+                    <option value="photo">📸 Photo à prendre</option>
+                    <option value="audio">🎤 Épreuve audio</option>
+                    <option value="qcm">📋 QCM (Quiz)</option>
+                    <option value="info">ℹ️ Information à trouver</option>
+                    <option value="final">🏆 Point final</option>
+                </select>
+                
+                <!-- Contenu dynamique selon le type -->
+                <div id="edit-dynamic-content">
+                    <!-- Le contenu sera généré dynamiquement -->
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="success-btn">💾 Sauvegarder</button>
+                    <button type="button" onclick="hideEditCheckpointModal()" class="cancel-btn">Annuler</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Leaflet JS pour la carte -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 

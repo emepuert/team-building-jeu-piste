@@ -1402,6 +1402,21 @@ function setupModalEvents() {
         createCheckpoint();
     });
     
+    // Modal édition checkpoint
+    const editCheckpointForm = document.getElementById('edit-checkpoint-form');
+    if (editCheckpointForm) {
+        editCheckpointForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            updateCheckpoint();
+        });
+    }
+    
+    // Event listener pour le changement de type dans l'édition
+    const editCheckpointType = document.getElementById('edit-checkpoint-type');
+    if (editCheckpointType) {
+        editCheckpointType.addEventListener('change', () => updateEditDynamicContent());
+    }
+    
     // Recherche d'adresse
     document.getElementById('search-btn').addEventListener('click', searchAddress);
     document.getElementById('address-search').addEventListener('keypress', (e) => {
@@ -2751,6 +2766,7 @@ async function loadCheckpoints() {
                 <p><strong>Contenu:</strong> ${checkpoint.clue?.text || 'Aucun contenu'}</p>
                     ${issues.length > 0 ? `<div class="item-issues">⚠️ ${issues.join(', ')}</div>` : ''}
                 <div class="item-actions">
+                    <button onclick="editCheckpoint('${checkpoint.id}')" class="edit-btn">✏️ Modifier</button>
                     <button onclick="deleteCheckpoint('${checkpoint.id}')" class="warning-btn">🗑️ Supprimer</button>
                 </div>
             </div>
@@ -2816,6 +2832,387 @@ async function loadRoutes() {
     } catch (error) {
         console.error('❌ Erreur chargement parcours:', error);
         routesData = [];
+    }
+}
+
+// ===== ÉDITION DE CHECKPOINT =====
+let currentEditingCheckpointId = null;
+
+async function editCheckpoint(checkpointId) {
+    try {
+        // Trouver le checkpoint à éditer
+        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        if (!checkpoint) {
+            showNotification('Checkpoint non trouvé', 'error');
+            return;
+        }
+        
+        currentEditingCheckpointId = checkpointId;
+        
+        // Remplir le formulaire avec les données existantes
+        document.getElementById('edit-checkpoint-name').value = checkpoint.name || '';
+        document.getElementById('edit-checkpoint-emoji').value = checkpoint.emoji || '';
+        document.getElementById('edit-checkpoint-lat').value = checkpoint.coordinates ? checkpoint.coordinates[0] : '';
+        document.getElementById('edit-checkpoint-lng').value = checkpoint.coordinates ? checkpoint.coordinates[1] : '';
+        document.getElementById('edit-checkpoint-type').value = checkpoint.type || '';
+        
+        // Générer le contenu dynamique selon le type
+        updateEditDynamicContent(checkpoint);
+        
+        // Afficher la modal
+        document.getElementById('edit-checkpoint-modal').style.display = 'flex';
+        
+        console.log('✏️ Édition du checkpoint:', checkpoint);
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'édition:', error);
+        showNotification('Erreur lors de l\'édition', 'error');
+    }
+}
+
+function hideEditCheckpointModal() {
+    document.getElementById('edit-checkpoint-modal').style.display = 'none';
+    currentEditingCheckpointId = null;
+    
+    // Réinitialiser le formulaire
+    document.getElementById('edit-checkpoint-form').reset();
+    document.getElementById('edit-dynamic-content').innerHTML = '';
+}
+
+function updateEditDynamicContent(checkpoint = null) {
+    const type = document.getElementById('edit-checkpoint-type').value;
+    const dynamicContent = document.getElementById('edit-dynamic-content');
+    
+    let content = '';
+    
+    switch (type) {
+        case 'lobby':
+            content = `
+                <div>
+                    <label class="field-label">Message d'accueil :</label>
+                    <textarea id="edit-lobby-welcome" placeholder="Bienvenue dans le jeu de piste !" rows="3">${checkpoint?.clue?.text || ''}</textarea>
+                </div>
+                <div class="info-box">
+                    <p><strong>🏠 Point de Départ :</strong></p>
+                    <ul>
+                        <li>🎯 Premier point accessible aux équipes</li>
+                        <li>📍 Définit le point de rassemblement</li>
+                        <li>🚀 Lance officiellement le parcours</li>
+                    </ul>
+                </div>
+            `;
+            break;
+            
+        case 'enigma':
+            content = `
+                <div>
+                    <label class="field-label">Énigme à résoudre :</label>
+                    <textarea id="edit-riddle-question" placeholder="Quelle est cette énigme ?" rows="3" required>${checkpoint?.clue?.riddle?.question || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponse attendue :</label>
+                    <input type="text" id="edit-riddle-answer" placeholder="Réponse (insensible à la casse)" required value="${checkpoint?.clue?.riddle?.answer || ''}">
+                </div>
+                <div>
+                    <label class="field-label">Indice (optionnel) :</label>
+                    <textarea id="edit-riddle-hint" placeholder="Un petit indice pour aider..." rows="2">${checkpoint?.clue?.riddle?.hint || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="edit-riddle-success" placeholder="Bravo ! Vous avez trouvé !" rows="2">${checkpoint?.clue?.text || ''}</textarea>
+                </div>
+            `;
+            break;
+            
+        case 'photo':
+            content = `
+                <div>
+                    <label class="field-label">Instructions pour la photo :</label>
+                    <textarea id="edit-photo-instructions" placeholder="Prenez une photo de..." rows="3" required>${checkpoint?.clue?.text || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="edit-photo-success" placeholder="Parfait ! Photo validée !" rows="2">${checkpoint?.clue?.successMessage || ''}</textarea>
+                </div>
+            `;
+            break;
+            
+        case 'audio':
+            const audioConfig = checkpoint?.clue?.audio || {};
+            content = `
+                <div>
+                    <label class="field-label">Instructions pour l'épreuve :</label>
+                    <textarea id="edit-audio-instructions" placeholder="Faites du bruit pendant..." rows="3" required>${checkpoint?.clue?.text || ''}</textarea>
+                </div>
+                <div class="audio-config">
+                    <div>
+                        <label class="field-label">Seuil de volume (0-100) :</label>
+                        <input type="number" id="edit-audio-threshold" min="0" max="100" value="${audioConfig.threshold || 50}" required>
+                        <small>~${Math.round((audioConfig.threshold || 50) * 0.7)} dB</small>
+                    </div>
+                    <div>
+                        <label class="field-label">Durée requise (secondes) :</label>
+                        <input type="number" id="edit-audio-duration" min="1" max="30" value="${audioConfig.duration || 3}" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="edit-audio-success" placeholder="Bravo ! Défi audio réussi !" rows="2">${audioConfig.successMessage || ''}</textarea>
+                </div>
+            `;
+            break;
+            
+        case 'qcm':
+            const qcmConfig = checkpoint?.clue?.qcm || {};
+            content = `
+                <div>
+                    <label class="field-label">Question du QCM :</label>
+                    <textarea id="edit-qcm-question" placeholder="Quelle est la date de construction de ce monument ?" rows="3" required>${qcmConfig.question || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponses possibles :</label>
+                    <div class="qcm-answers">
+            `;
+            
+            for (let i = 1; i <= 4; i++) {
+                const answer = qcmConfig.answers ? qcmConfig.answers[i-1] || '' : '';
+                const isCorrect = qcmConfig.correctAnswers ? qcmConfig.correctAnswers.includes(i-1) : false;
+                content += `
+                    <div class="qcm-answer-item">
+                        <input type="text" id="edit-qcm-answer-${i}" placeholder="Réponse ${String.fromCharCode(64+i)}" ${i <= 3 ? 'required' : ''} value="${answer}">
+                        <label><input type="checkbox" id="edit-qcm-correct-${i}" ${isCorrect ? 'checked' : ''}> Correcte</label>
+                    </div>
+                `;
+            }
+            
+            content += `
+                    </div>
+                </div>
+                <div>
+                    <label class="field-label">Explication (optionnelle) :</label>
+                    <textarea id="edit-qcm-explanation" placeholder="Explication affichée après la réponse..." rows="2">${qcmConfig.explanation || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="edit-qcm-success" placeholder="Bravo ! Bonne réponse !" rows="2">${qcmConfig.successMessage || ''}</textarea>
+                </div>
+            `;
+            break;
+            
+        case 'info':
+            content = `
+                <div>
+                    <label class="field-label">Question à poser :</label>
+                    <textarea id="edit-info-question" placeholder="Quelle est l'année de construction ?" rows="3" required>${checkpoint?.clue?.riddle?.question || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponse attendue :</label>
+                    <input type="text" id="edit-info-answer" placeholder="1889" required value="${checkpoint?.clue?.riddle?.answer || ''}">
+                </div>
+                <div>
+                    <label class="field-label">Aide pour trouver :</label>
+                    <textarea id="edit-info-help" placeholder="Regardez la plaque..." rows="2">${checkpoint?.clue?.riddle?.hint || ''}</textarea>
+                </div>
+            `;
+            break;
+            
+        case 'final':
+            content = `
+                <div>
+                    <label class="field-label">Message de félicitations :</label>
+                    <textarea id="edit-final-message" placeholder="Félicitations ! Vous avez terminé !" rows="3">${checkpoint?.clue?.text || ''}</textarea>
+                </div>
+                <div>
+                    <label class="field-label">Instructions finales (optionnel) :</label>
+                    <textarea id="edit-final-instructions" placeholder="Rendez-vous au point de rassemblement..." rows="2">${checkpoint?.clue?.instructions || ''}</textarea>
+                </div>
+            `;
+            break;
+    }
+    
+    dynamicContent.innerHTML = content;
+}
+
+async function updateCheckpoint() {
+    if (!currentEditingCheckpointId) {
+        showNotification('Erreur: Aucun checkpoint en cours d\'édition', 'error');
+        return;
+    }
+    
+    const name = document.getElementById('edit-checkpoint-name').value.trim();
+    const emoji = document.getElementById('edit-checkpoint-emoji').value.trim();
+    const lat = parseFloat(document.getElementById('edit-checkpoint-lat').value);
+    const lng = parseFloat(document.getElementById('edit-checkpoint-lng').value);
+    const type = document.getElementById('edit-checkpoint-type').value;
+
+    if (!name || !emoji || isNaN(lat) || isNaN(lng) || !type) {
+        showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+    }
+
+    try {
+        let clueData = {
+            title: `${name} découvert !`,
+            text: '',
+            riddle: null
+        };
+
+        // Construire les données selon le type (même logique que createCheckpoint)
+        switch (type) {
+            case 'lobby':
+                const lobbyWelcome = document.getElementById('edit-lobby-welcome')?.value.trim() || 'Bienvenue dans le jeu de piste !';
+                clueData.text = lobbyWelcome;
+                break;
+                
+            case 'enigma':
+                const riddleQuestion = document.getElementById('edit-riddle-question')?.value.trim();
+                const riddleAnswer = document.getElementById('edit-riddle-answer')?.value.trim();
+                const riddleHint = document.getElementById('edit-riddle-hint')?.value.trim();
+                const riddleSuccess = document.getElementById('edit-riddle-success')?.value.trim();
+                
+                if (!riddleQuestion || !riddleAnswer) {
+                    showNotification('Veuillez remplir la question et la réponse de l\'énigme', 'error');
+                    return;
+                }
+                
+                clueData.text = riddleSuccess || 'Bravo ! Énigme résolue !';
+                clueData.riddle = {
+                    question: riddleQuestion,
+                    answer: riddleAnswer.toLowerCase(),
+                    hint: riddleHint || 'Cherchez bien autour de vous'
+                };
+                break;
+                
+            case 'photo':
+                const photoInstructions = document.getElementById('edit-photo-instructions')?.value.trim();
+                const photoSuccess = document.getElementById('edit-photo-success')?.value.trim();
+                
+                if (!photoInstructions) {
+                    showNotification('Veuillez remplir les instructions pour la photo', 'error');
+                    return;
+                }
+                
+                clueData.text = photoInstructions;
+                clueData.successMessage = photoSuccess || 'Parfait ! Photo validée !';
+                break;
+                
+            case 'audio':
+                const audioInstructions = document.getElementById('edit-audio-instructions')?.value.trim();
+                const audioThreshold = parseInt(document.getElementById('edit-audio-threshold')?.value);
+                const audioDuration = parseInt(document.getElementById('edit-audio-duration')?.value);
+                const audioSuccess = document.getElementById('edit-audio-success')?.value.trim();
+                
+                if (!audioInstructions || isNaN(audioThreshold) || isNaN(audioDuration)) {
+                    showNotification('Veuillez remplir tous les champs de l\'épreuve audio', 'error');
+                    return;
+                }
+                
+                clueData.text = audioInstructions;
+                clueData.audio = {
+                    threshold: audioThreshold,
+                    duration: audioDuration,
+                    successMessage: audioSuccess || 'Bravo ! Défi audio réussi !'
+                };
+                break;
+                
+            case 'qcm':
+                const qcmQuestion = document.getElementById('edit-qcm-question')?.value.trim();
+                const qcmExplanation = document.getElementById('edit-qcm-explanation')?.value.trim();
+                const qcmSuccess = document.getElementById('edit-qcm-success')?.value.trim() || 'Bravo ! Bonne réponse !';
+                
+                if (!qcmQuestion) {
+                    showNotification('Veuillez remplir la question du QCM', 'error');
+                    return;
+                }
+                
+                const answers = [];
+                const correctAnswers = [];
+                
+                for (let i = 1; i <= 4; i++) {
+                    const answerText = document.getElementById(`edit-qcm-answer-${i}`)?.value.trim();
+                    const isCorrect = document.getElementById(`edit-qcm-correct-${i}`)?.checked;
+                    
+                    if (answerText) {
+                        answers.push(answerText);
+                        if (isCorrect) {
+                            correctAnswers.push(i - 1);
+                        }
+                    }
+                }
+                
+                if (answers.length < 2) {
+                    showNotification('Veuillez remplir au moins 2 réponses', 'error');
+                    return;
+                }
+                
+                if (correctAnswers.length === 0) {
+                    showNotification('Veuillez cocher au moins une réponse correcte', 'error');
+                    return;
+                }
+                
+                clueData.text = qcmSuccess;
+                clueData.qcm = {
+                    question: qcmQuestion,
+                    answers: answers,
+                    correctAnswers: correctAnswers,
+                    explanation: qcmExplanation,
+                    successMessage: qcmSuccess
+                };
+                break;
+                
+            case 'info':
+                const infoQuestion = document.getElementById('edit-info-question')?.value.trim();
+                const infoAnswer = document.getElementById('edit-info-answer')?.value.trim();
+                const infoHelp = document.getElementById('edit-info-help')?.value.trim();
+                
+                if (!infoQuestion || !infoAnswer) {
+                    showNotification('Veuillez remplir la question et la réponse', 'error');
+                    return;
+                }
+                
+                clueData.text = infoHelp || 'Trouvez l\'information demandée';
+                clueData.riddle = {
+                    question: infoQuestion,
+                    answer: infoAnswer.toLowerCase(),
+                    hint: infoHelp || 'Cherchez autour de vous'
+                };
+                break;
+                
+            case 'final':
+                const finalMessage = document.getElementById('edit-final-message')?.value.trim() || 'Félicitations !';
+                const finalInstructions = document.getElementById('edit-final-instructions')?.value.trim();
+                
+                clueData.text = finalMessage;
+                if (finalInstructions) {
+                    clueData.instructions = finalInstructions;
+                }
+                break;
+        }
+
+        const checkpointData = {
+            name,
+            emoji,
+            coordinates: [lat, lng],
+            type,
+            isLobby: type === 'lobby',
+            locked: type !== 'lobby',
+            clue: clueData,
+            updatedAt: new Date()
+        };
+
+        await firebaseService.updateCheckpoint(currentEditingCheckpointId, checkpointData);
+        
+        showNotification('✅ Checkpoint modifié avec succès !', 'success');
+        hideEditCheckpointModal();
+        
+        // Recharger la liste
+        await loadCheckpoints();
+        
+        console.log('✅ Checkpoint mis à jour:', checkpointData);
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de la modification:', error);
+        showNotification('Erreur lors de la modification', 'error');
     }
 }
 

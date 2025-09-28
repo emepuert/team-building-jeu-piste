@@ -800,6 +800,32 @@ class FirebaseService {
         }
     }
 
+    async updateCheckpoint(checkpointId, checkpointData) {
+        try {
+            // Trouver le document Firebase par l'ID du checkpoint
+            const querySnapshot = await getDocs(
+                query(collection(this.db, DB_COLLECTIONS.CHECKPOINTS), 
+                      where('id', '==', parseInt(checkpointId)))
+            );
+            
+            if (querySnapshot.empty) {
+                throw new Error(`Checkpoint avec ID ${checkpointId} non trouvé`);
+            }
+            
+            const docRef = querySnapshot.docs[0].ref;
+            await updateDoc(docRef, {
+                ...checkpointData,
+                updatedAt: new Date()
+            });
+            
+            console.log('✅ Checkpoint mis à jour:', checkpointId);
+            return true;
+        } catch (error) {
+            console.error('❌ Erreur mise à jour checkpoint:', error);
+            throw error;
+        }
+    }
+
     async deleteCheckpoint(checkpointId) {
         try {
             const checkpointIdInt = parseInt(checkpointId);

@@ -2776,6 +2776,10 @@ function showUnifiedDebugMenu() {
                         style="background: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
                     🔐 Permissions
                 </button>
+                <button onclick="forceCheckpointSync()" 
+                        style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🔄 Sync Points
+                </button>
             </div>
         </div>
         
@@ -2948,6 +2952,7 @@ window.toggleDebugMode = toggleDebugMode;
 window.generateQuickPositions = generateQuickPositions;
 window.checkPermissionsStatus = checkPermissionsStatus;
 window.requestAllPermissions = requestAllPermissions;
+window.forceCheckpointSync = forceCheckpointSync;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {
@@ -3198,6 +3203,14 @@ async function syncCheckpoints() {
     }
 }
 
+// Forcer la resynchronisation des checkpoints (appelé après modification admin)
+async function forceCheckpointSync() {
+    console.log('🔄 Resynchronisation forcée des checkpoints...');
+    await syncCheckpoints();
+    
+    showNotification('🔄 Checkpoints mis à jour !', 'info');
+}
+
 // ===== SYSTÈME D'AIDE =====
 
 // Variables pour le système d'aide
@@ -3401,16 +3414,20 @@ function showAudioChallenge(checkpoint) {
         return;
     }
     
-    if (!checkpoint.clue.audioChallenge) {
+    // Support des deux formats : audioChallenge (ancien) et audio (nouveau)
+    const audioConfig = checkpoint.clue.audio || checkpoint.clue.audioChallenge;
+    if (!audioConfig) {
         console.error('❌ Configuration audio manquante:', checkpoint);
         return;
     }
     
     currentAudioCheckpoint = checkpoint;
-    const audioConfig = checkpoint.clue.audioChallenge;
+    
+    console.log('🎤 Configuration audio trouvée:', audioConfig);
+    console.log('🎤 Structure complète du checkpoint:', checkpoint);
     
     // Afficher les instructions
-    document.getElementById('audio-instructions').textContent = audioConfig.instructions || 'Faites du bruit pour débloquer ce checkpoint !';
+    document.getElementById('audio-instructions').textContent = audioConfig.instructions || audioConfig.text || 'Faites du bruit pour débloquer ce checkpoint !';
     
     // Ajouter une indication du niveau requis
     const thresholdHint = getVolumeHint(audioConfig.threshold);
@@ -3636,7 +3653,8 @@ function resetAudioInterface() {
 
 // Démarrer l'épreuve audio
 async function startAudioChallenge() {
-    if (!currentAudioCheckpoint || !currentAudioCheckpoint.clue.audioChallenge) {
+    const audioConfig = currentAudioCheckpoint?.clue?.audio || currentAudioCheckpoint?.clue?.audioChallenge;
+    if (!currentAudioCheckpoint || !audioConfig) {
         console.error('❌ Configuration audio manquante');
         return;
     }
@@ -3704,7 +3722,7 @@ function updateAudioProgress() {
         return;
     }
     
-    const audioConfig = currentAudioCheckpoint.clue.audioChallenge;
+    const audioConfig = currentAudioCheckpoint.clue.audio || currentAudioCheckpoint.clue.audioChallenge;
     const requiredDuration = audioConfig.duration * 1000; // en millisecondes
     const threshold = audioConfig.threshold;
     
@@ -3765,7 +3783,7 @@ function audioChallengeSucess() {
         audioAnimationId = null;
     }
     
-    const audioConfig = currentAudioCheckpoint.clue.audioChallenge;
+    const audioConfig = currentAudioCheckpoint.clue.audio || currentAudioCheckpoint.clue.audioChallenge;
     const successMessage = audioConfig.successMessage || 'Bravo ! Épreuve audio réussie !';
     
     // Marquer le checkpoint comme trouvé maintenant que l'épreuve est réussie

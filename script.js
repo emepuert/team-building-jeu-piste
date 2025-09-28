@@ -198,6 +198,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// ===== DÉTECTION NAVIGATEUR CENTRALISÉE =====
+const BROWSER_INFO = {
+    userAgent: navigator.userAgent,
+    isSafari: false,
+    isIOS: false,
+    isChrome: false,
+    isFirefox: false,
+    isMobile: false,
+    isDesktop: false,
+    name: 'unknown',
+    version: 'unknown'
+};
+
+// Initialiser la détection du navigateur une seule fois
+function initializeBrowserDetection() {
+    const ua = BROWSER_INFO.userAgent.toLowerCase();
+    
+    // Détection Safari (attention aux faux positifs)
+    BROWSER_INFO.isSafari = /safari/.test(ua) && !/chrome/.test(ua) && !/chromium/.test(ua);
+    
+    // Détection iOS
+    BROWSER_INFO.isIOS = /ipad|iphone|ipod/.test(ua);
+    
+    // Détection Chrome
+    BROWSER_INFO.isChrome = /chrome/.test(ua) && !/edge/.test(ua) && !/opr/.test(ua);
+    
+    // Détection Firefox
+    BROWSER_INFO.isFirefox = /firefox/.test(ua);
+    
+    // Détection mobile/desktop
+    BROWSER_INFO.isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(ua);
+    BROWSER_INFO.isDesktop = !BROWSER_INFO.isMobile;
+    
+    // Nom du navigateur
+    if (BROWSER_INFO.isChrome) BROWSER_INFO.name = 'Chrome';
+    else if (BROWSER_INFO.isSafari) BROWSER_INFO.name = 'Safari';
+    else if (BROWSER_INFO.isFirefox) BROWSER_INFO.name = 'Firefox';
+    else if (BROWSER_INFO.isIOS) BROWSER_INFO.name = 'iOS Safari';
+    
+    // Log de debug
+    console.log('🌐 Détection navigateur initialisée:', {
+        name: BROWSER_INFO.name,
+        isSafari: BROWSER_INFO.isSafari,
+        isIOS: BROWSER_INFO.isIOS,
+        isChrome: BROWSER_INFO.isChrome,
+        isFirefox: BROWSER_INFO.isFirefox,
+        isMobile: BROWSER_INFO.isMobile,
+        userAgent: BROWSER_INFO.userAgent
+    });
+}
+
 // ===== PROTECTION ANTI-RECHARGEMENT =====
 let gameStarted = false;
 let gameProtectionActive = false;
@@ -214,37 +265,18 @@ async function requestAllPermissions() {
     
     try {
         // 1. Géolocalisation (obligatoire pour le jeu)
-        if (navigator.geolocation) {
-            try {
-                await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(
-                        (position) => {
-                            permissions.geolocation = true;
-                            console.log('✅ Permission géolocalisation accordée');
-                            resolve(position);
-                        },
-                        (error) => {
-                            console.warn('⚠️ Permission géolocalisation refusée:', error.message);
-                            reject(error);
-                        },
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-                    );
-                });
-            } catch (error) {
-                console.warn('⚠️ Géolocalisation non disponible');
-            }
+        try {
+            await requestGeolocationBrowser();
+            permissions.geolocation = true;
+            console.log('✅ Permission géolocalisation accordée');
+        } catch (error) {
+            console.warn('⚠️ Géolocalisation non disponible:', error.message);
         }
         
         // 2. Caméra (pour les épreuves photo)
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
-                const videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { 
-                        facingMode: 'environment', // Caméra arrière par défaut
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                });
+                const videoStream = await requestCameraBrowser();
                 permissions.camera = true;
                 console.log('✅ Permission caméra accordée');
                 // Arrêter le stream immédiatement
@@ -257,7 +289,7 @@ async function requestAllPermissions() {
         // 3. Microphone (pour les épreuves audio)
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
-                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const audioStream = await requestMicrophoneBrowser();
                 permissions.microphone = true;
                 console.log('✅ Permission microphone accordée');
                 // Arrêter le stream immédiatement
@@ -293,10 +325,7 @@ async function requestAllPermissions() {
 
 // Fonction pour détecter Safari et donner des conseils spécifiques
 function showSafariPermissionTips() {
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
-    if (isSafari || isIOS) {
+    if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
         const tips = [
             '📱 Sur Safari/iOS :',
             '• Géolocalisation : Réglages > Safari > Localisation',
@@ -348,6 +377,89 @@ async function checkPermissionsStatus() {
     return status;
 }
 
+// ===== FONCTIONS SPÉCIALISÉES PAR NAVIGATEUR =====
+
+// Géolocalisation adaptée au navigateur
+async function requestGeolocationBrowser() {
+    const options = {
+        enableHighAccuracy: true,
+        timeout: BROWSER_INFO.isSafari || BROWSER_INFO.isIOS ? 15000 : 10000, // Plus de temps pour Safari
+        maximumAge: BROWSER_INFO.isMobile ? 60000 : 300000 // Cache plus court sur mobile
+    };
+    
+    console.log(`📍 Demande géolocalisation optimisée pour ${BROWSER_INFO.name}:`, options);
+    
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Géolocalisation non supportée'));
+            return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                console.log(`✅ Géolocalisation ${BROWSER_INFO.name} réussie:`, position.coords);
+                resolve(position);
+            },
+            (error) => {
+                console.warn(`⚠️ Erreur géolocalisation ${BROWSER_INFO.name}:`, error);
+                reject(error);
+            },
+            options
+        );
+    });
+}
+
+// Caméra adaptée au navigateur
+async function requestCameraBrowser() {
+    const constraints = {
+        video: {
+            facingMode: 'environment', // Caméra arrière par défaut
+            width: { ideal: BROWSER_INFO.isMobile ? 720 : 1280 },
+            height: { ideal: BROWSER_INFO.isMobile ? 480 : 720 }
+        }
+    };
+    
+    // Contraintes spéciales pour Safari
+    if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
+        constraints.video.width = { ideal: 640 };
+        constraints.video.height = { ideal: 480 };
+    }
+    
+    console.log(`📸 Demande caméra optimisée pour ${BROWSER_INFO.name}:`, constraints);
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log(`✅ Caméra ${BROWSER_INFO.name} accordée`);
+        return stream;
+    } catch (error) {
+        console.warn(`⚠️ Erreur caméra ${BROWSER_INFO.name}:`, error);
+        throw error;
+    }
+}
+
+// Microphone adapté au navigateur
+async function requestMicrophoneBrowser() {
+    const constraints = {
+        audio: {
+            echoCancellation: BROWSER_INFO.isSafari ? true : false, // Safari préfère avec
+            noiseSuppression: BROWSER_INFO.isSafari ? true : false,
+            autoGainControl: BROWSER_INFO.isSafari ? true : false,
+            sampleRate: BROWSER_INFO.isSafari ? 44100 : 48000
+        }
+    };
+    
+    console.log(`🎤 Demande microphone optimisée pour ${BROWSER_INFO.name}:`, constraints);
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log(`✅ Microphone ${BROWSER_INFO.name} accordé`);
+        return stream;
+    } catch (error) {
+        console.warn(`⚠️ Erreur microphone ${BROWSER_INFO.name}:`, error);
+        throw error;
+    }
+}
+
 // Activer la protection quand le jeu commence
 function enableGameProtection() {
     if (gameProtectionActive) return;
@@ -355,18 +467,14 @@ function enableGameProtection() {
     gameProtectionActive = true;
     console.log('🛡️ Protection anti-rechargement activée');
     
-    // Détecter Safari
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    
-    console.log('🍎 Détection navigateur:', { isSafari, isIOS });
+    console.log('🌐 Navigateur détecté:', BROWSER_INFO.name);
     
     // Protection rechargement/fermeture de page
     const beforeUnloadHandler = (event) => {
         if (gameStarted && currentTeam) {
             const message = '⚠️ Êtes-vous sûr de vouloir quitter ? Votre progression sera sauvegardée mais vous devrez vous reconnecter.';
             
-            if (isSafari || isIOS) {
+            if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
                 // Safari nécessite une approche différente
                 console.log('🍎 Safari: Tentative de protection beforeunload');
                 event.preventDefault();
@@ -400,7 +508,7 @@ function enableGameProtection() {
     window.addEventListener('popstate', popStateHandler);
     
     // Protection spéciale Safari avec visibilitychange
-    if (isSafari || isIOS) {
+    if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
         console.log('🍎 Activation protection Safari avec visibilitychange');
         
         const visibilityHandler = () => {
@@ -675,6 +783,9 @@ async function initializeApp() {
     window.appInitialized = true;
     
     console.log('🚀 Initialisation du jeu de piste...');
+    
+    // Initialiser la détection du navigateur en premier
+    initializeBrowserDetection();
     
     // Demander toutes les permissions dès le début
     await requestAllPermissions();
@@ -1063,7 +1174,7 @@ function addLocationControl() {
 }
 
 // Fonction pour localiser l'utilisateur
-function locateUser() {
+async function locateUser() {
     console.log('🎯 Localisation demandée via bouton carte');
     
     if (!navigator.geolocation) {
@@ -1074,54 +1185,47 @@ function locateUser() {
     // Afficher un indicateur de chargement
     showNotification('📍 Localisation en cours...', 'info');
     
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            
-            // Centrer la carte sur la position
-            map.setView([lat, lng], 16);
-            
-            // Mettre à jour la position utilisateur
-            userPosition = {
-                lat: lat,
-                lng: lng,
-                accuracy: position.coords.accuracy
-            };
-            
-            updateUserMarker();
-            checkProximityToCheckpoints();
-            
-            showNotification('📍 Position trouvée !', 'success');
-            console.log('✅ Localisation réussie:', lat, lng);
-        },
-        (error) => {
-            logError(error, 'Manual Location Request', false);
-            
-            let message = 'Erreur de localisation';
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    message = 'Géolocalisation refusée';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    message = 'Position indisponible';
-                    break;
-                case error.TIMEOUT:
-                    message = 'Délai dépassé';
-                    break;
-            }
-            
-            showNotification(message, 'error');
-        },
-        {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 60000
+    try {
+        const position = await requestGeolocationBrowser();
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        // Centrer la carte sur la position
+        map.setView([lat, lng], 16);
+        
+        // Mettre à jour la position utilisateur
+        userPosition = {
+            lat: lat,
+            lng: lng,
+            accuracy: position.coords.accuracy
+        };
+        
+        updateUserMarker();
+        checkProximityToCheckpoints();
+        
+        showNotification('📍 Position trouvée !', 'success');
+        console.log('✅ Localisation réussie:', lat, lng);
+    } catch (error) {
+        logError(error, 'Manual Location Request', false);
+        
+        let message = 'Erreur de localisation';
+        switch(error.code) {
+            case error.PERMISSION_DENIED:
+                message = 'Géolocalisation refusée';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                message = 'Position indisponible';
+                break;
+            case error.TIMEOUT:
+                message = 'Délai dépassé';
+                break;
         }
-    );
+        
+        showNotification(message, 'error');
+    }
 }
 
-function requestGeolocation() {
+async function requestGeolocation() {
     console.log('📍 Demande de géolocalisation...');
     performanceMetrics.geolocationAttempts++;
     
@@ -1134,17 +1238,12 @@ function requestGeolocation() {
     
     updateStatus('Localisation en cours...');
     
-    const options = {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 2000  // Rafraîchissement plus fréquent (2 secondes)
-    };
-    
-    navigator.geolocation.getCurrentPosition(
-        onLocationSuccess,
-        onLocationError,
-        options
-    );
+    try {
+        const position = await requestGeolocationBrowser();
+        onLocationSuccess(position);
+    } catch (error) {
+        onLocationError(error);
+    }
     
     // Surveiller la position en continu
     navigator.geolocation.watchPosition(
@@ -2802,6 +2901,10 @@ function showUnifiedDebugMenu() {
                         style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
                     🔄 Sync Points
                 </button>
+                <button onclick="showBrowserInfo()" 
+                        style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🌐 Navigateur
+                </button>
             </div>
         </div>
         
@@ -2975,6 +3078,7 @@ window.generateQuickPositions = generateQuickPositions;
 window.checkPermissionsStatus = checkPermissionsStatus;
 window.requestAllPermissions = requestAllPermissions;
 window.forceCheckpointSync = forceCheckpointSync;
+window.showBrowserInfo = showBrowserInfo;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {
@@ -3231,6 +3335,34 @@ async function forceCheckpointSync() {
     await syncCheckpoints();
     
     showNotification('🔄 Checkpoints mis à jour !', 'info');
+}
+
+// Afficher les informations du navigateur
+function showBrowserInfo() {
+    const info = `
+🌐 INFORMATIONS NAVIGATEUR:
+
+📱 Navigateur: ${BROWSER_INFO.name}
+🔍 User Agent: ${BROWSER_INFO.userAgent}
+
+✅ Détections:
+• Safari: ${BROWSER_INFO.isSafari ? '✅' : '❌'}
+• iOS: ${BROWSER_INFO.isIOS ? '✅' : '❌'}
+• Chrome: ${BROWSER_INFO.isChrome ? '✅' : '❌'}
+• Firefox: ${BROWSER_INFO.isFirefox ? '✅' : '❌'}
+• Mobile: ${BROWSER_INFO.isMobile ? '✅' : '❌'}
+• Desktop: ${BROWSER_INFO.isDesktop ? '✅' : '❌'}
+
+🔧 APIs Supportées:
+• Géolocalisation: ${navigator.geolocation ? '✅' : '❌'}
+• MediaDevices: ${navigator.mediaDevices ? '✅' : '❌'}
+• getUserMedia: ${navigator.mediaDevices?.getUserMedia ? '✅' : '❌'}
+• Permissions API: ${navigator.permissions ? '✅' : '❌'}
+• Service Worker: ${'serviceWorker' in navigator ? '✅' : '❌'}
+    `.trim();
+    
+    console.log(info);
+    alert(info);
 }
 
 // Surveillance automatique des modifications de checkpoints
@@ -3735,13 +3867,7 @@ async function startAudioChallenge() {
     
     try {
         // Demander l'accès au microphone
-        audioStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false
-            }
-        });
+        audioStream = await requestMicrophoneBrowser();
         
         // Créer le contexte audio
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -3970,7 +4096,7 @@ async function startCamera() {
             }
         };
         
-        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        cameraStream = await requestCameraBrowser();
         const video = document.getElementById('camera-video');
         video.srcObject = cameraStream;
         video.style.display = 'block';

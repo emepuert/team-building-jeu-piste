@@ -202,6 +202,152 @@ document.addEventListener('DOMContentLoaded', () => {
 let gameStarted = false;
 let gameProtectionActive = false;
 
+// ===== GESTION DES PERMISSIONS =====
+async function requestAllPermissions() {
+    console.log('🔐 Demande de toutes les permissions...');
+    
+    const permissions = {
+        geolocation: false,
+        camera: false,
+        microphone: false
+    };
+    
+    try {
+        // 1. Géolocalisation (obligatoire pour le jeu)
+        if (navigator.geolocation) {
+            try {
+                await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            permissions.geolocation = true;
+                            console.log('✅ Permission géolocalisation accordée');
+                            resolve(position);
+                        },
+                        (error) => {
+                            console.warn('⚠️ Permission géolocalisation refusée:', error.message);
+                            reject(error);
+                        },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+                    );
+                });
+            } catch (error) {
+                console.warn('⚠️ Géolocalisation non disponible');
+            }
+        }
+        
+        // 2. Caméra (pour les épreuves photo)
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment', // Caméra arrière par défaut
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                permissions.camera = true;
+                console.log('✅ Permission caméra accordée');
+                // Arrêter le stream immédiatement
+                videoStream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                console.warn('⚠️ Permission caméra refusée:', error.message);
+            }
+        }
+        
+        // 3. Microphone (pour les épreuves audio)
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                permissions.microphone = true;
+                console.log('✅ Permission microphone accordée');
+                // Arrêter le stream immédiatement
+                audioStream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                console.warn('⚠️ Permission microphone refusée:', error.message);
+            }
+        }
+        
+        // Afficher un résumé des permissions
+        const granted = Object.values(permissions).filter(p => p).length;
+        const total = Object.keys(permissions).length;
+        
+        if (granted === total) {
+            showNotification('🎉 Toutes les permissions accordées !', 'success');
+        } else if (granted > 0) {
+            showNotification(`⚠️ ${granted}/${total} permissions accordées`, 'warning');
+        } else {
+            showNotification('❌ Aucune permission accordée', 'error');
+        }
+        
+        // Afficher les détails pour debug
+        console.log('🔐 État des permissions:', permissions);
+        
+        return permissions;
+        
+    } catch (error) {
+        logError(error, 'Permission Request', false);
+        console.warn('⚠️ Erreur lors de la demande de permissions:', error);
+        return permissions;
+    }
+}
+
+// Fonction pour détecter Safari et donner des conseils spécifiques
+function showSafariPermissionTips() {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    if (isSafari || isIOS) {
+        const tips = [
+            '📱 Sur Safari/iOS :',
+            '• Géolocalisation : Réglages > Safari > Localisation',
+            '• Caméra : Réglages > Safari > Caméra',
+            '• Microphone : Réglages > Safari > Microphone',
+            '• Ou utilisez Chrome/Firefox pour une meilleure compatibilité'
+        ];
+        
+        console.log('🍎 Conseils Safari détectés:', tips.join('\n'));
+        
+        // Afficher une notification spéciale pour Safari
+        setTimeout(() => {
+            showNotification('🍎 Safari détecté - Vérifiez les réglages si problème', 'info');
+        }, 2000);
+    }
+}
+
+// Fonction pour vérifier les permissions en temps réel
+async function checkPermissionsStatus() {
+    const status = {
+        geolocation: 'unknown',
+        camera: 'unknown',
+        microphone: 'unknown'
+    };
+    
+    try {
+        // Vérifier avec l'API Permissions si disponible
+        if (navigator.permissions) {
+            try {
+                const geoPermission = await navigator.permissions.query({ name: 'geolocation' });
+                status.geolocation = geoPermission.state;
+            } catch (e) { /* Pas supporté */ }
+            
+            try {
+                const cameraPermission = await navigator.permissions.query({ name: 'camera' });
+                status.camera = cameraPermission.state;
+            } catch (e) { /* Pas supporté */ }
+            
+            try {
+                const micPermission = await navigator.permissions.query({ name: 'microphone' });
+                status.microphone = micPermission.state;
+            } catch (e) { /* Pas supporté */ }
+        }
+    } catch (error) {
+        console.warn('⚠️ API Permissions non disponible');
+    }
+    
+    console.log('🔐 État actuel des permissions:', status);
+    return status;
+}
+
 // Activer la protection quand le jeu commence
 function enableGameProtection() {
     if (gameProtectionActive) return;
@@ -423,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
 });
 
-function initializeApp() {
+async function initializeApp() {
     // Éviter la double initialisation
     if (window.appInitialized) {
         console.log('⚠️ App déjà initialisée, on ignore');
@@ -432,6 +578,12 @@ function initializeApp() {
     window.appInitialized = true;
     
     console.log('🚀 Initialisation du jeu de piste...');
+    
+    // Demander toutes les permissions dès le début
+    await requestAllPermissions();
+    
+    // Afficher les conseils Safari si nécessaire
+    showSafariPermissionTips();
     
     // Initialiser Firebase Service
     if (window.firebaseService) {
@@ -2477,6 +2629,10 @@ function showUnifiedDebugMenu() {
                         style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
                     🔍 Debug Mode
                 </button>
+                <button onclick="checkPermissionsStatus()" 
+                        style="background: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🔐 Permissions
+                </button>
             </div>
         </div>
         
@@ -2647,6 +2803,8 @@ window.simulatePosition = simulatePosition;
 window.showGameState = showGameState;
 window.toggleDebugMode = toggleDebugMode;
 window.generateQuickPositions = generateQuickPositions;
+window.checkPermissionsStatus = checkPermissionsStatus;
+window.requestAllPermissions = requestAllPermissions;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {

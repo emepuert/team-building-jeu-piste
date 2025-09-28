@@ -122,6 +122,29 @@
             </div>
         </div>
         
+        <!-- Modal pour le QCM -->
+        <div id="qcm-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>📋 Quiz Culturel</h2>
+                <div id="qcm-content">
+                    <div id="qcm-question-container">
+                        <p id="qcm-question"></p>
+                    </div>
+                    
+                    <div id="qcm-answers-container">
+                        <!-- Les réponses seront ajoutées dynamiquement -->
+                    </div>
+                    
+                    <div id="qcm-controls">
+                        <button id="qcm-submit-btn" class="qcm-btn primary">✅ Valider ma réponse</button>
+                    </div>
+                    
+                    <div id="qcm-feedback" class="qcm-feedback"></div>
+                </div>
+            </div>
+        </div>
+        
         <!-- Modal pour l'épreuve audio -->
         <div id="audio-modal" class="modal">
             <div class="modal-content">
@@ -148,7 +171,6 @@
                         <div id="audio-controls">
                             <button id="start-audio-btn" class="audio-btn primary">🎤 Commencer l'épreuve</button>
                             <button id="stop-audio-btn" class="audio-btn" style="display: none;">⏹️ Arrêter</button>
-                            <button id="audio-help-btn" class="audio-btn" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">🆘 Demander de l'aide</button>
                         </div>
                         
                         <div id="audio-feedback" class="audio-feedback"></div>

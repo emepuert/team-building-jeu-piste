@@ -39,6 +39,10 @@ let audioStartTime = null;
 let isAudioChallengeActive = false;
 let audioAnimationId = null;
 
+// Variables pour le QCM
+let currentQCMCheckpoint = null;
+let selectedAnswers = [];
+
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
     const poly = [];
@@ -883,6 +887,12 @@ function showClue(clue, checkpoint = null) {
         return;
     }
     
+    // Si c'est un checkpoint QCM, afficher le modal QCM
+    if (checkpoint && checkpoint.type === 'qcm') {
+        showQCMChallenge(checkpoint);
+        return;
+    }
+    
     // Si l'indice contient une énigme, afficher la modal d'énigme
     if (clue.riddle) {
         showRiddle(clue);
@@ -1407,17 +1417,20 @@ function updatePlayerRouteProgress() {
                 // Checkpoint photo accessible → boutons reprendre + validation forcée
                 helpButtons = `
                     <button class="help-btn-small photo-location" onclick="showPhotoChallenge(GAME_CONFIG.checkpoints.find(cp => cp.id === ${checkpointId}))" title="Reprendre une photo">📸</button>
-                    <button class="help-btn-small photo-validation" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
+                    <button class="help-btn-small help-resolution" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
                 `;
             } else if (checkpoint?.type === 'audio') {
-                // Épreuve audio → bouton aide audio
-                helpButtons = `<button class="help-btn-small" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🎤</button>`;
+                // Épreuve audio → bouton aide résolution
+                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🆘</button>`;
+            } else if (checkpoint?.type === 'qcm') {
+                // Épreuve QCM → bouton aide résolution
+                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>`;
             } else if (checkpoint?.clue?.riddle) {
-                // Avec énigme → bouton aide énigme
-                helpButtons = `<button class="help-btn-small" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🧩</button>`;
+                // Avec énigme → bouton aide résolution
+                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🆘</button>`;
             } else {
-                // Sans énigme → bouton aide générale (localisation physique)
-                helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander de l'aide pour trouver ce point">📍</button>`;
+                // Sans énigme → bouton aide localisation
+                helpButtons = `<button class="help-btn-small help-location" onclick="requestLocationHelpFor(${checkpointId})" title="Demander de l'aide pour trouver ce point">📍</button>`;
             }
         }
         
@@ -1627,11 +1640,13 @@ function setupEventListeners() {
     
     document.getElementById('start-audio-btn').addEventListener('click', startAudioChallenge);
     document.getElementById('stop-audio-btn').addEventListener('click', stopAudioChallenge);
-    document.getElementById('audio-help-btn').addEventListener('click', () => {
-        if (currentAudioCheckpoint) {
-            requestAudioHelpFor(currentAudioCheckpoint.id);
-        }
+    
+    // Événements pour le modal QCM
+    document.querySelector('#qcm-modal .close').addEventListener('click', () => {
+        document.getElementById('qcm-modal').style.display = 'none';
     });
+    
+    document.getElementById('qcm-submit-btn').addEventListener('click', submitQCMAnswer);
     
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';
@@ -1783,6 +1798,7 @@ window.requestLocationHelpFor = requestLocationHelpFor;
 window.requestRiddleHelpFor = requestRiddleHelpFor;
 window.requestAudioHelpFor = requestAudioHelpFor;
 window.requestPhotoHelpFor = requestPhotoHelpFor;
+window.requestQCMHelpFor = requestQCMHelpFor;
 window.showPhotoChallenge = showPhotoChallenge;
 
 // Fonction supprimée - les checkpoints sont maintenant créés via l'admin
@@ -2135,6 +2151,36 @@ async function requestAudioHelpFor(checkpointId) {
     }
 }
 
+// Demander l'aide pour un QCM spécifique
+async function requestQCMHelpFor(checkpointId) {
+    if (!firebaseService || !currentTeamId) {
+        showNotification('Erreur: service non disponible', 'error');
+        return;
+    }
+    
+    try {
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        const message = `L'équipe ${currentTeam?.name || 'inconnue'} demande l'aide pour le QCM "${checkpointName}" (question trop difficile).`;
+        
+        await firebaseService.createHelpRequest(
+            currentTeamId,
+            checkpointId,
+            'qcm',
+            message
+        );
+        
+        showNotification(`📋 Demande d'aide envoyée pour le QCM "${checkpointName}"`, 'success');
+        
+        // Actualiser l'interface
+        updateUI();
+        
+    } catch (error) {
+        console.error('❌ Erreur demande d\'aide QCM:', error);
+        showNotification('Erreur lors de l\'envoi de la demande', 'error');
+    }
+}
+
 // ===== FONCTIONS PHOTOS =====
 
 // Afficher le modal photo pour un checkpoint
@@ -2209,6 +2255,179 @@ function showAudioChallenge(checkpoint) {
     document.getElementById('audio-modal').style.display = 'flex';
     
     console.log('🎤 Modal audio ouvert pour:', checkpoint.name, 'Config:', audioConfig);
+}
+
+// Afficher le défi QCM
+function showQCMChallenge(checkpoint) {
+    if (!checkpoint || checkpoint.type !== 'qcm') {
+        console.error('❌ Checkpoint invalide pour défi QCM:', checkpoint);
+        return;
+    }
+    
+    if (!checkpoint.clue.qcm) {
+        console.error('❌ Configuration QCM manquante:', checkpoint);
+        return;
+    }
+    
+    currentQCMCheckpoint = checkpoint;
+    const qcmConfig = checkpoint.clue.qcm;
+    
+    // Afficher la question
+    document.getElementById('qcm-question').textContent = qcmConfig.question;
+    
+    // Générer les réponses
+    const answersContainer = document.getElementById('qcm-answers-container');
+    answersContainer.innerHTML = '';
+    selectedAnswers = [];
+    
+    qcmConfig.answers.forEach((answer, index) => {
+        const answerDiv = document.createElement('div');
+        answerDiv.className = 'qcm-answer-option';
+        answerDiv.innerHTML = `
+            <input type="checkbox" id="qcm-answer-${index}" value="${index}">
+            <label for="qcm-answer-${index}">${answer}</label>
+        `;
+        
+        // Ajouter l'événement de clic
+        answerDiv.addEventListener('click', () => toggleQCMAnswer(index));
+        
+        answersContainer.appendChild(answerDiv);
+    });
+    
+    // Réinitialiser le feedback
+    const feedback = document.getElementById('qcm-feedback');
+    feedback.style.display = 'none';
+    feedback.className = 'qcm-feedback';
+    
+    // Réactiver le bouton
+    document.getElementById('qcm-submit-btn').disabled = false;
+    
+    // Afficher le modal
+    document.getElementById('qcm-modal').style.display = 'flex';
+    
+    console.log('📋 Modal QCM ouvert pour:', checkpoint.name, 'Config:', qcmConfig);
+}
+
+// Basculer la sélection d'une réponse QCM
+function toggleQCMAnswer(answerIndex) {
+    const checkbox = document.getElementById(`qcm-answer-${answerIndex}`);
+    const answerDiv = checkbox.closest('.qcm-answer-option');
+    
+    if (selectedAnswers.includes(answerIndex)) {
+        // Désélectionner
+        selectedAnswers = selectedAnswers.filter(i => i !== answerIndex);
+        checkbox.checked = false;
+        answerDiv.classList.remove('selected');
+    } else {
+        // Sélectionner
+        selectedAnswers.push(answerIndex);
+        checkbox.checked = true;
+        answerDiv.classList.add('selected');
+    }
+    
+    console.log('📋 Réponses sélectionnées:', selectedAnswers);
+}
+
+// Valider les réponses du QCM
+function submitQCMAnswer() {
+    if (!currentQCMCheckpoint || !currentQCMCheckpoint.clue.qcm) {
+        console.error('❌ Configuration QCM manquante');
+        return;
+    }
+    
+    const qcmConfig = currentQCMCheckpoint.clue.qcm;
+    const correctAnswers = qcmConfig.correctAnswers;
+    
+    // Vérifier si les réponses sont correctes
+    const isCorrect = selectedAnswers.length === correctAnswers.length &&
+                     selectedAnswers.every(answer => correctAnswers.includes(answer)) &&
+                     correctAnswers.every(answer => selectedAnswers.includes(answer));
+    
+    // Désactiver le bouton
+    document.getElementById('qcm-submit-btn').disabled = true;
+    
+    // Afficher les résultats visuellement
+    const answersContainer = document.getElementById('qcm-answers-container');
+    const answerDivs = answersContainer.querySelectorAll('.qcm-answer-option');
+    
+    answerDivs.forEach((div, index) => {
+        const isCorrectAnswer = correctAnswers.includes(index);
+        const wasSelected = selectedAnswers.includes(index);
+        
+        if (isCorrectAnswer) {
+            div.classList.add('correct');
+        } else if (wasSelected) {
+            div.classList.add('incorrect');
+        }
+        
+        // Désactiver les clics
+        div.style.pointerEvents = 'none';
+    });
+    
+    // Afficher le feedback
+    const feedback = document.getElementById('qcm-feedback');
+    feedback.style.display = 'block';
+    
+    if (isCorrect) {
+        feedback.className = 'qcm-feedback success';
+        feedback.innerHTML = `
+            <div>✅ ${qcmConfig.successMessage || 'Bravo ! Bonne réponse !'}</div>
+            ${qcmConfig.explanation ? `<div class="qcm-explanation">💡 ${qcmConfig.explanation}</div>` : ''}
+        `;
+        
+        console.log('🎉 QCM réussi !');
+        
+        // Débloquer le prochain checkpoint après un délai
+        setTimeout(() => {
+            document.getElementById('qcm-modal').style.display = 'none';
+            
+            // Débloquer le prochain point selon l'équipe
+            const nextCheckpointId = getNextCheckpointForTeam();
+            if (nextCheckpointId) {
+                unlockCheckpoint(nextCheckpointId);
+                
+                // Message personnalisé selon le prochain checkpoint
+                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                
+                // Zoomer sur le nouveau point débloqué
+                if (nextCheckpoint) {
+                    console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
+                    centerMapOnCheckpoint(nextCheckpoint);
+                }
+            } else {
+                showNotification('🏆 Parcours terminé ! Félicitations !');
+            }
+            
+        }, 3000);
+        
+    } else {
+        feedback.className = 'qcm-feedback error';
+        feedback.innerHTML = `
+            <div>❌ Réponse incorrecte. Essayez encore !</div>
+            ${qcmConfig.explanation ? `<div class="qcm-explanation">💡 ${qcmConfig.explanation}</div>` : ''}
+        `;
+        
+        // Permettre de réessayer après un délai
+        setTimeout(() => {
+            // Réinitialiser l'interface
+            answerDivs.forEach(div => {
+                div.classList.remove('correct', 'incorrect');
+                div.style.pointerEvents = 'auto';
+            });
+            
+            selectedAnswers = [];
+            answerDivs.forEach((div, index) => {
+                const checkbox = div.querySelector('input[type="checkbox"]');
+                checkbox.checked = false;
+                div.classList.remove('selected');
+            });
+            
+            feedback.style.display = 'none';
+            document.getElementById('qcm-submit-btn').disabled = false;
+        }, 2000);
+    }
 }
 
 // Réinitialiser l'interface audio
@@ -2747,6 +2966,70 @@ function handleGrantedHelpRequest(request) {
                 resetAudioInterface();
             }
         }
+    } else if (request.type === 'qcm') {
+        // Pour les QCM : marquer comme trouvé et débloquer le suivant
+        if (!foundCheckpoints.includes(request.checkpointId)) {
+            foundCheckpoints.push(request.checkpointId);
+            
+            // Mettre à jour le marqueur visuellement
+            const markerData = checkpointMarkers.find(m => m.id === request.checkpointId);
+            if (markerData) {
+                const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === request.checkpointId);
+                const newIcon = L.divIcon({
+                    className: 'checkpoint-marker found',
+                    html: checkpoint?.emoji || '📍',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                markerData.marker.setIcon(newIcon);
+                
+                // Mettre à jour le cercle en vert
+                markerData.circle.setStyle({
+                    color: '#27ae60',
+                    fillColor: '#27ae60'
+                });
+            }
+            
+            // Débloquer le prochain checkpoint
+            const nextCheckpointId = getNextCheckpointForTeam();
+            if (nextCheckpointId) {
+                unlockCheckpoint(nextCheckpointId);
+                
+                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                
+                // Zoomer sur le nouveau point débloqué
+                if (nextCheckpoint) {
+                    console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
+                    centerMapOnCheckpoint(nextCheckpoint);
+                }
+            } else {
+                showNotification('🏆 Parcours terminé ! Félicitations !');
+            }
+            
+            // Sauvegarder la progression dans Firebase
+            if (firebaseService && currentTeam && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    unlockedCheckpoints: unlockedCheckpoints
+                });
+                
+                console.log('💾 Progression QCM sauvegardée:', {
+                    teamId: currentTeamId,
+                    foundCheckpoints, 
+                    unlockedCheckpoints
+                });
+            }
+            
+            // Mettre à jour l'interface
+            updateUI();
+            
+            // Fermer le modal QCM s'il est ouvert
+            if (document.getElementById('qcm-modal').style.display === 'flex') {
+                document.getElementById('qcm-modal').style.display = 'none';
+            }
+        }
     } else if (request.type === 'location') {
         // Pour l'aide de localisation : juste une notification
         showNotification(`📍 Admin a fourni l'aide de localisation pour "${checkpointName}"`, 'success');
@@ -2795,10 +3078,11 @@ function showAdminRefusalNotification(type, data) {
     let title, message;
     
     if (type === 'aide') {
-        const helpType = data.type === 'location' ? 'localisation' : 
-                        data.type === 'riddle' ? 'énigme' : 
-                        data.type === 'audio' ? 'épreuve audio' :
-                        data.type === 'photo' ? 'validation photo' : 'aide';
+                const helpType = data.type === 'location' ? 'localisation' : 
+                                data.type === 'riddle' ? 'énigme' : 
+                                data.type === 'audio' ? 'épreuve audio' :
+                                data.type === 'qcm' ? 'QCM' :
+                                data.type === 'photo' ? 'validation photo' : 'aide';
         title = `❌ Demande d'aide refusée`;
         message = `Votre demande d'aide (${helpType}) pour "${checkpointName}" a été refusée par l'admin.`;
     } else {

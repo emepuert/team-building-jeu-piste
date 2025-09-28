@@ -474,12 +474,14 @@ function updateHelpRequestsDisplay() {
         });
         
         const typeText = helpRequest.type === 'location' ? 'Localisation' : 
-                         helpRequest.type === 'riddle' ? 'Énigme' : 
-                         helpRequest.type === 'audio' ? 'Épreuve Audio' :
-                         helpRequest.type === 'photo' ? 'Validation Photo' : 'Aide';
+                        helpRequest.type === 'riddle' ? 'Énigme' : 
+                        helpRequest.type === 'audio' ? 'Épreuve Audio' :
+                        helpRequest.type === 'qcm' ? 'QCM' :
+                        helpRequest.type === 'photo' ? 'Validation Photo' : 'Aide';
         const typeIcon = helpRequest.type === 'location' ? '📍' : 
                         helpRequest.type === 'riddle' ? '🧩' : 
                         helpRequest.type === 'audio' ? '🎤' :
+                        helpRequest.type === 'qcm' ? '📋' :
                         helpRequest.type === 'photo' ? '📸' : '❓';
         
         return `
@@ -1297,9 +1299,10 @@ async function grantHelpRequest(helpId) {
         const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${helpRequest.checkpointId}`;
         
-        const typeText = helpRequest.type === 'location' ? 'localisation' : 
-                         helpRequest.type === 'riddle' ? 'résolution d\'énigme' :
-                         helpRequest.type === 'audio' ? 'épreuve audio' : 'aide générale';
+    const typeText = helpRequest.type === 'location' ? 'localisation' : 
+                    helpRequest.type === 'riddle' ? 'résolution d\'énigme' :
+                    helpRequest.type === 'audio' ? 'épreuve audio' :
+                    helpRequest.type === 'qcm' ? 'QCM' : 'aide générale';
         
         if (!confirm(`Accorder l'aide (${typeText}) pour "${checkpointName}" à l'équipe "${teamName}" ?`)) {
             return;
@@ -2249,6 +2252,53 @@ function updateDynamicContent() {
             `;
             break;
             
+        case 'qcm':
+            content += `
+                <div>
+                    <label class="field-label">Question du QCM :</label>
+                    <textarea id="qcm-question" placeholder="Quelle est la date de construction de ce monument ?" rows="3" required></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Réponses possibles :</label>
+                    <div class="qcm-answers">
+                        <div class="qcm-answer-item">
+                            <input type="text" id="qcm-answer-1" placeholder="Réponse A" required>
+                            <label><input type="checkbox" id="qcm-correct-1"> Correcte</label>
+                        </div>
+                        <div class="qcm-answer-item">
+                            <input type="text" id="qcm-answer-2" placeholder="Réponse B" required>
+                            <label><input type="checkbox" id="qcm-correct-2"> Correcte</label>
+                        </div>
+                        <div class="qcm-answer-item">
+                            <input type="text" id="qcm-answer-3" placeholder="Réponse C" required>
+                            <label><input type="checkbox" id="qcm-correct-3"> Correcte</label>
+                        </div>
+                        <div class="qcm-answer-item">
+                            <input type="text" id="qcm-answer-4" placeholder="Réponse D (optionnelle)">
+                            <label><input type="checkbox" id="qcm-correct-4"> Correcte</label>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="field-label">Explication (optionnelle) :</label>
+                    <textarea id="qcm-explanation" placeholder="Explication affichée après la réponse..." rows="2"></textarea>
+                </div>
+                <div>
+                    <label class="field-label">Message de succès :</label>
+                    <textarea id="qcm-success" placeholder="Bravo ! Bonne réponse !" rows="2"></textarea>
+                </div>
+                <div class="info-box">
+                    <p><strong>📋 QCM Culturel :</strong></p>
+                    <ul>
+                        <li>🎯 Une question avec 3-4 réponses possibles</li>
+                        <li>✅ Cochez les réponses correctes (peut y en avoir plusieurs)</li>
+                        <li>📚 Parfait pour l'aspect éducatif et culturel</li>
+                        <li>💡 Ajoutez une explication pour enrichir l'apprentissage</li>
+                    </ul>
+                </div>
+            `;
+            break;
+            
         case 'info':
             content += `
                 <div>
@@ -2367,6 +2417,52 @@ async function createCheckpoint() {
                     threshold: audioThreshold,
                     duration: audioDuration,
                     successMessage: audioSuccess
+                };
+                break;
+                
+            case 'qcm':
+                const qcmQuestion = document.getElementById('qcm-question')?.value.trim();
+                const qcmExplanation = document.getElementById('qcm-explanation')?.value.trim();
+                const qcmSuccess = document.getElementById('qcm-success')?.value.trim() || 'Bravo ! Bonne réponse !';
+                
+                if (!qcmQuestion) {
+                    showNotification('Veuillez remplir la question du QCM', 'error');
+                    return;
+                }
+                
+                // Récupérer les réponses et leurs statuts
+                const answers = [];
+                const correctAnswers = [];
+                
+                for (let i = 1; i <= 4; i++) {
+                    const answerText = document.getElementById(`qcm-answer-${i}`)?.value.trim();
+                    const isCorrect = document.getElementById(`qcm-correct-${i}`)?.checked;
+                    
+                    if (answerText) {
+                        answers.push(answerText);
+                        if (isCorrect) {
+                            correctAnswers.push(i - 1); // Index 0-based
+                        }
+                    }
+                }
+                
+                if (answers.length < 2) {
+                    showNotification('Veuillez remplir au moins 2 réponses', 'error');
+                    return;
+                }
+                
+                if (correctAnswers.length === 0) {
+                    showNotification('Veuillez cocher au moins une réponse correcte', 'error');
+                    return;
+                }
+                
+                clueData.text = qcmSuccess;
+                clueData.qcm = {
+                    question: qcmQuestion,
+                    answers: answers,
+                    correctAnswers: correctAnswers,
+                    explanation: qcmExplanation,
+                    successMessage: qcmSuccess
                 };
                 break;
                 

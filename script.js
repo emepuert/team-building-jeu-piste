@@ -2636,6 +2636,8 @@ function setupNotificationListeners() {
             
             if (request.action === 'denied') {
                 showAdminRefusalNotification('aide', request);
+            } else if (request.action === 'granted') {
+                handleGrantedHelpRequest(request);
             }
         });
     });
@@ -2652,6 +2654,111 @@ function setupNotificationListeners() {
             }
         });
     });
+}
+
+// Traiter une demande d'aide accordée par l'admin
+function handleGrantedHelpRequest(request) {
+    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === request.checkpointId);
+    const checkpointName = checkpoint ? checkpoint.name : `Point ${request.checkpointId}`;
+    
+    console.log('✅ Demande d\'aide accordée par admin:', {
+        type: request.type,
+        checkpointId: request.checkpointId,
+        checkpointName: checkpointName
+    });
+    
+    // Traitement selon le type d'aide accordée
+    if (request.type === 'audio') {
+        // Pour les épreuves audio : marquer comme trouvé et débloquer le suivant
+        if (!foundCheckpoints.includes(request.checkpointId)) {
+            foundCheckpoints.push(request.checkpointId);
+            
+            // Mettre à jour le marqueur visuellement
+            const markerData = checkpointMarkers.find(m => m.id === request.checkpointId);
+            if (markerData) {
+                const newIcon = L.divIcon({
+                    className: 'checkpoint-marker found',
+                    html: checkpoint.emoji,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                markerData.marker.setIcon(newIcon);
+                
+                // Mettre à jour le cercle en vert
+                markerData.circle.setStyle({
+                    color: '#27ae60',
+                    fillColor: '#27ae60'
+                });
+            }
+            
+            // Débloquer le prochain checkpoint
+            const nextCheckpointId = getNextCheckpointForTeam();
+            if (nextCheckpointId) {
+                unlockCheckpoint(nextCheckpointId);
+                
+                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                showNotification(`✅ Admin a validé l'épreuve audio "${checkpointName}" ! "${nextName}" est débloqué.`, 'success');
+            } else {
+                showNotification(`✅ Admin a validé l'épreuve audio "${checkpointName}" ! Parcours terminé !`, 'success');
+            }
+            
+            // Sauvegarder la progression
+            if (firebaseService && currentTeam && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    unlockedCheckpoints: unlockedCheckpoints
+                });
+            }
+            
+            // Mettre à jour l'interface
+            updateUI();
+            
+            // Fermer le modal audio s'il est ouvert
+            const audioModal = document.getElementById('audio-modal');
+            if (audioModal && audioModal.style.display !== 'none') {
+                audioModal.style.display = 'none';
+                resetAudioInterface();
+            }
+        }
+    } else if (request.type === 'location') {
+        // Pour l'aide de localisation : juste une notification
+        showNotification(`📍 Admin a fourni l'aide de localisation pour "${checkpointName}"`, 'success');
+    } else if (request.type === 'riddle') {
+        // Pour l'aide d'énigme : marquer comme trouvé et débloquer le suivant
+        if (!foundCheckpoints.includes(request.checkpointId)) {
+            foundCheckpoints.push(request.checkpointId);
+            
+            // Débloquer le prochain checkpoint
+            const nextCheckpointId = getNextCheckpointForTeam();
+            if (nextCheckpointId) {
+                unlockCheckpoint(nextCheckpointId);
+                
+                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                showNotification(`✅ Admin a résolu l'énigme "${checkpointName}" ! "${nextName}" est débloqué.`, 'success');
+            } else {
+                showNotification(`✅ Admin a résolu l'énigme "${checkpointName}" ! Parcours terminé !`, 'success');
+            }
+            
+            // Sauvegarder la progression
+            if (firebaseService && currentTeam && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    unlockedCheckpoints: unlockedCheckpoints
+                });
+            }
+            
+            // Mettre à jour l'interface
+            updateUI();
+            
+            // Fermer le modal énigme s'il est ouvert
+            const riddleModal = document.getElementById('riddle-modal');
+            if (riddleModal && riddleModal.style.display !== 'none') {
+                riddleModal.style.display = 'none';
+            }
+        }
+    }
 }
 
 // Afficher une notification de refus admin

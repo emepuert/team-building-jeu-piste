@@ -475,9 +475,11 @@ function updateHelpRequestsDisplay() {
         
         const typeText = helpRequest.type === 'location' ? 'Localisation' : 
                          helpRequest.type === 'riddle' ? 'Énigme' : 
+                         helpRequest.type === 'audio' ? 'Épreuve Audio' :
                          helpRequest.type === 'photo' ? 'Validation Photo' : 'Aide';
         const typeIcon = helpRequest.type === 'location' ? '📍' : 
                         helpRequest.type === 'riddle' ? '🧩' : 
+                        helpRequest.type === 'audio' ? '🎤' :
                         helpRequest.type === 'photo' ? '📸' : '❓';
         
         return `
@@ -1295,7 +1297,9 @@ async function grantHelpRequest(helpId) {
         const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${helpRequest.checkpointId}`;
         
-        const typeText = helpRequest.type === 'location' ? 'localisation' : 'résolution d\'énigme';
+        const typeText = helpRequest.type === 'location' ? 'localisation' : 
+                         helpRequest.type === 'riddle' ? 'résolution d\'énigme' :
+                         helpRequest.type === 'audio' ? 'épreuve audio' : 'aide générale';
         
         if (!confirm(`Accorder l'aide (${typeText}) pour "${checkpointName}" à l'équipe "${teamName}" ?`)) {
             return;

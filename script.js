@@ -697,7 +697,107 @@ function initializeMap() {
     // Personnaliser les contrôles
     map.zoomControl.setPosition('bottomright');
     
+    // Ajouter le bouton de localisation
+    addLocationControl();
+    
     console.log('✅ Carte initialisée avec succès');
+}
+
+// Ajouter le contrôle de localisation sur la carte
+function addLocationControl() {
+    // Créer le contrôle personnalisé
+    const LocationControl = L.Control.extend({
+        options: {
+            position: 'topleft'
+        },
+        
+        onAdd: function(map) {
+            const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+            
+            container.style.backgroundColor = 'white';
+            container.style.backgroundImage = 'none';
+            container.style.width = '34px';
+            container.style.height = '34px';
+            container.style.cursor = 'pointer';
+            container.style.display = 'flex';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            container.style.fontSize = '16px';
+            container.innerHTML = '📍';
+            container.title = 'Me localiser';
+            
+            container.onclick = function() {
+                locateUser();
+            };
+            
+            // Empêcher la propagation des événements
+            L.DomEvent.disableClickPropagation(container);
+            
+            return container;
+        }
+    });
+    
+    // Ajouter le contrôle à la carte
+    map.addControl(new LocationControl());
+}
+
+// Fonction pour localiser l'utilisateur
+function locateUser() {
+    console.log('🎯 Localisation demandée via bouton carte');
+    
+    if (!navigator.geolocation) {
+        showNotification('Géolocalisation non supportée', 'error');
+        return;
+    }
+    
+    // Afficher un indicateur de chargement
+    showNotification('📍 Localisation en cours...', 'info');
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            
+            // Centrer la carte sur la position
+            map.setView([lat, lng], 16);
+            
+            // Mettre à jour la position utilisateur
+            userPosition = {
+                lat: lat,
+                lng: lng,
+                accuracy: position.coords.accuracy
+            };
+            
+            updateUserMarker();
+            checkProximityToCheckpoints();
+            
+            showNotification('📍 Position trouvée !', 'success');
+            console.log('✅ Localisation réussie:', lat, lng);
+        },
+        (error) => {
+            logError(error, 'Manual Location Request', false);
+            
+            let message = 'Erreur de localisation';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    message = 'Géolocalisation refusée';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    message = 'Position indisponible';
+                    break;
+                case error.TIMEOUT:
+                    message = 'Délai dépassé';
+                    break;
+            }
+            
+            showNotification(message, 'error');
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000
+        }
+    );
 }
 
 function requestGeolocation() {
@@ -745,7 +845,6 @@ function onLocationSuccess(position) {
     
     updateUserMarker();
     updateStatus('Position trouvée !');
-    updateCoordinatesDisplay();
     checkProximityToCheckpoints();
     updateHint();
     
@@ -875,7 +974,6 @@ function onLocationUpdate(position) {
     };
     
     updateUserMarker();
-    updateCoordinatesDisplay();
     checkProximityToCheckpoints();
     
     // Mettre à jour la route si elle existe (grignotage)
@@ -1886,8 +1984,7 @@ function updatePlayerRouteProgress() {
         let helpButtons = '';
         if (!isFound && !isUnlocked) {
             // Checkpoint verrouillé → bouton demander localisation
-            const locationClass = checkpoint?.type === 'photo' ? 'photo-location' : '';
-            helpButtons = `<button class="help-btn-small ${locationClass}" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
+            helpButtons = `<button class="help-btn-small help-location" onclick="requestLocationHelpFor(${checkpointId})" title="Demander la localisation">📍</button>`;
         } else if (isUnlocked && !isFound) {
             // Checkpoint débloqué mais pas trouvé → vérifier le type et s'il a une énigme
             console.log(`🔍 Debug checkpoint ${checkpointId}:`, {
@@ -1900,7 +1997,7 @@ function updatePlayerRouteProgress() {
             
             if (checkpoint?.type === 'final') {
                 // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
-                helpButtons = `<button class="help-btn-small" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
+                helpButtons = `<button class="help-btn-small help-location" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
             } else if (checkpoint?.type === 'photo') {
                 // Checkpoint photo accessible → boutons reprendre + validation forcée
                 helpButtons = `

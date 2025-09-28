@@ -43,6 +43,144 @@ let audioAnimationId = null;
 let currentQCMCheckpoint = null;
 let selectedAnswers = [];
 
+// ===== SYSTÈME DE MONITORING =====
+let errorLog = [];
+let performanceMetrics = {
+    startTime: Date.now(),
+    errors: 0,
+    apiCalls: 0,
+    geolocationAttempts: 0
+};
+
+// ===== FONCTIONS DE MONITORING =====
+
+// Gestionnaire d'erreurs global
+function logError(error, context = 'Unknown', critical = false) {
+    const errorInfo = {
+        timestamp: new Date().toISOString(),
+        context: context,
+        message: error.message || error,
+        stack: error.stack,
+        critical: critical,
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        teamId: currentTeamId,
+        teamName: currentTeam?.name
+    };
+    
+    errorLog.push(errorInfo);
+    performanceMetrics.errors++;
+    
+    // Log dans la console avec emoji selon la criticité
+    const emoji = critical ? '💥' : '⚠️';
+    console.error(`${emoji} [${context}]`, error);
+    
+    // Garder seulement les 50 dernières erreurs
+    if (errorLog.length > 50) {
+        errorLog.shift();
+    }
+    
+    // Si erreur critique, envoyer notification
+    if (critical) {
+        showNotification(`Erreur critique: ${context}`, 'error');
+    }
+    
+    return errorInfo;
+}
+
+// Health check du système
+function healthCheck() {
+    const checks = {
+        timestamp: new Date().toISOString(),
+        firebase: !!window.firebaseService,
+        geolocation: !!navigator.geolocation,
+        network: navigator.onLine,
+        localStorage: (() => {
+            try {
+                localStorage.setItem('test', 'test');
+                localStorage.removeItem('test');
+                return true;
+            } catch (e) {
+                return false;
+            }
+        })(),
+        map: !!map,
+        team: !!currentTeam,
+        checkpoints: GAME_CONFIG.checkpoints?.length || 0,
+        userPosition: !!userPosition,
+        errors: performanceMetrics.errors,
+        uptime: Math.round((Date.now() - performanceMetrics.startTime) / 1000)
+    };
+    
+    console.log('🏥 Health Check:', checks);
+    return checks;
+}
+
+// Exécution sécurisée avec fallback
+function safeExecute(fn, fallback, context = 'Unknown') {
+    try {
+        return fn();
+    } catch (error) {
+        logError(error, context, false);
+        return fallback;
+    }
+}
+
+// Wrapper pour les appels API
+async function safeApiCall(apiCall, context = 'API Call') {
+    performanceMetrics.apiCalls++;
+    try {
+        const result = await apiCall();
+        console.log(`✅ [${context}] Succès`);
+        return result;
+    } catch (error) {
+        logError(error, context, true);
+        throw error;
+    }
+}
+
+// Afficher les métriques (pour debug)
+function showMetrics() {
+    const metrics = {
+        ...performanceMetrics,
+        uptime: Math.round((Date.now() - performanceMetrics.startTime) / 1000),
+        recentErrors: errorLog.slice(-5),
+        health: healthCheck()
+    };
+    
+    console.table(metrics);
+    return metrics;
+}
+
+// Activer le mode debug (triple-clic sur le titre)
+function enableDebugMode() {
+    document.getElementById('debug-panel').style.display = 'block';
+    console.log('🔧 Mode debug activé ! Utilisez les boutons en haut à droite.');
+    showNotification('🔧 Mode debug activé !', 'success');
+}
+
+// Triple-clic sur le titre pour activer le debug
+let titleClickCount = 0;
+document.addEventListener('DOMContentLoaded', () => {
+    const title = document.querySelector('h1');
+    if (title) {
+        title.addEventListener('click', () => {
+            titleClickCount++;
+            if (titleClickCount >= 3) {
+                enableDebugMode();
+                titleClickCount = 0;
+            }
+            setTimeout(() => titleClickCount = 0, 2000);
+        });
+    }
+});
+
+// Exposer les fonctions de monitoring globalement
+window.healthCheck = healthCheck;
+window.showMetrics = showMetrics;
+window.errorLog = errorLog;
+window.enableDebugMode = enableDebugMode;
+
 // Fonction pour décoder une polyline encodée
 function decodePolyline(encoded) {
     const poly = [];
@@ -103,7 +241,29 @@ const TEAMS = {
 };
 
 // Initialisation de l'application
+// ===== INITIALISATION DU MONITORING =====
+
+// Gestionnaire d'erreurs global
+window.addEventListener('error', (event) => {
+    logError(event.error || event.message, 'Global Error Handler', true);
+});
+
+// Gestionnaire d'erreurs pour les promesses non catchées
+window.addEventListener('unhandledrejection', (event) => {
+    logError(event.reason, 'Unhandled Promise Rejection', true);
+});
+
+// Health check automatique toutes les 30 secondes
+setInterval(() => {
+    const health = healthCheck();
+    // Si trop d'erreurs, alerter
+    if (health.errors > 10) {
+        console.warn('🚨 Trop d\'erreurs détectées:', health.errors);
+    }
+}, 30000);
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Démarrage du jeu avec monitoring activé');
     initializeApp();
 });
 
@@ -191,7 +351,10 @@ async function handleUserLogin() {
         loadingDiv.style.display = 'block';
         
         // Vérifier les identifiants de l'équipe dans Firebase
-        const team = await firebaseService.authenticateTeam(teamName, password);
+        const team = await safeApiCall(
+            () => firebaseService.authenticateTeam(teamName, password),
+            'Team Authentication'
+        );
         
         if (team) {
             // Connexion réussie
@@ -212,7 +375,7 @@ async function handleUserLogin() {
         }
         
     } catch (error) {
-        console.error('❌ Erreur de connexion équipe:', error);
+        logError(error, 'Team Login', true);
         showLoginError('Erreur de connexion. Veuillez réessayer.');
     } finally {
         loadingDiv.style.display = 'none';
@@ -365,8 +528,10 @@ function initializeMap() {
 
 function requestGeolocation() {
     console.log('📍 Demande de géolocalisation...');
+    performanceMetrics.geolocationAttempts++;
     
     if (!navigator.geolocation) {
+        logError('Géolocalisation non supportée', 'Geolocation Check', true);
         showNotification('Géolocalisation non supportée par votre navigateur', 'error');
         updateStatus('Géolocalisation non disponible');
         return;
@@ -546,7 +711,7 @@ function onLocationUpdate(position) {
 }
 
 function onLocationError(error) {
-    console.error('❌ Erreur de géolocalisation:', error);
+    logError(error, 'Geolocation Error', true);
     
     let message = 'Erreur de géolocalisation';
     switch(error.code) {

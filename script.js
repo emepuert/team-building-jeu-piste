@@ -166,17 +166,18 @@ let touchStartTime = 0;
 document.addEventListener('DOMContentLoaded', () => {
     const title = document.querySelector('h1');
     if (title) {
-        // Triple-clic pour debug desktop
+        // Triple-clic pour menu debug unifié (desktop)
         title.addEventListener('click', () => {
             titleClickCount++;
             if (titleClickCount >= 3) {
-                enableDebugMode();
+                showUnifiedDebugMenu();
+                showNotification('🛠️ Menu debug activé !', 'success');
                 titleClickCount = 0;
             }
             setTimeout(() => titleClickCount = 0, 2000);
         });
         
-        // Appui long pour debug mobile
+        // Appui long pour menu debug unifié
         title.addEventListener('touchstart', (e) => {
             touchStartTime = Date.now();
         });
@@ -185,8 +186,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const touchDuration = Date.now() - touchStartTime;
             if (touchDuration >= 1000) { // Appui long de 1 seconde
                 e.preventDefault();
-                showMobileDebugPanel();
-                showNotification('🛠️ Mode debug mobile activé !', 'success');
+                showUnifiedDebugMenu();
+                showNotification('🛠️ Menu debug activé !', 'success');
             }
         });
         
@@ -2390,16 +2391,16 @@ function simulatePosition(lat, lng) {
     updateStatus('Position simulée');
 }
 
-// ===== MODE DEBUG MOBILE =====
-function showMobileDebugPanel() {
-    const existingPanel = document.getElementById('mobile-debug-panel');
+// ===== MENU DEBUG UNIFIÉ =====
+function showUnifiedDebugMenu() {
+    const existingPanel = document.getElementById('unified-debug-panel');
     if (existingPanel) {
         existingPanel.remove();
         return;
     }
 
     const panel = document.createElement('div');
-    panel.id = 'mobile-debug-panel';
+    panel.id = 'unified-debug-panel';
     panel.style.cssText = `
         position: fixed;
         top: 50%;
@@ -2412,54 +2413,84 @@ function showMobileDebugPanel() {
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         z-index: 10000;
         width: 90vw;
-        max-width: 400px;
+        max-width: 450px;
         text-align: center;
+        max-height: 80vh;
+        overflow-y: auto;
     `;
 
     panel.innerHTML = `
-        <h3 style="margin-bottom: 15px; color: #333;">🛠️ Debug Mobile</h3>
+        <h3 style="margin-bottom: 15px; color: #333;">🛠️ Menu Debug</h3>
         
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Latitude:</label>
-            <input type="number" id="debug-lat" step="0.000001" placeholder="49.0956" 
-                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        <!-- Section Position -->
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
+            <h4 style="margin-bottom: 10px; color: #5D2DE6;">📍 Gestion Position</h4>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 12px;">Latitude:</label>
+                <input type="number" id="debug-lat" step="0.000001" placeholder="49.0956" 
+                       style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 10px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 12px;">Longitude:</label>
+                <input type="number" id="debug-lng" step="0.000001" placeholder="6.1893" 
+                       style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 10px;">
+                <button onclick="setDebugPosition()" 
+                        style="background: #5D2DE6; color: white; border: none; padding: 8px 15px; border-radius: 4px; margin: 2px; font-size: 12px;">
+                    📍 Définir Position
+                </button>
+                <button onclick="getCurrentDebugPosition()" 
+                        style="background: #568AC2; color: white; border: none; padding: 8px 15px; border-radius: 4px; margin: 2px; font-size: 12px;">
+                    📱 Position Actuelle
+                </button>
+            </div>
+            
+            <div style="text-align: center;">
+                <strong style="font-size: 12px;">🎯 Positions Rapides:</strong><br>
+                <button onclick="simulatePosition(49.095684, 6.189308)" 
+                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
+                    🏠 Luxembourg
+                </button>
+                <button onclick="simulatePosition(48.8566, 2.3522)" 
+                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
+                    🗼 Paris
+                </button>
+                <button onclick="simulatePosition(50.8503, 4.3517)" 
+                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
+                    🇧🇪 Bruxelles
+                </button>
+            </div>
         </div>
         
-        <div style="margin-bottom: 15px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Longitude:</label>
-            <input type="number" id="debug-lng" step="0.000001" placeholder="6.1893" 
-                   style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        <!-- Section Outils Debug -->
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <h4 style="margin-bottom: 10px; color: #5D2DE6;">🔧 Outils Debug</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                <button onclick="window.showMetrics()" 
+                        style="background: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    📊 Métriques
+                </button>
+                <button onclick="window.healthCheck()" 
+                        style="background: #27ae60; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🏥 Santé
+                </button>
+                <button onclick="showGameState()" 
+                        style="background: #f39c12; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🎮 État Jeu
+                </button>
+                <button onclick="toggleDebugMode()" 
+                        style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🔍 Debug Mode
+                </button>
+            </div>
         </div>
         
-        <div style="margin-bottom: 15px;">
-            <button onclick="setDebugPosition()" 
-                    style="background: #5D2DE6; color: white; border: none; padding: 10px 20px; border-radius: 6px; margin-right: 10px;">
-                📍 Définir Position
-            </button>
-            <button onclick="getCurrentDebugPosition()" 
-                    style="background: #568AC2; color: white; border: none; padding: 10px 20px; border-radius: 6px;">
-                📱 Position Actuelle
-            </button>
-        </div>
-        
-        <div style="margin-bottom: 15px;">
-            <h4 style="margin-bottom: 10px;">🎯 Positions Rapides:</h4>
-            <button onclick="simulatePosition(49.095684, 6.189308)" 
-                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
-                🏠 Luxembourg Centre
-            </button>
-            <button onclick="simulatePosition(48.8566, 2.3522)" 
-                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
-                🗼 Paris
-            </button>
-            <button onclick="simulatePosition(50.8503, 4.3517)" 
-                    style="background: #008000; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin: 2px; font-size: 12px;">
-                🇧🇪 Bruxelles
-            </button>
-        </div>
-        
-        <button onclick="closeMobileDebugPanel()" 
-                style="background: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 4px;">
+        <button onclick="closeUnifiedDebugMenu()" 
+                style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 4px;">
             ❌ Fermer
         </button>
     `;
@@ -2490,19 +2521,50 @@ function getCurrentDebugPosition() {
     }
 }
 
-function closeMobileDebugPanel() {
-    const panel = document.getElementById('mobile-debug-panel');
+function closeUnifiedDebugMenu() {
+    const panel = document.getElementById('unified-debug-panel');
     if (panel) {
         panel.remove();
+    }
+}
+
+function showGameState() {
+    const state = {
+        currentTeam: currentTeam?.name || 'Aucune',
+        foundCheckpoints: foundCheckpoints.length,
+        unlockedCheckpoints: unlockedCheckpoints.length,
+        userPosition: userPosition ? `${userPosition.lat.toFixed(6)}, ${userPosition.lng.toFixed(6)}` : 'Aucune',
+        gameStarted: gameStarted,
+        totalCheckpoints: GAME_CONFIG.checkpoints?.length || 0
+    };
+    
+    alert(`🎮 État du Jeu:\n\n` +
+          `👥 Équipe: ${state.currentTeam}\n` +
+          `✅ Trouvés: ${state.foundCheckpoints}/${state.totalCheckpoints}\n` +
+          `🔓 Débloqués: ${state.unlockedCheckpoints}\n` +
+          `📍 Position: ${state.userPosition}\n` +
+          `🚀 Jeu démarré: ${state.gameStarted ? 'Oui' : 'Non'}`);
+}
+
+function toggleDebugMode() {
+    const debugPanel = document.getElementById('debug-panel');
+    if (debugPanel.style.display === 'none') {
+        enableDebugMode();
+        showNotification('🔧 Mode debug desktop activé !', 'success');
+    } else {
+        debugPanel.style.display = 'none';
+        showNotification('🔧 Mode debug desktop désactivé', 'info');
     }
 }
 
 // Exposition globale pour les boutons et console
 window.setDebugPosition = setDebugPosition;
 window.getCurrentDebugPosition = getCurrentDebugPosition;
-window.closeMobileDebugPanel = closeMobileDebugPanel;
-window.showMobileDebugPanel = showMobileDebugPanel;
+window.closeUnifiedDebugMenu = closeUnifiedDebugMenu;
+window.showUnifiedDebugMenu = showUnifiedDebugMenu;
 window.simulatePosition = simulatePosition;
+window.showGameState = showGameState;
+window.toggleDebugMode = toggleDebugMode;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {

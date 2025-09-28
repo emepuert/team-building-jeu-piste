@@ -2450,19 +2450,16 @@ function showUnifiedDebugMenu() {
             </div>
             
             <div style="text-align: center;">
-                <strong style="font-size: 12px;">🎯 Positions Rapides:</strong><br>
-                <button onclick="simulatePosition(49.095684, 6.189308)" 
-                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
-                    🏠 Luxembourg
-                </button>
-                <button onclick="simulatePosition(48.8566, 2.3522)" 
-                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
-                    🗼 Paris
-                </button>
-                <button onclick="simulatePosition(50.8503, 4.3517)" 
-                        style="background: #008000; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
-                    🇧🇪 Bruxelles
-                </button>
+                <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
+                    <strong style="font-size: 12px;">🎯 Positions Rapides:</strong>
+                    <button onclick="generateQuickPositions()" 
+                            style="background: #5D2DE6; color: white; border: none; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
+                        🔄
+                    </button>
+                </div>
+                <div id="debug-quick-positions">
+                    <!-- Les positions seront générées dynamiquement -->
+                </div>
             </div>
         </div>
         
@@ -2496,6 +2493,87 @@ function showUnifiedDebugMenu() {
     `;
 
     document.body.appendChild(panel);
+    
+    // Générer les positions rapides dynamiquement
+    generateQuickPositions();
+}
+
+function generateQuickPositions() {
+    const container = document.getElementById('debug-quick-positions');
+    if (!container) return;
+    
+    let buttonsHTML = '';
+    
+    // Positions fixes par défaut
+    const defaultPositions = [
+        { name: '🏠 Luxembourg', lat: 49.095684, lng: 6.189308, color: '#008000' },
+        { name: '🗼 Paris', lat: 48.8566, lng: 2.3522, color: '#008000' },
+        { name: '🇧🇪 Bruxelles', lat: 50.8503, lng: 4.3517, color: '#008000' }
+    ];
+    
+    // Ajouter les positions des checkpoints du jeu en cours
+    if (GAME_CONFIG && GAME_CONFIG.checkpoints && GAME_CONFIG.checkpoints.length > 0) {
+        buttonsHTML += '<div style="margin-bottom: 8px;"><strong style="font-size: 11px; color: #5D2DE6;">📍 Checkpoints du Jeu:</strong></div>';
+        
+        GAME_CONFIG.checkpoints.forEach((checkpoint, index) => {
+            if (checkpoint.position && checkpoint.position.lat && checkpoint.position.lng) {
+                const isFound = foundCheckpoints.includes(checkpoint.id);
+                const isUnlocked = unlockedCheckpoints.includes(checkpoint.id);
+                
+                let icon = '📍';
+                let color = '#568AC2';
+                let status = '';
+                
+                // Icônes selon le type
+                switch(checkpoint.type) {
+                    case 'lobby': icon = '🏠'; break;
+                    case 'enigma': icon = '🧩'; break;
+                    case 'photo': icon = '📸'; break;
+                    case 'audio': icon = '🎤'; break;
+                    case 'qcm': icon = '📋'; break;
+                    case 'info': icon = 'ℹ️'; break;
+                    case 'final': icon = '🏆'; break;
+                }
+                
+                // Couleur selon le statut
+                if (isFound) {
+                    color = '#27ae60';
+                    status = ' ✅';
+                } else if (isUnlocked) {
+                    color = '#f39c12';
+                    status = ' 🔓';
+                } else {
+                    color = '#95a5a6';
+                    status = ' 🔒';
+                }
+                
+                const shortName = checkpoint.name.length > 12 ? 
+                    checkpoint.name.substring(0, 12) + '...' : 
+                    checkpoint.name;
+                
+                buttonsHTML += `
+                    <button onclick="simulatePosition(${checkpoint.position.lat}, ${checkpoint.position.lng})" 
+                            style="background: ${color}; color: white; border: none; padding: 4px 8px; border-radius: 4px; margin: 1px; font-size: 10px; max-width: 120px; overflow: hidden;">
+                        ${icon} ${shortName}${status}
+                    </button>
+                `;
+            }
+        });
+        
+        buttonsHTML += '<div style="margin: 8px 0;"><strong style="font-size: 11px; color: #008000;">🌍 Positions Fixes:</strong></div>';
+    }
+    
+    // Ajouter les positions fixes
+    defaultPositions.forEach(pos => {
+        buttonsHTML += `
+            <button onclick="simulatePosition(${pos.lat}, ${pos.lng})" 
+                    style="background: ${pos.color}; color: white; border: none; padding: 6px 10px; border-radius: 4px; margin: 2px; font-size: 11px;">
+                ${pos.name}
+            </button>
+        `;
+    });
+    
+    container.innerHTML = buttonsHTML;
 }
 
 function setDebugPosition() {
@@ -2565,6 +2643,7 @@ window.showUnifiedDebugMenu = showUnifiedDebugMenu;
 window.simulatePosition = simulatePosition;
 window.showGameState = showGameState;
 window.toggleDebugMode = toggleDebugMode;
+window.generateQuickPositions = generateQuickPositions;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {

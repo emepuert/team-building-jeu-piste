@@ -262,6 +262,42 @@ setInterval(() => {
     }
 }, 30000);
 
+// Enregistrer le Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('✅ Service Worker enregistré:', registration.scope);
+                
+                // Écouter les mises à jour
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showNotification('🔄 Mise à jour disponible ! Rechargez la page.', 'info');
+                        }
+                    });
+                });
+            })
+            .catch(error => {
+                logError(error, 'Service Worker Registration', false);
+            });
+    });
+}
+
+// Détecter les changements de connexion
+window.addEventListener('online', () => {
+    console.log('🌐 Connexion rétablie');
+    showNotification('🌐 Connexion rétablie', 'success');
+    performanceMetrics.networkStatus = 'online';
+});
+
+window.addEventListener('offline', () => {
+    console.log('📴 Mode hors ligne');
+    showNotification('📴 Mode hors ligne - Fonctionnalités limitées', 'warning');
+    performanceMetrics.networkStatus = 'offline';
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Démarrage du jeu avec monitoring activé');
     initializeApp();
@@ -290,8 +326,12 @@ function initializeApp() {
 }
 
 function checkTeamLogin() {
-    // Vérifier si une équipe est déjà connectée
-    const savedTeamId = localStorage.getItem('currentTeamId');
+    // Vérifier si une équipe est déjà connectée avec gestion d'erreurs
+    const savedTeamId = safeExecute(
+        () => localStorage.getItem('currentTeamId'),
+        null,
+        'LocalStorage Read'
+    );
     
     if (savedTeamId) {
         // Équipe déjà connectée, charger ses données
@@ -300,6 +340,37 @@ function checkTeamLogin() {
         // Pas d'équipe connectée, afficher le modal de connexion
         showTeamLoginModal();
     }
+}
+
+// Wrapper sécurisé pour localStorage
+function safeLocalStorage() {
+    return {
+        getItem: (key) => safeExecute(
+            () => localStorage.getItem(key),
+            null,
+            `LocalStorage.getItem(${key})`
+        ),
+        setItem: (key, value) => safeExecute(
+            () => localStorage.setItem(key, value),
+            false,
+            `LocalStorage.setItem(${key})`
+        ),
+        removeItem: (key) => safeExecute(
+            () => localStorage.removeItem(key),
+            false,
+            `LocalStorage.removeItem(${key})`
+        ),
+        isAvailable: () => {
+            try {
+                const test = 'localStorage_test';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+    };
 }
 
 function showTeamLoginModal() {
@@ -360,7 +431,7 @@ async function handleUserLogin() {
             // Connexion réussie
             currentTeam = team;
             currentTeamId = team.id;
-            localStorage.setItem('currentTeamId', team.id);
+            safeLocalStorage().setItem('currentTeamId', team.id);
             
             // Cacher le modal et démarrer le jeu
             document.getElementById('user-login-modal').style.display = 'none';
@@ -392,12 +463,12 @@ async function loadTeamData(teamId) {
             await loadTeamGameData();
         } else {
             // Équipe non trouvée, déconnecter
-            localStorage.removeItem('currentTeamId');
+            safeLocalStorage().removeItem('currentTeamId');
             showTeamLoginModal();
         }
     } catch (error) {
-        console.error('❌ Erreur chargement équipe:', error);
-        localStorage.removeItem('currentTeamId');
+        logError(error, 'Load Team Data', true);
+        safeLocalStorage().removeItem('currentTeamId');
         showTeamLoginModal();
     }
 }
@@ -714,20 +785,101 @@ function onLocationError(error) {
     logError(error, 'Geolocation Error', true);
     
     let message = 'Erreur de géolocalisation';
+    let showFallback = false;
+    
     switch(error.code) {
         case error.PERMISSION_DENIED:
-            message = 'Géolocalisation refusée. Veuillez autoriser l\'accès à votre position.';
+            message = 'Géolocalisation refusée. Vous pouvez continuer en mode manuel.';
+            showFallback = true;
             break;
         case error.POSITION_UNAVAILABLE:
-            message = 'Position indisponible. Vérifiez votre connexion.';
+            message = 'Position indisponible. Mode manuel disponible.';
+            showFallback = true;
             break;
         case error.TIMEOUT:
-            message = 'Délai de géolocalisation dépassé.';
+            message = 'Délai de géolocalisation dépassé. Réessai automatique...';
+            // Réessayer après 5 secondes
+            setTimeout(() => {
+                console.log('🔄 Nouvel essai de géolocalisation...');
+                requestGeolocation();
+            }, 5000);
             break;
     }
     
     updateStatus(message);
     showNotification(message, 'error');
+    
+    // Afficher le mode fallback si nécessaire
+    if (showFallback) {
+        showGeolocationFallback();
+    }
+}
+
+// Mode fallback pour la géolocalisation
+function showGeolocationFallback() {
+    const fallbackHTML = `
+        <div id="geolocation-fallback" style="
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            z-index: 10000; max-width: 90%; text-align: center;
+        ">
+            <h3>🗺️ Mode Manuel</h3>
+            <p>La géolocalisation n'est pas disponible.<br>Vous pouvez continuer en mode manuel :</p>
+            
+            <div style="margin: 1rem 0;">
+                <button onclick="simulatePosition(49.0928, 6.1907)" style="
+                    background: #3498db; color: white; border: none; padding: 0.8rem 1rem;
+                    border-radius: 8px; margin: 0.5rem; cursor: pointer;
+                ">📍 Position Luxembourg Centre</button>
+                
+                <button onclick="simulatePosition(49.6116, 6.1319)" style="
+                    background: #27ae60; color: white; border: none; padding: 0.8rem 1rem;
+                    border-radius: 8px; margin: 0.5rem; cursor: pointer;
+                ">📍 Position Luxembourg Ville</button>
+            </div>
+            
+            <div style="margin: 1rem 0;">
+                <input type="number" id="manual-lat" placeholder="Latitude" step="any" style="
+                    padding: 0.5rem; margin: 0.2rem; border: 1px solid #ddd; border-radius: 4px; width: 120px;
+                ">
+                <input type="number" id="manual-lng" placeholder="Longitude" step="any" style="
+                    padding: 0.5rem; margin: 0.2rem; border: 1px solid #ddd; border-radius: 4px; width: 120px;
+                ">
+                <button onclick="setManualPosition()" style="
+                    background: #f39c12; color: white; border: none; padding: 0.5rem 1rem;
+                    border-radius: 4px; margin: 0.2rem; cursor: pointer;
+                ">✅ Valider</button>
+            </div>
+            
+            <button onclick="closeGeolocationFallback()" style="
+                background: #e74c3c; color: white; border: none; padding: 0.5rem 1rem;
+                border-radius: 4px; cursor: pointer;
+            ">❌ Fermer</button>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+}
+
+function setManualPosition() {
+    const lat = parseFloat(document.getElementById('manual-lat').value);
+    const lng = parseFloat(document.getElementById('manual-lng').value);
+    
+    if (isNaN(lat) || isNaN(lng)) {
+        showNotification('Coordonnées invalides', 'error');
+        return;
+    }
+    
+    // Simuler une position
+    simulatePosition(lat, lng);
+    closeGeolocationFallback();
+}
+
+function closeGeolocationFallback() {
+    const fallback = document.getElementById('geolocation-fallback');
+    if (fallback) {
+        fallback.remove();
+    }
 }
 
 function updateUserMarker() {
@@ -874,9 +1026,77 @@ function checkProximityToCheckpoints() {
         
         if (distance <= GAME_CONFIG.proximityThreshold) {
             console.log(`🎯 Checkpoint ${checkpoint.name} trouvé ! Distance: ${distance.toFixed(1)}m`);
-            foundCheckpoint(checkpoint);
+            // Validation anti-triche basique
+            validateCheckpointProximity(checkpoint, distance);
         }
     });
+}
+
+// Validation serveur de la proximité (anti-triche basique)
+async function validateCheckpointProximity(checkpoint, distance) {
+    const validationData = {
+        checkpointId: checkpoint.id,
+        teamId: currentTeamId,
+        userPosition: userPosition,
+        distance: distance,
+        timestamp: Date.now(),
+        userAgent: navigator.userAgent,
+        accuracy: userPosition.accuracy || 0
+    };
+    
+    try {
+        // Log de la tentative de validation
+        console.log('🔍 Validation proximité:', validationData);
+        
+        // Vérifications anti-triche basiques
+        const suspiciousActivity = detectSuspiciousActivity(validationData);
+        if (suspiciousActivity) {
+            logError(`Activité suspecte détectée: ${suspiciousActivity}`, 'Anti-Cheat', true);
+            showNotification('⚠️ Activité suspecte détectée', 'warning');
+            return;
+        }
+        
+        // Si tout est OK, marquer comme trouvé
+        foundCheckpoint(checkpoint);
+        
+        // Optionnel: Envoyer à Firebase pour audit
+        if (firebaseService) {
+            await safeApiCall(
+                () => firebaseService.logCheckpointValidation?.(validationData),
+                'Checkpoint Validation Log'
+            );
+        }
+        
+    } catch (error) {
+        logError(error, 'Checkpoint Validation', true);
+    }
+}
+
+// Détection d'activité suspecte basique
+function detectSuspiciousActivity(data) {
+    // Vérifier la précision GPS
+    if (data.accuracy > 100) {
+        return 'Précision GPS trop faible';
+    }
+    
+    // Vérifier les mouvements impossibles
+    const lastValidation = performanceMetrics.lastValidation;
+    if (lastValidation) {
+        const timeDiff = data.timestamp - lastValidation.timestamp;
+        const distanceDiff = calculateDistance(
+            data.userPosition.lat, data.userPosition.lng,
+            lastValidation.userPosition.lat, lastValidation.userPosition.lng
+        );
+        
+        // Vitesse impossible (>200 km/h)
+        const speed = (distanceDiff / 1000) / (timeDiff / 3600000); // km/h
+        if (speed > 200) {
+            return `Vitesse impossible: ${speed.toFixed(1)} km/h`;
+        }
+    }
+    
+    performanceMetrics.lastValidation = data;
+    return null;
 }
 
 function foundCheckpoint(checkpoint) {

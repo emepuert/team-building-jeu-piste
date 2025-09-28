@@ -15,8 +15,11 @@ let managementTeamsData = [];
 // Configuration admin - Emails autorisés
 const ADMIN_CONFIG = {
     authorizedEmails: [
-        'tran@go-inicio.com'
-        // 'autre.admin@gmail.com' // Autres admins si besoin
+        'tran@go-inicio.com',
+        'admin@go-inicio.com',
+        'backup@go-inicio.com',
+        'support@go-inicio.com'
+        // Ajoutez d'autres admins ici
     ]
 };
 

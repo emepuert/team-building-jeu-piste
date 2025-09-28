@@ -667,6 +667,14 @@ function addCheckpointsToMap() {
             .addTo(map)
             .bindPopup(popupContent);
         
+        // Ajouter un événement de clic pour les épreuves audio non réussies
+        marker.on('click', function() {
+            // Si c'est un checkpoint audio et qu'il n'est pas encore trouvé, permettre de relancer l'épreuve
+            if (checkpoint.type === 'audio' && !foundCheckpoints.includes(checkpoint.id)) {
+                showAudioChallenge(checkpoint);
+            }
+        });
+        
         checkpointMarkers.push({
             id: checkpoint.id,
             marker: marker,
@@ -705,10 +713,11 @@ function checkProximityToCheckpoints() {
 function foundCheckpoint(checkpoint) {
     if (foundCheckpoints.includes(checkpoint.id)) return;
     
-    // Pour les checkpoints photo, ne pas marquer comme trouvé immédiatement
-    // Attendre la validation admin
-    if (checkpoint.type !== 'photo') {
-    foundCheckpoints.push(checkpoint.id);
+    // Pour les checkpoints photo et audio, ne pas marquer comme trouvé immédiatement
+    // Photo : attendre la validation admin
+    // Audio : attendre la réussite de l'épreuve
+    if (checkpoint.type !== 'photo' && checkpoint.type !== 'audio') {
+        foundCheckpoints.push(checkpoint.id);
     }
     
     // Supprimer la route actuelle puisque le point est atteint
@@ -717,9 +726,9 @@ function foundCheckpoint(checkpoint) {
         currentRoute = null;
     }
     
-    // Mettre à jour le marqueur et le cercle
+    // Mettre à jour le marqueur et le cercle (sauf pour les épreuves audio non réussies)
     const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
-    if (markerData) {
+    if (markerData && checkpoint.type !== 'audio') {
         const newIcon = L.divIcon({
             className: 'checkpoint-marker found',
             html: checkpoint.emoji,
@@ -767,11 +776,13 @@ function foundCheckpoint(checkpoint) {
         
         markerData.marker.setPopupContent(popupContent);
         
-        // Mettre à jour le cercle en vert
-        markerData.circle.setStyle({
-            color: '#27ae60',
-            fillColor: '#27ae60'
-        });
+        // Mettre à jour le cercle en vert (sauf pour les épreuves audio non réussies)
+        if (checkpoint.type !== 'audio') {
+            markerData.circle.setStyle({
+                color: '#27ae60',
+                fillColor: '#27ae60'
+            });
+        }
     }
     
     // Afficher l'indice (sauf pour le lobby et sauf si c'est la fin du jeu)
@@ -808,7 +819,8 @@ function foundCheckpoint(checkpoint) {
     
     // Sauvegarder la progression dans Firebase (équipe seulement)
     // Mais PAS pour les checkpoints photo (attendre validation admin)
-    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'photo') {
+    // Ni pour les checkpoints audio (attendre réussite épreuve)
+    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'photo' && checkpoint.type !== 'audio') {
         // Plus besoin d'utilisateurs - équipe directement
         
         // Mettre à jour l'équipe aussi pour que l'admin voit les changements
@@ -824,6 +836,8 @@ function foundCheckpoint(checkpoint) {
         });
     } else if (checkpoint.type === 'photo') {
         console.log('📸 Checkpoint photo - attente validation admin');
+    } else if (checkpoint.type === 'audio') {
+        console.log('🎤 Checkpoint audio - attente réussite épreuve');
     }
     
     // Mettre à jour l'interface
@@ -1922,6 +1936,14 @@ function revealCheckpointOnMap(checkpointId) {
             .addTo(map)
             .bindPopup(popupContent);
         
+        // Ajouter un événement de clic pour les épreuves audio non réussies
+        marker.on('click', function() {
+            // Si c'est un checkpoint audio et qu'il n'est pas encore trouvé, permettre de relancer l'épreuve
+            if (checkpoint.type === 'audio' && !foundCheckpoints.includes(checkpoint.id)) {
+                showAudioChallenge(checkpoint);
+            }
+        });
+        
         // Mettre à jour les données du marqueur
         markerData.marker = marker;
         markerData.circle = circle;
@@ -2286,6 +2308,40 @@ function audioChallengeSucess() {
     
     const audioConfig = currentAudioCheckpoint.clue.audioChallenge;
     const successMessage = audioConfig.successMessage || 'Bravo ! Épreuve audio réussie !';
+    
+    // Marquer le checkpoint comme trouvé maintenant que l'épreuve est réussie
+    if (!foundCheckpoints.includes(currentAudioCheckpoint.id)) {
+        foundCheckpoints.push(currentAudioCheckpoint.id);
+        
+        // Mettre à jour le marqueur visuellement
+        const markerData = checkpointMarkers.find(m => m.id === currentAudioCheckpoint.id);
+        if (markerData) {
+            const newIcon = L.divIcon({
+                className: 'checkpoint-marker found',
+                html: currentAudioCheckpoint.emoji,
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+            markerData.marker.setIcon(newIcon);
+        }
+        
+        // Sauvegarder la progression dans Firebase
+        if (firebaseService && currentTeam && currentTeamId) {
+            firebaseService.updateTeamProgress(currentTeamId, {
+                foundCheckpoints: foundCheckpoints,
+                unlockedCheckpoints: unlockedCheckpoints
+            });
+            
+            console.log('💾 Progression épreuve audio sauvegardée:', {
+                teamId: currentTeamId,
+                foundCheckpoints, 
+                unlockedCheckpoints
+            });
+        }
+        
+        // Mettre à jour l'interface
+        updateUI();
+    }
     
     // Afficher le succès
     showAudioFeedback(successMessage, 'success');

@@ -1368,6 +1368,11 @@ window.cleanupAllData = cleanupAllData;
 window.grantHelpRequest = grantHelpRequest;
 window.denyHelpRequest = denyHelpRequest;
 
+    // S'assurer que la modal d'édition est fermée au démarrage
+    setTimeout(() => {
+        hideEditCheckpointModal();
+    }, 100);
+
     console.log('✅ Admin Script initialisé');
 
 // ===== GESTION DES MODALS =====
@@ -1414,7 +1419,10 @@ function setupModalEvents() {
     // Event listener pour le changement de type dans l'édition
     const editCheckpointType = document.getElementById('edit-checkpoint-type');
     if (editCheckpointType) {
-        editCheckpointType.addEventListener('change', () => updateEditDynamicContent());
+        editCheckpointType.addEventListener('change', () => {
+            // Ne pas passer de checkpoint pour éviter les conflits
+            updateEditDynamicContent(null);
+        });
     }
     
     // Recherche d'adresse
@@ -2840,9 +2848,20 @@ let currentEditingCheckpointId = null;
 
 async function editCheckpoint(checkpointId) {
     try {
+        // S'assurer que les données sont chargées
+        if (!checkpointsData || checkpointsData.length === 0) {
+            console.log('🔄 Rechargement des checkpoints...');
+            checkpointsData = await firebaseService.getAllCheckpoints();
+        }
+        
         // Trouver le checkpoint à éditer
-        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        const checkpoint = checkpointsData.find(cp => cp.id == checkpointId); // Utiliser == pour la comparaison
         if (!checkpoint) {
+            console.error('❌ Checkpoint non trouvé:', {
+                searchId: checkpointId,
+                availableIds: checkpointsData.map(cp => cp.id),
+                checkpointsCount: checkpointsData.length
+            });
             showNotification('Checkpoint non trouvé', 'error');
             return;
         }
@@ -2871,17 +2890,34 @@ async function editCheckpoint(checkpointId) {
 }
 
 function hideEditCheckpointModal() {
-    document.getElementById('edit-checkpoint-modal').style.display = 'none';
+    const modal = document.getElementById('edit-checkpoint-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
     currentEditingCheckpointId = null;
     
     // Réinitialiser le formulaire
-    document.getElementById('edit-checkpoint-form').reset();
-    document.getElementById('edit-dynamic-content').innerHTML = '';
+    const form = document.getElementById('edit-checkpoint-form');
+    if (form) {
+        form.reset();
+    }
+    
+    const dynamicContent = document.getElementById('edit-dynamic-content');
+    if (dynamicContent) {
+        dynamicContent.innerHTML = '';
+    }
 }
 
 function updateEditDynamicContent(checkpoint = null) {
-    const type = document.getElementById('edit-checkpoint-type').value;
+    const typeElement = document.getElementById('edit-checkpoint-type');
     const dynamicContent = document.getElementById('edit-dynamic-content');
+    
+    if (!typeElement || !dynamicContent) {
+        console.warn('⚠️ Éléments de la modal d\'édition non trouvés');
+        return;
+    }
+    
+    const type = typeElement.value;
     
     let content = '';
     

@@ -1246,10 +1246,16 @@ async function requestGeolocation() {
     }
     
     // Surveiller la position en continu
+    const watchOptions = {
+        enableHighAccuracy: true,
+        timeout: BROWSER_INFO.isSafari || BROWSER_INFO.isIOS ? 15000 : 10000,
+        maximumAge: BROWSER_INFO.isMobile ? 60000 : 300000
+    };
+    
     navigator.geolocation.watchPosition(
         onLocationUpdate,
         onLocationError,
-        options
+        watchOptions
     );
 }
 

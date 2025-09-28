@@ -5,24 +5,20 @@ const DYNAMIC_CACHE = 'dynamic-v1';
 
 // Fichiers à mettre en cache immédiatement
 const STATIC_FILES = [
-    '/',
-    '/index.html',
-    '/admin.html',
-    '/script.js',
-    '/admin-script.js',
-    '/style.css',
-    '/admin-style.css',
-    '/firebase-config.js',
-    '/firebase-service.js',
-    // Leaflet CSS/JS depuis CDN
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+    './',
+    './index.html',
+    './admin.html',
+    './script.js',
+    './admin-script.js',
+    './style.css',
+    './admin-style.css',
+    './firebase-service.js'
 ];
 
 // URLs à ne jamais mettre en cache
 const NEVER_CACHE = [
-    '/firebase-config.js', // Config sensible
-    'https://api.openrouteservice.org/', // API externe
+    'firebase-config.js', // Config sensible
+    'api.openrouteservice.org', // API externe
     'https://www.gstatic.com/firebasejs/', // Firebase SDK
     'chrome-extension://' // Extensions navigateur
 ];

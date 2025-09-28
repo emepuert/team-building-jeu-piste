@@ -2083,6 +2083,49 @@ function initializeCheckpointMap() {
         maxZoom: 19
     }).addTo(checkpointMap);
     
+    // Demander la géolocalisation pour centrer sur la position actuelle
+    if (navigator.geolocation) {
+        console.log('🌍 Demande de géolocalisation...');
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                console.log('📍 Position obtenue:', userLat, userLng);
+                
+                // Centrer la carte sur la position de l'utilisateur
+                checkpointMap.setView([userLat, userLng], 16);
+                
+                // Ajouter un marqueur pour indiquer la position actuelle
+                const userLocationIcon = L.divIcon({
+                    className: 'user-location-marker',
+                    html: '📍',
+                    iconSize: [25, 25],
+                    iconAnchor: [12, 12]
+                });
+                
+                L.marker([userLat, userLng], { icon: userLocationIcon })
+                    .addTo(checkpointMap)
+                    .bindPopup('📍 Votre position actuelle')
+                    .openPopup();
+                
+                showNotification('🌍 Carte centrée sur votre position', 'success');
+            },
+            function(error) {
+                console.warn('⚠️ Géolocalisation échouée:', error.message);
+                showNotification('⚠️ Géolocalisation non disponible - carte centrée sur Luxembourg', 'warning');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 300000 // 5 minutes
+            }
+        );
+    } else {
+        console.warn('⚠️ Géolocalisation non supportée par ce navigateur');
+        showNotification('⚠️ Géolocalisation non supportée - carte centrée sur Luxembourg', 'warning');
+    }
+    
     // Gérer les clics sur la carte
     checkpointMap.on('click', function(e) {
         const lat = e.latlng.lat;

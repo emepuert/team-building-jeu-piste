@@ -1645,6 +1645,30 @@ section h2 {
     transform: scale(1.1);
 }
 
+/* Marqueur de position utilisateur sur la carte admin */
+.user-location-marker {
+    background: none;
+    border: none;
+    font-size: 20px;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+    animation: pulse-location 2s infinite;
+}
+
+@keyframes pulse-location {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 /* ===== INFO BOX POUR FORMULAIRES ===== */
 .info-box {
     background: rgba(52, 152, 219, 0.1);

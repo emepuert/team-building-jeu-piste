@@ -355,26 +355,103 @@ function enableGameProtection() {
     gameProtectionActive = true;
     console.log('🛡️ Protection anti-rechargement activée');
     
+    // Détecter Safari
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    console.log('🍎 Détection navigateur:', { isSafari, isIOS });
+    
     // Protection rechargement/fermeture de page
-    window.addEventListener('beforeunload', (event) => {
+    const beforeUnloadHandler = (event) => {
         if (gameStarted && currentTeam) {
             const message = '⚠️ Êtes-vous sûr de vouloir quitter ? Votre progression sera sauvegardée mais vous devrez vous reconnecter.';
-            event.preventDefault();
-            event.returnValue = message; // Chrome
-            return message; // Firefox/Safari
+            
+            if (isSafari || isIOS) {
+                // Safari nécessite une approche différente
+                console.log('🍎 Safari: Tentative de protection beforeunload');
+                event.preventDefault();
+                event.returnValue = '';
+                return '';
+            } else {
+                // Chrome/Firefox standard
+                event.preventDefault();
+                event.returnValue = message;
+                return message;
+            }
         }
-    });
+    };
+    
+    window.addEventListener('beforeunload', beforeUnloadHandler);
     
     // Protection navigation arrière (mobile)
-    window.addEventListener('popstate', (event) => {
+    const popStateHandler = (event) => {
         if (gameStarted && currentTeam) {
             const confirmLeave = confirm('⚠️ Voulez-vous vraiment quitter le jeu ? Votre progression sera sauvegardée.');
             if (!confirmLeave) {
                 // Remettre l'état dans l'historique
                 history.pushState(null, null, window.location.href);
+            } else {
+                // L'utilisateur confirme, on peut nettoyer
+                disableGameProtection();
             }
         }
-    });
+    };
+    
+    window.addEventListener('popstate', popStateHandler);
+    
+    // Protection spéciale Safari avec visibilitychange
+    if (isSafari || isIOS) {
+        console.log('🍎 Activation protection Safari avec visibilitychange');
+        
+        const visibilityHandler = () => {
+            if (document.visibilityState === 'hidden' && gameStarted && currentTeam) {
+                // Sauvegarder immédiatement sur Safari quand la page devient cachée
+                console.log('🍎 Safari: Sauvegarde d\'urgence avant fermeture');
+                if (currentTeam && foundCheckpoints.length > 0) {
+                    // Sauvegarde synchrone rapide
+                    safeLocalStorage().setItem('safariEmergencyBackup', JSON.stringify({
+                        teamId: currentTeam.id,
+                        foundCheckpoints: foundCheckpoints,
+                        unlockedCheckpoints: unlockedCheckpoints,
+                        timestamp: Date.now()
+                    }));
+                }
+            }
+        };
+        
+        document.addEventListener('visibilitychange', visibilityHandler);
+        
+        // Protection supplémentaire avec pagehide (Safari)
+        const pageHideHandler = (event) => {
+            if (gameStarted && currentTeam) {
+                console.log('🍎 Safari: Événement pagehide détecté');
+                // Dernière chance de sauvegarder
+                if (currentTeam && foundCheckpoints.length > 0) {
+                    safeLocalStorage().setItem('safariEmergencyBackup', JSON.stringify({
+                        teamId: currentTeam.id,
+                        foundCheckpoints: foundCheckpoints,
+                        unlockedCheckpoints: unlockedCheckpoints,
+                        timestamp: Date.now()
+                    }));
+                }
+            }
+        };
+        
+        window.addEventListener('pagehide', pageHideHandler);
+        
+        // Stocker les handlers pour pouvoir les supprimer
+        window.gameProtectionHandlers = {
+            beforeUnload: beforeUnloadHandler,
+            popState: popStateHandler,
+            visibility: visibilityHandler,
+            pageHide: pageHideHandler
+        };
+    } else {
+        window.gameProtectionHandlers = {
+            beforeUnload: beforeUnloadHandler,
+            popState: popStateHandler
+        };
+    }
     
     // Ajouter un état dans l'historique pour capturer le retour
     history.pushState(null, null, window.location.href);
@@ -384,6 +461,26 @@ function enableGameProtection() {
 function disableGameProtection() {
     gameProtectionActive = false;
     gameStarted = false;
+    
+    // Supprimer tous les event listeners
+    if (window.gameProtectionHandlers) {
+        if (window.gameProtectionHandlers.beforeUnload) {
+            window.removeEventListener('beforeunload', window.gameProtectionHandlers.beforeUnload);
+        }
+        if (window.gameProtectionHandlers.popState) {
+            window.removeEventListener('popstate', window.gameProtectionHandlers.popState);
+        }
+        if (window.gameProtectionHandlers.visibility) {
+            document.removeEventListener('visibilitychange', window.gameProtectionHandlers.visibility);
+        }
+        if (window.gameProtectionHandlers.pageHide) {
+            window.removeEventListener('pagehide', window.gameProtectionHandlers.pageHide);
+        }
+        
+        // Nettoyer la référence
+        delete window.gameProtectionHandlers;
+    }
+    
     console.log('🔓 Protection anti-rechargement désactivée');
 }
 
@@ -598,6 +695,9 @@ async function initializeApp() {
 }
 
 function checkTeamLogin() {
+    // Vérifier d'abord s'il y a une sauvegarde d'urgence Safari
+    checkSafariEmergencyBackup();
+    
     // Vérifier si une équipe est déjà connectée avec gestion d'erreurs
     const savedTeamId = safeExecute(
         () => localStorage.getItem('currentTeamId'),
@@ -611,6 +711,49 @@ function checkTeamLogin() {
     } else {
         // Pas d'équipe connectée, afficher le modal de connexion
         showTeamLoginModal();
+    }
+}
+
+// Vérifier et récupérer la sauvegarde d'urgence Safari
+function checkSafariEmergencyBackup() {
+    try {
+        const backup = safeLocalStorage().getItem('safariEmergencyBackup');
+        if (backup) {
+            const backupData = JSON.parse(backup);
+            const timeDiff = Date.now() - backupData.timestamp;
+            
+            // Si la sauvegarde a moins de 5 minutes, proposer la récupération
+            if (timeDiff < 5 * 60 * 1000) {
+                console.log('🍎 Sauvegarde d\'urgence Safari trouvée:', backupData);
+                
+                const restore = confirm(
+                    '🍎 Safari a détecté une fermeture inattendue.\n' +
+                    'Voulez-vous récupérer votre progression ?\n\n' +
+                    `Équipe: ${backupData.teamId}\n` +
+                    `Checkpoints trouvés: ${backupData.foundCheckpoints.length}\n` +
+                    `Sauvegardé il y a: ${Math.round(timeDiff / 1000)} secondes`
+                );
+                
+                if (restore) {
+                    // Restaurer les données
+                    safeLocalStorage().setItem('currentTeamId', backupData.teamId);
+                    
+                    // Afficher une notification
+                    setTimeout(() => {
+                        showNotification('🍎 Progression Safari récupérée !', 'success');
+                    }, 1000);
+                    
+                    console.log('✅ Progression Safari restaurée');
+                }
+            }
+            
+            // Nettoyer la sauvegarde d'urgence
+            safeLocalStorage().removeItem('safariEmergencyBackup');
+        }
+    } catch (error) {
+        console.warn('⚠️ Erreur lors de la vérification de la sauvegarde Safari:', error);
+        // Nettoyer en cas d'erreur
+        safeLocalStorage().removeItem('safariEmergencyBackup');
     }
 }
 

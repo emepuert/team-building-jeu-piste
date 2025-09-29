@@ -457,7 +457,14 @@ const BROWSER_INFO = {
 
 // Initialiser la détection du navigateur une seule fois
 function initializeBrowserDetection() {
-    const ua = BROWSER_INFO.userAgent.toLowerCase();
+    // TOUJOURS récupérer le User Agent actuel (pas de cache)
+    const currentUserAgent = navigator.userAgent;
+    const ua = currentUserAgent.toLowerCase();
+    
+    // Réinitialiser complètement BROWSER_INFO
+    window.BROWSER_INFO = {
+        userAgent: currentUserAgent
+    };
     
     // Détection Safari (attention aux faux positifs)
     BROWSER_INFO.isSafari = /safari/.test(ua) && !/chrome/.test(ua) && !/chromium/.test(ua);
@@ -465,8 +472,8 @@ function initializeBrowserDetection() {
     // Détection iOS
     BROWSER_INFO.isIOS = /ipad|iphone|ipod/.test(ua);
     
-    // Détection Chrome
-    BROWSER_INFO.isChrome = /chrome/.test(ua) && !/edge/.test(ua) && !/opr/.test(ua);
+    // Détection Chrome (attention : Chrome sur iOS contient "CriOS")
+    BROWSER_INFO.isChrome = (/chrome/.test(ua) || /crios/.test(ua)) && !/edge/.test(ua) && !/opr/.test(ua);
     
     // Détection Firefox
     BROWSER_INFO.isFirefox = /firefox/.test(ua);
@@ -3339,6 +3346,10 @@ function showUnifiedDebugMenu() {
                         style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
                     📱 Console Mobile
                 </button>
+                <button onclick="forceBrowserRedetection()" 
+                        style="background: #f39c12; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    🔄 Re-détecter Navigateur
+                </button>
             </div>
         </div>
         
@@ -3520,6 +3531,7 @@ window.clearMobileConsole = clearMobileConsole;
 window.copyConsoleToClipboard = copyConsoleToClipboard;
 window.toggleConsoleAutoScroll = toggleConsoleAutoScroll;
 window.closeMobileConsole = closeMobileConsole;
+window.forceBrowserRedetection = forceBrowserRedetection;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {
@@ -3800,10 +3812,25 @@ function showBrowserInfo() {
 • getUserMedia: ${navigator.mediaDevices?.getUserMedia ? '✅' : '❌'}
 • Permissions API: ${navigator.permissions ? '✅' : '❌'}
 • Service Worker: ${'serviceWorker' in navigator ? '✅' : '❌'}
+
+💡 Si la détection est incorrecte, utilisez "🔄 Re-détecter"
     `.trim();
     
     console.log(info);
     alert(info);
+}
+
+// Forcer la re-détection du navigateur
+function forceBrowserRedetection() {
+    console.log('🔄 Re-détection forcée du navigateur...');
+    console.log('📱 Ancien User Agent:', BROWSER_INFO.userAgent);
+    console.log('📱 Nouveau User Agent:', navigator.userAgent);
+    
+    // Forcer la re-détection
+    initializeBrowserDetection();
+    
+    console.log('✅ Navigateur re-détecté:', BROWSER_INFO);
+    alert(`🔄 Navigateur re-détecté !\n\nNouveau navigateur: ${BROWSER_INFO.name}\nMobile: ${BROWSER_INFO.isMobile ? 'Oui' : 'Non'}\n\nUser Agent:\n${BROWSER_INFO.userAgent}`);
 }
 
 // Surveillance automatique des modifications de checkpoints

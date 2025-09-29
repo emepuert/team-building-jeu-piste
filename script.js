@@ -381,10 +381,34 @@ async function checkPermissionsStatus() {
 
 // Géolocalisation adaptée au navigateur
 async function requestGeolocationBrowser() {
+    // Diagnostics mobiles spécialisés
+    if (BROWSER_INFO.isMobile) {
+        console.log('📱 Diagnostics géolocalisation mobile:');
+        console.log('  - User Agent:', navigator.userAgent);
+        console.log('  - Geolocation disponible:', !!navigator.geolocation);
+        console.log('  - HTTPS:', location.protocol === 'https:');
+        console.log('  - Permissions API:', !!navigator.permissions);
+        
+        // Vérification permissions en temps réel
+        if (navigator.permissions) {
+            try {
+                const permission = await navigator.permissions.query({name: 'geolocation'});
+                console.log('  - Permission géolocalisation:', permission.state);
+                
+                if (permission.state === 'denied') {
+                    console.warn('⚠️ Permission géolocalisation refusée - Fallback manuel');
+                    throw new Error('PERMISSION_DENIED');
+                }
+            } catch (permError) {
+                console.warn('⚠️ Impossible de vérifier les permissions:', permError);
+            }
+        }
+    }
+    
     const options = {
         enableHighAccuracy: true,
-        timeout: BROWSER_INFO.isSafari || BROWSER_INFO.isIOS ? 15000 : 10000, // Plus de temps pour Safari
-        maximumAge: BROWSER_INFO.isMobile ? 60000 : 300000 // Cache plus court sur mobile
+        timeout: BROWSER_INFO.isMobile ? 25000 : (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS ? 15000 : 10000),
+        maximumAge: BROWSER_INFO.isMobile ? 30000 : 300000
     };
     
     console.log(`📍 Demande géolocalisation optimisée pour ${BROWSER_INFO.name}:`, options);
@@ -395,18 +419,125 @@ async function requestGeolocationBrowser() {
             return;
         }
         
+        // Timeout de sécurité supplémentaire pour mobile
+        const safetyTimeout = setTimeout(() => {
+            console.error('⏰ Timeout sécurité géolocalisation mobile');
+            reject(new Error('MOBILE_TIMEOUT'));
+        }, options.timeout + 5000);
+        
         navigator.geolocation.getCurrentPosition(
             (position) => {
+                clearTimeout(safetyTimeout);
                 console.log(`✅ Géolocalisation ${BROWSER_INFO.name} réussie:`, position.coords);
+                console.log('📍 Précision GPS:', position.coords.accuracy, 'mètres');
+                
+                // Validation mobile spéciale
+                if (BROWSER_INFO.isMobile && position.coords.accuracy > 1000) {
+                    console.warn('⚠️ Précision GPS faible sur mobile:', position.coords.accuracy, 'm');
+                }
+                
                 resolve(position);
             },
-            (error) => {
-                console.warn(`⚠️ Erreur géolocalisation ${BROWSER_INFO.name}:`, error);
+            async (error) => {
+                clearTimeout(safetyTimeout);
+                console.error(`❌ Géolocalisation ${BROWSER_INFO.name} échouée:`, error);
+                console.error('  - Code erreur:', error.code);
+                console.error('  - Message:', error.message);
+                
+                // Fallback mobile spécialisé
+                if (BROWSER_INFO.isMobile) {
+                    console.log('🔄 Tentative fallback mobile...');
+                    try {
+                        const fallbackPosition = await tryMobileFallbackGeolocation();
+                        resolve(fallbackPosition);
+                        return;
+                    } catch (fallbackError) {
+                        console.error('❌ Fallback mobile échoué:', fallbackError);
+                    }
+                }
+                
                 reject(error);
             },
             options
         );
     });
+}
+
+// Fallback géolocalisation mobile spécialisé
+async function tryMobileFallbackGeolocation() {
+    console.log('🔄 Fallback géolocalisation mobile...');
+    
+    // Essai avec options dégradées
+    const fallbackOptions = {
+        enableHighAccuracy: false, // Précision réduite mais plus rapide
+        timeout: 15000,
+        maximumAge: 120000 // Cache plus long
+    };
+    
+    console.log('📍 Tentative avec précision réduite:', fallbackOptions);
+    
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                console.log('✅ Fallback mobile réussi (précision réduite):', position.coords);
+                resolve(position);
+            },
+            (error) => {
+                console.error('❌ Fallback mobile échoué:', error);
+                
+                // Dernier recours : position manuelle
+                console.log('🆘 Dernier recours: position manuelle');
+                showMobileGeolocationHelp();
+                reject(error);
+            },
+            fallbackOptions
+        );
+    });
+}
+
+// Interface d'aide géolocalisation mobile
+function showMobileGeolocationHelp() {
+    const helpHTML = `
+        <div class="mobile-geo-help">
+            <h3>🆘 Problème de géolocalisation</h3>
+            <p><strong>Chrome mobile</strong> a des difficultés à vous localiser.</p>
+            
+            <div class="geo-help-steps">
+                <h4>✅ Vérifications rapides :</h4>
+                <ol>
+                    <li>📍 <strong>GPS activé</strong> dans les paramètres du téléphone</li>
+                    <li>🌐 <strong>Localisation autorisée</strong> pour Chrome</li>
+                    <li>📶 <strong>Connexion réseau</strong> stable</li>
+                    <li>🔋 <strong>Mode économie d'énergie</strong> désactivé</li>
+                </ol>
+                
+                <h4>🔧 Solutions :</h4>
+                <button onclick="retryMobileGeolocation()" class="btn btn-primary">
+                    🔄 Réessayer la géolocalisation
+                </button>
+                <button onclick="showGeolocationFallback()" class="btn btn-secondary">
+                    📍 Saisir position manuellement
+                </button>
+            </div>
+        </div>
+    `;
+    
+    showModal('Aide Géolocalisation Mobile', helpHTML);
+}
+
+// Retry géolocalisation mobile
+async function retryMobileGeolocation() {
+    try {
+        closeModal();
+        console.log('🔄 Nouvelle tentative géolocalisation mobile...');
+        
+        const position = await requestGeolocationBrowser();
+        onLocationSuccess(position);
+        
+    } catch (error) {
+        console.error('❌ Retry géolocalisation échoué:', error);
+        showGeolocationFallback();
+    }
 }
 
 // Caméra adaptée au navigateur
@@ -3085,6 +3216,8 @@ window.checkPermissionsStatus = checkPermissionsStatus;
 window.requestAllPermissions = requestAllPermissions;
 window.forceCheckpointSync = forceCheckpointSync;
 window.showBrowserInfo = showBrowserInfo;
+window.retryMobileGeolocation = retryMobileGeolocation;
+window.showMobileGeolocationHelp = showMobileGeolocationHelp;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {

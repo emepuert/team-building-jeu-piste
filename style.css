@@ -743,6 +743,59 @@ button:active {
     }
 }
 
+/* Mobile geolocation help styles */
+.mobile-geo-help {
+    text-align: left;
+    max-width: 100%;
+}
+
+.mobile-geo-help h3 {
+    color: var(--warning);
+    margin-bottom: var(--space-md);
+    text-align: center;
+}
+
+.mobile-geo-help p {
+    margin-bottom: var(--space-lg);
+    color: var(--gray-700);
+}
+
+.geo-help-steps {
+    background: var(--gray-50);
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-lg);
+}
+
+.geo-help-steps h4 {
+    color: var(--primary);
+    margin-bottom: var(--space-md);
+    font-size: 1rem;
+}
+
+.geo-help-steps ol {
+    margin-bottom: var(--space-lg);
+    padding-left: var(--space-lg);
+}
+
+.geo-help-steps li {
+    margin-bottom: var(--space-sm);
+    line-height: 1.5;
+}
+
+.geo-help-steps button {
+    margin: var(--space-xs) var(--space-sm) var(--space-xs) 0;
+    width: auto;
+    min-width: 200px;
+}
+
+@media (max-width: 768px) {
+    .geo-help-steps button {
+        width: 100%;
+        margin: var(--space-xs) 0;
+    }
+}
+
 /* Responsive design */
 @media (max-width: 768px) {  
       

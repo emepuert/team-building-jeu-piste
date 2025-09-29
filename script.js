@@ -466,8 +466,8 @@ function initializeBrowserDetection() {
         userAgent: currentUserAgent
     };
     
-    // Détection Safari (attention aux faux positifs)
-    BROWSER_INFO.isSafari = /safari/.test(ua) && !/chrome/.test(ua) && !/chromium/.test(ua);
+    // Détection Safari (attention aux faux positifs - Chrome sur iOS contient "safari")
+    BROWSER_INFO.isSafari = /safari/.test(ua) && !/chrome/.test(ua) && !/chromium/.test(ua) && !/crios/.test(ua);
     
     // Détection iOS
     BROWSER_INFO.isIOS = /ipad|iphone|ipod/.test(ua);
@@ -577,15 +577,27 @@ async function requestAllPermissions() {
 // Fonction pour détecter Safari et donner des conseils spécifiques
 function showSafariPermissionTips() {
     if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
-        const tips = [
-            '📱 Sur Safari/iOS :',
-            '• Géolocalisation : Réglages > Safari > Localisation',
-            '• Caméra : Réglages > Safari > Caméra',
-            '• Microphone : Réglages > Safari > Microphone',
-            '• Ou utilisez Chrome/Firefox pour une meilleure compatibilité'
-        ];
+        let tips;
         
-        console.log('🍎 Conseils Safari détectés:', tips.join('\n'));
+        if (BROWSER_INFO.isChrome && BROWSER_INFO.isIOS) {
+            tips = [
+                '📱 Sur Chrome iOS :',
+                '• Géolocalisation : Réglages > Confidentialité > Service de localisation > Chrome',
+                '• Caméra : Réglages > Chrome > Caméra',
+                '• Microphone : Réglages > Chrome > Microphone',
+                '• Si problèmes persistent : Redémarrer Chrome ou l\'iPhone'
+            ];
+        } else {
+            tips = [
+                '📱 Sur Safari/iOS :',
+                '• Géolocalisation : Réglages > Safari > Localisation',
+                '• Caméra : Réglages > Safari > Caméra',
+                '• Microphone : Réglages > Safari > Microphone',
+                '• Ou utilisez Chrome/Firefox pour une meilleure compatibilité'
+            ];
+        }
+        
+        console.log('🍎 Conseils iOS détectés:', tips.join('\n'));
         
         // Afficher une notification spéciale pour Safari
         setTimeout(() => {
@@ -1201,8 +1213,10 @@ async function initializeApp() {
     // Demander toutes les permissions dès le début
     await requestAllPermissions();
     
-    // Afficher les conseils Safari si nécessaire
-    showSafariPermissionTips();
+    // Afficher les conseils Safari/iOS si nécessaire (même pour Chrome sur iOS)
+    if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
+        showSafariPermissionTips();
+    }
     
     // Initialiser Firebase Service
     if (window.firebaseService) {
@@ -1820,6 +1834,15 @@ function onLocationUpdate(position) {
 }
 
 function onLocationError(error) {
+    // Log détaillé de l'erreur de géolocalisation
+    console.error('❌ Erreur géolocalisation détaillée:', {
+        code: error.code,
+        message: error.message,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        permissions: 'unknown'
+    });
+    
     logError(error, 'Geolocation Error', true);
     
     let message = 'Erreur de géolocalisation';

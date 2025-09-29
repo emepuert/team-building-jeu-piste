@@ -28,6 +28,16 @@ let firebaseService = null; // Service Firebase
 let isMapInitialized = false; // Vérifier si la carte est déjà initialisée
 let isGameStarted = false; // Vérifier si le jeu est déjà démarré
 
+// ===== PROTECTION ANTI-SPAM MODALS =====
+let lastCheckpointTrigger = {}; // Timestamp par checkpoint
+let activeModals = new Set(); // Modals actuellement ouverts
+let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
+
+// ===== CONSOLE LOGGER MOBILE =====
+let mobileConsoleLogger = null;
+let consoleHistory = [];
+let maxConsoleHistory = 500;
+
 // Variables pour l'épreuve audio
 let currentAudioCheckpoint = null;
 let audioContext = null;
@@ -51,6 +61,240 @@ let performanceMetrics = {
     apiCalls: 0,
     geolocationAttempts: 0
 };
+
+// ===== CONSOLE LOGGER MOBILE =====
+
+// Intercepter les logs console
+function initializeMobileConsoleLogger() {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    const originalInfo = console.info;
+    
+    function addToHistory(type, args) {
+        const timestamp = new Date().toLocaleTimeString();
+        const message = args.map(arg => 
+            typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+        ).join(' ');
+        
+        consoleHistory.push({
+            timestamp,
+            type,
+            message,
+            full: `[${timestamp}] ${type.toUpperCase()}: ${message}`
+        });
+        
+        // Limiter l'historique
+        if (consoleHistory.length > maxConsoleHistory) {
+            consoleHistory.shift();
+        }
+        
+        // Mettre à jour le logger mobile s'il est ouvert
+        if (mobileConsoleLogger && mobileConsoleLogger.style.display !== 'none') {
+            updateMobileConsoleDisplay();
+        }
+    }
+    
+    console.log = function(...args) {
+        addToHistory('log', args);
+        originalLog.apply(console, args);
+    };
+    
+    console.error = function(...args) {
+        addToHistory('error', args);
+        originalError.apply(console, args);
+    };
+    
+    console.warn = function(...args) {
+        addToHistory('warn', args);
+        originalWarn.apply(console, args);
+    };
+    
+    console.info = function(...args) {
+        addToHistory('info', args);
+        originalInfo.apply(console, args);
+    };
+}
+
+// Créer le logger mobile
+function createMobileConsoleLogger() {
+    if (mobileConsoleLogger) return;
+    
+    mobileConsoleLogger = document.createElement('div');
+    mobileConsoleLogger.id = 'mobile-console-logger';
+    mobileConsoleLogger.innerHTML = `
+        <div class="console-header">
+            <span>📱 Console Mobile</span>
+            <div class="console-controls">
+                <button onclick="clearMobileConsole()" title="Vider">🗑️</button>
+                <button onclick="copyConsoleToClipboard()" title="Copier tout">📋</button>
+                <button onclick="toggleConsoleAutoScroll()" id="console-autoscroll-btn" title="Auto-scroll">📜</button>
+                <button onclick="closeMobileConsole()" title="Fermer">❌</button>
+            </div>
+        </div>
+        <div class="console-content" id="console-content"></div>
+        <div class="console-footer">
+            <small>Derniers ${maxConsoleHistory} logs • Auto-scroll: ON</small>
+        </div>
+    `;
+    
+    document.body.appendChild(mobileConsoleLogger);
+    
+    // Styles CSS inline pour éviter les dépendances
+    const style = document.createElement('style');
+    style.textContent = `
+        #mobile-console-logger {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: #1a1a1a;
+            border-top: 2px solid #333;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            z-index: 10000;
+            display: none;
+            flex-direction: column;
+        }
+        
+        .console-header {
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #555;
+        }
+        
+        .console-controls button {
+            background: #444;
+            border: 1px solid #666;
+            color: white;
+            padding: 4px 8px;
+            margin-left: 4px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .console-controls button:hover {
+            background: #555;
+        }
+        
+        .console-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .console-footer {
+            background: #333;
+            color: #999;
+            padding: 4px 12px;
+            border-top: 1px solid #555;
+            text-align: center;
+        }
+        
+        .console-log { color: #e0e0e0; }
+        .console-error { color: #ff6b6b; }
+        .console-warn { color: #ffd93d; }
+        .console-info { color: #74c0fc; }
+    `;
+    document.head.appendChild(style);
+}
+
+// Afficher le logger mobile
+function showMobileConsole() {
+    createMobileConsoleLogger();
+    mobileConsoleLogger.style.display = 'flex';
+    updateMobileConsoleDisplay();
+    
+    // Auto-scroll vers le bas
+    setTimeout(() => {
+        const content = document.getElementById('console-content');
+        content.scrollTop = content.scrollHeight;
+    }, 100);
+}
+
+// Mettre à jour l'affichage du logger
+function updateMobileConsoleDisplay() {
+    const content = document.getElementById('console-content');
+    if (!content) return;
+    
+    const shouldAutoScroll = content.scrollTop + content.clientHeight >= content.scrollHeight - 10;
+    
+    content.innerHTML = consoleHistory.map(entry => 
+        `<div class="console-${entry.type}">${entry.full}</div>`
+    ).join('\n');
+    
+    // Auto-scroll si on était déjà en bas
+    if (shouldAutoScroll && window.consoleAutoScroll !== false) {
+        content.scrollTop = content.scrollHeight;
+    }
+}
+
+// Fonctions de contrôle du logger
+function clearMobileConsole() {
+    consoleHistory = [];
+    updateMobileConsoleDisplay();
+}
+
+function copyConsoleToClipboard() {
+    const fullLog = consoleHistory.map(entry => entry.full).join('\n');
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(fullLog).then(() => {
+            alert('📋 Console copiée dans le presse-papiers !');
+        }).catch(() => {
+            // Fallback pour anciens navigateurs
+            fallbackCopyToClipboard(fullLog);
+        });
+    } else {
+        fallbackCopyToClipboard(fullLog);
+    }
+}
+
+function fallbackCopyToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        alert('📋 Console copiée dans le presse-papiers !');
+    } catch (err) {
+        alert('❌ Impossible de copier automatiquement.\n\nAppuyez sur Ctrl+A puis Ctrl+C pour copier manuellement.');
+        textArea.select();
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function toggleConsoleAutoScroll() {
+    window.consoleAutoScroll = !window.consoleAutoScroll;
+    const btn = document.getElementById('console-autoscroll-btn');
+    if (btn) {
+        btn.style.background = window.consoleAutoScroll ? '#4CAF50' : '#444';
+        btn.title = window.consoleAutoScroll ? 'Auto-scroll: ON' : 'Auto-scroll: OFF';
+    }
+}
+
+function closeMobileConsole() {
+    if (mobileConsoleLogger) {
+        mobileConsoleLogger.style.display = 'none';
+    }
+}
 
 // ===== FONCTIONS DE MONITORING =====
 
@@ -525,6 +769,32 @@ function showMobileGeolocationHelp() {
     showModal('Aide Géolocalisation Mobile', helpHTML);
 }
 
+// Fermeture sécurisée des modals
+function closeModal() {
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.style.display = 'none';
+    });
+    
+    // Nettoyer les modals actifs
+    activeModals.clear();
+    
+    // Arrêter les flux audio/vidéo si nécessaire
+    if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+        audioStream = null;
+        isAudioChallengeActive = false;
+    }
+    
+    // Arrêter les flux vidéo si nécessaire
+    const videoElement = document.getElementById('camera-video');
+    if (videoElement && videoElement.srcObject) {
+        videoElement.srcObject.getTracks().forEach(track => track.stop());
+        videoElement.srcObject = null;
+    }
+    
+    console.log('🚫 Modals fermés et flux média arrêtés');
+}
+
 // Retry géolocalisation mobile
 async function retryMobileGeolocation() {
     try {
@@ -914,6 +1184,9 @@ async function initializeApp() {
     window.appInitialized = true;
     
     console.log('🚀 Initialisation du jeu de piste...');
+    
+    // Initialiser le logger mobile console
+    initializeMobileConsoleLogger();
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -1769,12 +2042,22 @@ function addCheckpointsToMap() {
 function checkProximityToCheckpoints() {
     if (!userPosition) return;
     
+    const now = Date.now();
+    
     // Vérifier seulement les checkpoints visibles sur la carte
     checkpointMarkers.forEach(markerData => {
         if (markerData.hidden || !markerData.marker) return;
         if (foundCheckpoints.includes(markerData.checkpoint.id)) return;
         
         const checkpoint = markerData.checkpoint;
+        const checkpointId = checkpoint.id;
+        
+        // Protection anti-spam : vérifier le cooldown
+        const lastTrigger = lastCheckpointTrigger[checkpointId] || 0;
+        if (now - lastTrigger < modalCooldown) {
+            return; // Trop tôt pour re-déclencher ce checkpoint
+        }
+        
         const distance = calculateDistance(
             userPosition.lat,
             userPosition.lng,
@@ -1784,6 +2067,10 @@ function checkProximityToCheckpoints() {
         
         if (distance <= GAME_CONFIG.proximityThreshold) {
             console.log(`🎯 Checkpoint ${checkpoint.name} trouvé ! Distance: ${distance.toFixed(1)}m`);
+            
+            // Marquer le timestamp pour éviter les re-déclenchements
+            lastCheckpointTrigger[checkpointId] = now;
+            
             // Validation anti-triche basique
             validateCheckpointProximity(checkpoint, distance);
         }
@@ -2018,6 +2305,12 @@ function foundCheckpoint(checkpoint) {
 }
 
 function showClue(clue, checkpoint = null) {
+    // Protection anti-spam : vérifier si un modal est déjà ouvert pour ce checkpoint
+    if (checkpoint && activeModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal déjà ouvert pour ${checkpoint.name}, ignoré`);
+        return;
+    }
+    
     // Si c'est un checkpoint photo, afficher le modal photo
     if (checkpoint && checkpoint.type === 'photo') {
         showPhotoChallenge(checkpoint);
@@ -3042,6 +3335,10 @@ function showUnifiedDebugMenu() {
                         style="background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
                     🌐 Navigateur
                 </button>
+                <button onclick="showMobileConsole()" 
+                        style="background: #9b59b6; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px;">
+                    📱 Console Mobile
+                </button>
             </div>
         </div>
         
@@ -3218,6 +3515,11 @@ window.forceCheckpointSync = forceCheckpointSync;
 window.showBrowserInfo = showBrowserInfo;
 window.retryMobileGeolocation = retryMobileGeolocation;
 window.showMobileGeolocationHelp = showMobileGeolocationHelp;
+window.showMobileConsole = showMobileConsole;
+window.clearMobileConsole = clearMobileConsole;
+window.copyConsoleToClipboard = copyConsoleToClipboard;
+window.toggleConsoleAutoScroll = toggleConsoleAutoScroll;
+window.closeMobileConsole = closeMobileConsole;
 
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {
@@ -3755,6 +4057,12 @@ function showAudioChallenge(checkpoint) {
         return;
     }
     
+    // Protection anti-spam
+    if (activeModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal audio déjà ouvert pour ${checkpoint.name}`);
+        return;
+    }
+    
     // Support des deux formats : audioChallenge (ancien) et audio (nouveau)
     const audioConfig = checkpoint.clue.audio || checkpoint.clue.audioChallenge;
     if (!audioConfig) {
@@ -3763,6 +4071,9 @@ function showAudioChallenge(checkpoint) {
     }
     
     currentAudioCheckpoint = checkpoint;
+    
+    // Marquer ce modal comme ouvert
+    activeModals.add(checkpoint.id);
     
     console.log('🎤 Configuration audio trouvée:', audioConfig);
     console.log('🎤 Structure complète du checkpoint:', checkpoint);
@@ -3797,6 +4108,12 @@ function showQCMChallenge(checkpoint) {
         return;
     }
     
+    // Protection anti-spam
+    if (activeModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal QCM déjà ouvert pour ${checkpoint.name}`);
+        return;
+    }
+    
     // Support des formats QCM (nouveau et ancien)
     const qcmConfig = checkpoint.clue.qcm || checkpoint.clue.quiz || checkpoint.clue.mcq;
     if (!qcmConfig) {
@@ -3805,6 +4122,9 @@ function showQCMChallenge(checkpoint) {
     }
     
     currentQCMCheckpoint = checkpoint;
+    
+    // Marquer ce modal comme ouvert
+    activeModals.add(checkpoint.id);
     
     console.log('📋 Configuration QCM trouvée:', qcmConfig);
     console.log('📋 Structure complète du checkpoint:', checkpoint);
@@ -3867,12 +4187,12 @@ function toggleQCMAnswer(answerIndex) {
 
 // Valider les réponses du QCM
 function submitQCMAnswer() {
-    if (!currentQCMCheckpoint || !currentQCMCheckpoint.clue.qcm) {
-        console.error('❌ Configuration QCM manquante');
+    // Support des formats QCM (nouveau et ancien)
+    const qcmConfig = currentQCMCheckpoint?.clue?.qcm || currentQCMCheckpoint?.clue?.quiz || currentQCMCheckpoint?.clue?.mcq;
+    if (!currentQCMCheckpoint || !qcmConfig) {
+        console.error('❌ Configuration QCM manquante:', currentQCMCheckpoint);
         return;
     }
-    
-    const qcmConfig = currentQCMCheckpoint.clue.qcm;
     const correctAnswers = qcmConfig.correctAnswers;
     
     // Vérifier si les réponses sont correctes
@@ -3914,9 +4234,35 @@ function submitQCMAnswer() {
         
         console.log('🎉 QCM réussi !');
         
+        // Marquer ce checkpoint comme trouvé AVANT de débloquer le suivant
+        if (!foundCheckpoints.includes(currentQCMCheckpoint.id)) {
+            foundCheckpoints.push(currentQCMCheckpoint.id);
+            
+            // Mettre à jour le marqueur sur la carte
+            const markerData = checkpointMarkers.find(m => m.id === currentQCMCheckpoint.id);
+            if (markerData && markerData.marker) {
+                const foundIcon = L.divIcon({
+                    className: 'checkpoint-marker found',
+                    html: currentQCMCheckpoint.emoji,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                markerData.marker.setIcon(foundIcon);
+            }
+            
+            // Sauvegarder dans Firebase
+            if (firebaseService && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    updatedAt: new Date()
+                }).catch(error => console.error('❌ Erreur sauvegarde QCM:', error));
+            }
+        }
+        
         // Débloquer le prochain checkpoint après un délai
         setTimeout(() => {
             document.getElementById('qcm-modal').style.display = 'none';
+            activeModals.delete(currentQCMCheckpoint.id); // Nettoyer le modal actif
             
             // Débloquer le prochain point selon l'équipe
             const nextCheckpointId = getNextCheckpointForTeam();

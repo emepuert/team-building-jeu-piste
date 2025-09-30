@@ -37,6 +37,7 @@ let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
 let mobileConsoleLogger = null;
 let consoleHistory = [];
 let maxConsoleHistory = 500;
+let consoleFilterEnabled = true; // Filtrage activé par défaut
 
 // Variables pour l'épreuve audio
 let currentAudioCheckpoint = null;
@@ -76,6 +77,29 @@ function initializeMobileConsoleLogger() {
         const message = args.map(arg => 
             typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
         ).join(' ');
+        
+        // 🔥 FILTRE : Ne garder que les logs importants (si activé)
+        if (consoleFilterEnabled) {
+            const shouldKeep = 
+                type === 'error' || 
+                type === 'warn' || 
+                (type === 'log' && (
+                    message.includes('❌') || 
+                    message.includes('⚠️') || 
+                    message.includes('🚫') || 
+                    message.includes('✅ [Checkpoint Validation Log]') ||
+                    message.includes('🎉') ||
+                    message.includes('📸 Modal photo ouvert') ||
+                    message.includes('🎤 Modal audio ouvert') ||
+                    message.includes('📋 Modal QCM ouvert') ||
+                    message.includes('🏥 Health Check') ||
+                    message.includes('💾 Progression sauvegardée') ||
+                    message.includes('🔓 Checkpoint suivant débloqué') ||
+                    message.includes('🎯 Checkpoint') && message.includes('trouvé')
+                ));
+            
+            if (!shouldKeep) return; // Ignorer ce log
+        }
         
         consoleHistory.push({
             timestamp,
@@ -126,6 +150,7 @@ function createMobileConsoleLogger() {
         <div class="console-header">
             <span>📱 Console Mobile</span>
             <div class="console-controls">
+                <button onclick="toggleConsoleFilter()" id="console-filter-btn" title="Basculer filtre">🔍</button>
                 <button onclick="clearMobileConsole()" title="Vider">🗑️</button>
                 <button onclick="copyConsoleToClipboard()" title="Copier tout">📋</button>
                 <button onclick="toggleConsoleAutoScroll()" id="console-autoscroll-btn" title="Auto-scroll">📜</button>
@@ -134,7 +159,7 @@ function createMobileConsoleLogger() {
         </div>
         <div class="console-content" id="console-content"></div>
         <div class="console-footer">
-            <small>Derniers ${maxConsoleHistory} logs • Auto-scroll: ON</small>
+            <small>Erreurs & logs critiques uniquement • Auto-scroll: ON</small>
         </div>
     `;
     
@@ -294,6 +319,25 @@ function closeMobileConsole() {
     if (mobileConsoleLogger) {
         mobileConsoleLogger.style.display = 'none';
     }
+}
+
+function toggleConsoleFilter() {
+    consoleFilterEnabled = !consoleFilterEnabled;
+    
+    const filterBtn = document.getElementById('console-filter-btn');
+    const footer = document.querySelector('.console-footer small');
+    
+    if (consoleFilterEnabled) {
+        filterBtn.textContent = '🔍';
+        filterBtn.title = 'Filtre activé - Cliquer pour voir tous les logs';
+        footer.textContent = 'Erreurs & logs critiques uniquement • Auto-scroll: ' + (window.consoleAutoScroll !== false ? 'ON' : 'OFF');
+    } else {
+        filterBtn.textContent = '📄';
+        filterBtn.title = 'Tous les logs - Cliquer pour filtrer';
+        footer.textContent = 'Tous les logs • Auto-scroll: ' + (window.consoleAutoScroll !== false ? 'ON' : 'OFF');
+    }
+    
+    console.log(`🔍 Console mobile: Filtre ${consoleFilterEnabled ? 'activé' : 'désactivé'}`);
 }
 
 // ===== FONCTIONS DE MONITORING =====
@@ -2282,9 +2326,9 @@ function foundCheckpoint(checkpoint) {
     }
     
     // Sauvegarder la progression dans Firebase (équipe seulement)
-    // Mais PAS pour les checkpoints photo (attendre validation admin)
+    // Pour les checkpoints photo : validation automatique après 30 secondes
     // Ni pour les checkpoints audio (attendre réussite épreuve)
-    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'photo' && checkpoint.type !== 'audio') {
+    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio') {
         // Plus besoin d'utilisateurs - équipe directement
         
         // Mettre à jour l'équipe aussi pour que l'admin voit les changements
@@ -2299,7 +2343,17 @@ function foundCheckpoint(checkpoint) {
             unlockedCheckpoints
         });
     } else if (checkpoint.type === 'photo') {
-        console.log('📸 Checkpoint photo - attente validation admin');
+        console.log('📸 Checkpoint photo - validation automatique dans 30s');
+        // Auto-validation après 30 secondes pour éviter le blocage
+        setTimeout(() => {
+            if (firebaseService && currentTeam && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    unlockedCheckpoints: unlockedCheckpoints
+                });
+                console.log('📸 Auto-validation photo après timeout');
+            }
+        }, 30000);
     } else if (checkpoint.type === 'audio') {
         console.log('🎤 Checkpoint audio - attente réussite épreuve');
     }
@@ -2343,18 +2397,36 @@ function showClue(clue, checkpoint = null) {
     
     // Si c'est un checkpoint photo, afficher le modal photo
     if (checkpoint && checkpoint.type === 'photo') {
+        // Vérifier si le modal photo est déjà ouvert
+        const photoModal = document.getElementById('photo-modal');
+        if (photoModal && photoModal.style.display === 'flex') {
+            console.log(`🚫 Modal photo déjà ouvert pour ${checkpoint.name}, ignoré`);
+            return;
+        }
         showPhotoChallenge(checkpoint);
         return;
     }
     
     // Si c'est un checkpoint audio, afficher le modal audio
     if (checkpoint && checkpoint.type === 'audio') {
+        // Vérifier si le modal audio est déjà ouvert
+        const audioModal = document.getElementById('audio-modal');
+        if (audioModal && audioModal.style.display === 'flex') {
+            console.log(`🚫 Modal audio déjà ouvert pour ${checkpoint.name}, ignoré`);
+            return;
+        }
         showAudioChallenge(checkpoint);
         return;
     }
     
     // Si c'est un checkpoint QCM, afficher le modal QCM
     if (checkpoint && checkpoint.type === 'qcm') {
+        // Vérifier si le modal QCM est déjà ouvert
+        const qcmModal = document.getElementById('qcm-modal');
+        if (qcmModal && qcmModal.style.display === 'flex') {
+            console.log(`🚫 Modal QCM déjà ouvert pour ${checkpoint.name}, ignoré`);
+            return;
+        }
         showQCMChallenge(checkpoint);
         return;
     }
@@ -2976,7 +3048,8 @@ function updateProgress() {
     }
     
     // 🎯 UTILISER LA MÊME LOGIQUE QUE L'ADMIN (getTeamProgress)
-    const nonLobbyFound = currentTeam.foundCheckpoints.filter(id => {
+    // Utiliser foundCheckpoints (variable locale) au lieu de currentTeam.foundCheckpoints
+    const nonLobbyFound = foundCheckpoints.filter(id => {
         const cp = GAME_CONFIG.checkpoints.find(c => c.id === id);
         return cp && !cp.isLobby;
     });
@@ -2992,7 +3065,7 @@ function updateProgress() {
     progressText.textContent = `${nonLobbyFound.length} / ${nonLobbyTotal} défis résolus`;
     
     console.log('📊 Progression mise à jour (logique admin):', {
-        foundCheckpoints: currentTeam.foundCheckpoints,
+        foundCheckpoints: foundCheckpoints,
         nonLobbyFound: nonLobbyFound,
         nonLobbyTotal: nonLobbyTotal,
         percentage: percentage
@@ -4067,6 +4140,13 @@ function showPhotoChallenge(checkpoint) {
         return;
     }
     
+    // Vérifier si le modal est déjà ouvert pour ce checkpoint
+    const photoModal = document.getElementById('photo-modal');
+    if (photoModal && photoModal.style.display === 'flex' && currentPhotoCheckpoint?.id === checkpoint.id) {
+        console.log(`🚫 Modal photo déjà ouvert pour ${checkpoint.name}, ignoré`);
+        return;
+    }
+    
     currentPhotoCheckpoint = checkpoint;
     
     console.log('📸 Configuration photo trouvée:', checkpoint.clue);
@@ -4110,6 +4190,13 @@ function showAudioChallenge(checkpoint) {
     // Protection anti-spam
     if (activeModals.has(checkpoint.id)) {
         console.log(`🚫 Modal audio déjà ouvert pour ${checkpoint.name}`);
+        return;
+    }
+    
+    // Vérifier si le modal est déjà ouvert pour ce checkpoint
+    const audioModal = document.getElementById('audio-modal');
+    if (audioModal && audioModal.style.display === 'flex' && currentAudioCheckpoint?.id === checkpoint.id) {
+        console.log(`🚫 Modal audio déjà ouvert pour ${checkpoint.name}, ignoré`);
         return;
     }
     
@@ -4161,6 +4248,13 @@ function showQCMChallenge(checkpoint) {
     // Protection anti-spam
     if (activeModals.has(checkpoint.id)) {
         console.log(`🚫 Modal QCM déjà ouvert pour ${checkpoint.name}`);
+        return;
+    }
+    
+    // Vérifier si le modal est déjà ouvert pour ce checkpoint
+    const qcmModal = document.getElementById('qcm-modal');
+    if (qcmModal && qcmModal.style.display === 'flex' && currentQCMCheckpoint?.id === checkpoint.id) {
+        console.log(`🚫 Modal QCM déjà ouvert pour ${checkpoint.name}, ignoré`);
         return;
     }
     

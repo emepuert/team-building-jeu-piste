@@ -32,6 +32,7 @@ let isGameStarted = false; // Vérifier si le jeu est déjà démarré
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
 let activeModals = new Set(); // Modals actuellement ouverts
 let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
+let pendingPhotoValidations = new Set(); // Checkpoints photos en attente de validation
 
 // ===== CONSOLE LOGGER MOBILE =====
 let mobileConsoleLogger = null;
@@ -4140,6 +4141,12 @@ function showPhotoChallenge(checkpoint) {
         return;
     }
     
+    // Vérifier si une photo est en attente de validation pour ce checkpoint
+    if (pendingPhotoValidations.has(checkpoint.id)) {
+        console.log(`⏳ Photo en attente de validation pour ${checkpoint.name}, modal bloqué`);
+        return;
+    }
+    
     // Vérifier si le modal est déjà ouvert pour ce checkpoint
     const photoModal = document.getElementById('photo-modal');
     if (photoModal && photoModal.style.display === 'flex' && currentPhotoCheckpoint?.id === checkpoint.id) {
@@ -4861,6 +4868,10 @@ async function submitPhoto() {
             JSON.stringify(validationData.data)
         );
         
+        // Marquer le checkpoint comme en attente de validation
+        pendingPhotoValidations.add(currentPhotoCheckpoint.id);
+        console.log(`⏳ Photo ajoutée aux validations en attente pour: ${currentPhotoCheckpoint.name}`);
+        
         // Fermer le modal
         document.getElementById('photo-modal').style.display = 'none';
         resetPhotoInterface();
@@ -4918,6 +4929,13 @@ function setupNotificationListeners() {
             
             if (validation.status === 'rejected') {
                 showAdminRefusalNotification('validation', validation);
+                // Retirer du Set des validations en attente pour permettre une nouvelle tentative
+                pendingPhotoValidations.delete(validation.checkpointId);
+                console.log(`❌ Photo rejetée - ${validation.checkpointId} retiré des validations en attente`);
+            } else if (validation.status === 'approved') {
+                // Retirer du Set des validations en attente - photo validée
+                pendingPhotoValidations.delete(validation.checkpointId);
+                console.log(`✅ Photo approuvée - ${validation.checkpointId} retiré des validations en attente`);
             }
         });
     });

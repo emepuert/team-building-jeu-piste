@@ -27,6 +27,8 @@ let lastRecalculateTime = 0; // Timestamp du dernier recalcul pour éviter les s
 let firebaseService = null; // Service Firebase
 let isMapInitialized = false; // Vérifier si la carte est déjà initialisée
 let isGameStarted = false; // Vérifier si le jeu est déjà démarré
+let hasEverGotPosition = false; // Track si on a déjà réussi à obtenir une position
+let geolocationErrorCount = 0; // Compter les erreurs consécutives
 
 // ===== PROTECTION ANTI-SPAM MODALS =====
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
@@ -1733,6 +1735,13 @@ async function requestGeolocation() {
 function onLocationSuccess(position) {
     console.log('✅ Position obtenue:', position.coords);
     
+    // N'afficher la notification que la première fois
+    const isFirstPosition = !hasEverGotPosition;
+    
+    // Marquer qu'on a réussi à obtenir une position et réinitialiser les erreurs
+    hasEverGotPosition = true;
+    geolocationErrorCount = 0;
+    
     userPosition = {
         lat: position.coords.latitude,
         lng: position.coords.longitude,
@@ -1744,7 +1753,9 @@ function onLocationSuccess(position) {
     checkProximityToCheckpoints();
     updateHint();
     
-    showNotification('Position détectée avec succès !');
+    if (isFirstPosition) {
+        showNotification('Position détectée avec succès !');
+    }
 }
 
 function getNextAccessibleCheckpoint() {
@@ -1879,10 +1890,15 @@ function onLocationUpdate(position) {
 }
 
 function onLocationError(error) {
+    // Incrémenter le compteur d'erreurs
+    geolocationErrorCount++;
+    
     // Log détaillé de l'erreur de géolocalisation
     console.error('❌ Erreur géolocalisation détaillée:', {
         code: error.code,
         message: error.message,
+        errorCount: geolocationErrorCount,
+        hasEverGotPosition: hasEverGotPosition,
         timestamp: new Date().toISOString(),
         userAgent: navigator.userAgent,
         permissions: 'unknown'
@@ -1899,8 +1915,19 @@ function onLocationError(error) {
             showFallback = true;
             break;
         case error.POSITION_UNAVAILABLE:
-            message = 'Position indisponible. Mode manuel disponible.';
-            showFallback = true;
+            // Si on a déjà eu une position ou si c'est juste le début (< 3 erreurs), ne pas paniquer
+            if (hasEverGotPosition) {
+                console.log('⚠️ Position temporairement indisponible (signal GPS perdu), continuez à bouger...');
+                message = 'Signal GPS perdu, recherche en cours...';
+                showFallback = false;
+            } else if (geolocationErrorCount < 3) {
+                console.log(`⏳ Erreur ${geolocationErrorCount}/3 - Recherche GPS en cours...`);
+                message = 'Recherche de votre position GPS...';
+                showFallback = false;
+            } else {
+                message = 'Position indisponible après plusieurs tentatives. Mode manuel disponible.';
+                showFallback = true;
+            }
             break;
         case error.TIMEOUT:
             message = 'Délai de géolocalisation dépassé. Réessai automatique...';
@@ -1913,7 +1940,11 @@ function onLocationError(error) {
     }
     
     updateStatus(message);
-    showNotification(message, 'error');
+    
+    // N'afficher la notification que si c'est critique ou après plusieurs échecs
+    if (error.code === error.PERMISSION_DENIED || (error.code === error.POSITION_UNAVAILABLE && geolocationErrorCount >= 3 && !hasEverGotPosition)) {
+        showNotification(message, 'error');
+    }
     
     // Afficher le mode fallback si nécessaire
     if (showFallback) {

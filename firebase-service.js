@@ -534,6 +534,99 @@ class FirebaseService {
         }
     }
     
+    /**
+     * Nettoyage sélectif des données Firebase
+     * @param {Array<string>} selections - Liste des collections à supprimer
+     * @returns {Object} Nombre d'éléments supprimés par collection
+     */
+    async cleanupSelectedData(selections = []) {
+        try {
+            console.log('🧹 Nettoyage sélectif de Firebase:', selections);
+            
+            const result = {
+                teams: 0,
+                users: 0,
+                checkpoints: 0,
+                routes: 0,
+                validations: 0,
+                help_requests: 0,
+                admin_logs: 0
+            };
+            
+            // Supprimer les équipes si sélectionné
+            if (selections.includes('teams')) {
+                const teamsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.TEAMS));
+                for (const teamDoc of teamsSnapshot.docs) {
+                    await deleteDoc(teamDoc.ref);
+                    result.teams++;
+                    console.log(`🗑️ Équipe supprimée: ${teamDoc.id}`);
+                }
+            }
+            
+            // Supprimer les utilisateurs si sélectionné
+            if (selections.includes('users')) {
+                result.users = await this.cleanupAllUsers();
+            }
+            
+            // Supprimer les checkpoints si sélectionné
+            if (selections.includes('checkpoints')) {
+                const checkpointsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.CHECKPOINTS));
+                for (const checkpointDoc of checkpointsSnapshot.docs) {
+                    await deleteDoc(checkpointDoc.ref);
+                    result.checkpoints++;
+                    console.log(`🗑️ Checkpoint supprimé: ${checkpointDoc.id}`);
+                }
+            }
+            
+            // Supprimer les parcours si sélectionné
+            if (selections.includes('routes')) {
+                const routesSnapshot = await getDocs(collection(this.db, 'routes'));
+                for (const routeDoc of routesSnapshot.docs) {
+                    await deleteDoc(routeDoc.ref);
+                    result.routes++;
+                    console.log(`🗑️ Parcours supprimé: ${routeDoc.id}`);
+                }
+            }
+            
+            // Supprimer les validations si sélectionné
+            if (selections.includes('validations')) {
+                const validationsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.VALIDATIONS));
+                for (const validationDoc of validationsSnapshot.docs) {
+                    await deleteDoc(validationDoc.ref);
+                    result.validations++;
+                    console.log(`🗑️ Validation supprimée: ${validationDoc.id}`);
+                }
+            }
+            
+            // Supprimer les demandes d'aide si sélectionné
+            if (selections.includes('help_requests')) {
+                const helpRequestsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.HELP_REQUESTS));
+                for (const helpDoc of helpRequestsSnapshot.docs) {
+                    await deleteDoc(helpDoc.ref);
+                    result.help_requests++;
+                    console.log(`🗑️ Demande d'aide supprimée: ${helpDoc.id}`);
+                }
+            }
+            
+            // Supprimer les logs admin si sélectionné
+            if (selections.includes('admin_logs')) {
+                const logsSnapshot = await getDocs(collection(this.db, DB_COLLECTIONS.ADMIN_LOGS));
+                for (const logDoc of logsSnapshot.docs) {
+                    await deleteDoc(logDoc.ref);
+                    result.admin_logs++;
+                    console.log(`🗑️ Log admin supprimé: ${logDoc.id}`);
+                }
+            }
+            
+            console.log('✅ Nettoyage sélectif terminé:', result);
+            return result;
+            
+        } catch (error) {
+            console.error('❌ Erreur nettoyage sélectif:', error);
+            throw error;
+        }
+    }
+
     async cleanupAllData() {
         try {
             console.log('🧹 Nettoyage complet de Firebase...');
@@ -1059,6 +1152,99 @@ class FirebaseService {
             
         } catch (error) {
             console.error('❌ Erreur suppression route en cascade:', error);
+            throw error;
+        }
+    }
+
+    // ===== SYSTÈME DE LOGS ADMIN =====
+    
+    /**
+     * Créer un log admin visible par les utilisateurs
+     * @param {string} action - Type d'action (validation, unlock, reset, etc.)
+     * @param {string} message - Message du log
+     * @param {string} teamId - ID de l'équipe concernée (optionnel)
+     * @param {Object} metadata - Données supplémentaires (optionnel)
+     */
+    async createAdminLog(action, message, teamId = null, metadata = {}) {
+        const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const logData = {
+            id: logId,
+            action,
+            message,
+            teamId,
+            metadata,
+            timestamp: serverTimestamp(),
+            createdAt: Date.now() // Pour le tri côté client
+        };
+        
+        try {
+            await setDoc(doc(this.db, DB_COLLECTIONS.ADMIN_LOGS, logId), logData);
+            console.log(`📝 Log admin créé: ${message}`);
+        } catch (error) {
+            console.error('❌ Erreur création log admin:', error);
+        }
+    }
+
+    /**
+     * Écouter les logs admin pour une équipe spécifique
+     * @param {string} teamId - ID de l'équipe
+     * @param {Function} callback - Fonction appelée avec les nouveaux logs
+     */
+    onTeamAdminLogs(teamId, callback) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.ADMIN_LOGS),
+            where('teamId', '==', teamId),
+            orderBy('timestamp', 'desc'),
+            limit(50) // Limiter à 50 logs récents
+        );
+        
+        return onSnapshot(q, (snapshot) => {
+            const logs = snapshot.docs.map(doc => doc.data());
+            callback(logs);
+        });
+    }
+
+    /**
+     * Écouter TOUS les logs admin (pour affichage global côté user)
+     * @param {Function} callback - Fonction appelée avec les nouveaux logs
+     */
+    onAllAdminLogs(callback) {
+        const q = query(
+            collection(this.db, DB_COLLECTIONS.ADMIN_LOGS),
+            orderBy('timestamp', 'desc'),
+            limit(100) // Limiter à 100 logs récents
+        );
+        
+        return onSnapshot(q, (snapshot) => {
+            const logs = snapshot.docs.map(doc => doc.data());
+            callback(logs);
+        });
+    }
+
+    /**
+     * Nettoyer les vieux logs (à appeler périodiquement par l'admin)
+     * Supprime les logs de plus de 24h
+     */
+    async cleanupOldAdminLogs() {
+        try {
+            const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+            const q = query(
+                collection(this.db, DB_COLLECTIONS.ADMIN_LOGS),
+                where('createdAt', '<', oneDayAgo)
+            );
+            
+            const snapshot = await getDocs(q);
+            let deletedCount = 0;
+            
+            for (const docSnapshot of snapshot.docs) {
+                await deleteDoc(docSnapshot.ref);
+                deletedCount++;
+            }
+            
+            console.log(`🧹 ${deletedCount} logs admin supprimés (> 24h)`);
+            return deletedCount;
+        } catch (error) {
+            console.error('❌ Erreur nettoyage logs admin:', error);
             throw error;
         }
     }

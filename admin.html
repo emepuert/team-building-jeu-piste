@@ -439,6 +439,364 @@
         });
     </script>
     
+    <!-- Modale de nettoyage sélectif Firebase -->
+    <div id="cleanup-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>🧹 Nettoyage Sélectif Firebase</h2>
+                <span class="close-modal" onclick="closeCleanupModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color: #f39c12; margin-bottom: 20px;">
+                    ⚠️ <strong>Attention :</strong> Cette action est <strong>IRRÉVERSIBLE</strong> !<br>
+                    Sélectionnez les données à supprimer :
+                </p>
+                
+                <div class="cleanup-options">
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-teams" value="teams">
+                        <span class="checkbox-label">
+                            <strong>🏆 Équipes</strong>
+                            <small>Toutes les équipes et leurs progressions</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-users" value="users">
+                        <span class="checkbox-label">
+                            <strong>👥 Utilisateurs</strong>
+                            <small>Tous les comptes utilisateurs (obsolètes)</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-checkpoints" value="checkpoints">
+                        <span class="checkbox-label">
+                            <strong>📍 Checkpoints</strong>
+                            <small>Tous les points d'intérêt</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-routes" value="routes">
+                        <span class="checkbox-label">
+                            <strong>🛤️ Parcours</strong>
+                            <small>Toutes les routes configurées</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-validations" value="validations">
+                        <span class="checkbox-label">
+                            <strong>✅ Validations</strong>
+                            <small>Toutes les demandes de validation photo</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-help" value="help_requests">
+                        <span class="checkbox-label">
+                            <strong>🆘 Demandes d'aide</strong>
+                            <small>Toutes les demandes d'assistance</small>
+                        </span>
+                    </label>
+                    
+                    <label class="cleanup-checkbox">
+                        <input type="checkbox" id="cleanup-logs" value="admin_logs">
+                        <span class="checkbox-label">
+                            <strong>📝 Logs Admin</strong>
+                            <small>Tous les logs d'actions admin</small>
+                        </span>
+                    </label>
+                </div>
+                
+                <div class="cleanup-actions" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                    <button onclick="selectAllCleanup()" class="info-btn" style="margin-right: auto;">
+                        ☑️ Tout sélectionner
+                    </button>
+                    <button onclick="deselectAllCleanup()" class="secondary-btn" style="margin-right: auto;">
+                        ⬜ Tout désélectionner
+                    </button>
+                    <button onclick="closeCleanupModal()" class="secondary-btn">
+                        ❌ Annuler
+                    </button>
+                    <button onclick="confirmCleanup()" class="danger-btn">
+                        🗑️ Supprimer la sélection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        /* === MODALE DE NETTOYAGE === */
+        #cleanup-modal.modal {
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(38, 8, 6, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        
+        #cleanup-modal .modal-content {
+            background: linear-gradient(135deg, #f6f8f9 0%, #ffffff 100%);
+            padding: 0;
+            border-radius: var(--radius-xl, 16px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
+            max-width: 650px;
+            width: 100%;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        #cleanup-modal .modal-header {
+            background: linear-gradient(135deg, #5D2DE6 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(93, 45, 230, 0.3);
+        }
+        
+        #cleanup-modal .modal-header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        #cleanup-modal .close-modal {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+            transition: all 0.2s ease;
+            padding: 0.25rem 0.5rem;
+            border-radius: 8px;
+        }
+        
+        #cleanup-modal .close-modal:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
+        }
+        
+        #cleanup-modal .modal-body {
+            padding: 2rem;
+        }
+        
+        #cleanup-modal .modal-body > p {
+            color: #d35400;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: rgba(243, 156, 18, 0.1);
+            border-left: 4px solid #f39c12;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .cleanup-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        
+        .cleanup-checkbox {
+            display: flex;
+            align-items: flex-start;
+            padding: 1rem 1.25rem;
+            border: 2px solid var(--gray-200, #E2E4E4);
+            border-radius: var(--radius-lg, 12px);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: white;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cleanup-checkbox::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(93, 45, 230, 0.05), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .cleanup-checkbox:hover::before {
+            left: 100%;
+        }
+        
+        .cleanup-checkbox:hover {
+            border-color: var(--primary, #5D2DE6);
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(93, 45, 230, 0.1);
+        }
+        
+        .cleanup-checkbox input[type="checkbox"] {
+            margin-right: 1rem;
+            margin-top: 2px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            accent-color: var(--primary, #5D2DE6);
+            border-radius: 4px;
+        }
+        
+        .cleanup-checkbox input[type="checkbox"]:checked + .checkbox-label {
+            color: #e74c3c;
+        }
+        
+        .cleanup-checkbox input[type="checkbox"]:checked + .checkbox-label strong {
+            color: #c0392b;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+        }
+        
+        .checkbox-label strong {
+            font-size: 1rem;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 600;
+            color: var(--gray-900, #333333);
+        }
+        
+        .checkbox-label small {
+            color: var(--gray-600, #69727D);
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        
+        .cleanup-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+        
+        .cleanup-actions .info-btn,
+        .cleanup-actions .secondary-btn,
+        .cleanup-actions .danger-btn {
+            position: relative;
+            overflow: hidden;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-lg, 12px);
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .cleanup-actions .info-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            margin-right: auto;
+        }
+        
+        .cleanup-actions .info-btn:hover {
+            background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .cleanup-actions .secondary-btn {
+            background: linear-gradient(135deg, var(--gray-400, #ADADAD) 0%, var(--gray-500, #71717A) 100%);
+            color: white;
+            margin-right: auto;
+        }
+        
+        .cleanup-actions .secondary-btn:hover {
+            background: linear-gradient(135deg, var(--gray-500, #71717A) 0%, var(--gray-600, #69727D) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(113, 113, 122, 0.4);
+        }
+        
+        .cleanup-actions .danger-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        
+        .cleanup-actions .danger-btn:hover {
+            background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(231, 76, 60, 0.5);
+        }
+        
+        .cleanup-actions button:active {
+            transform: translateY(0);
+        }
+        
+        /* Effet de brillance sur les boutons */
+        .cleanup-actions button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .cleanup-actions button:hover::before {
+            left: 100%;
+        }
+        
+        /* Responsive */
+        @media (max-width: 640px) {
+            #cleanup-modal .modal-content {
+                max-width: 100%;
+                margin: 0.5rem;
+            }
+            
+            #cleanup-modal .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .cleanup-actions {
+                flex-direction: column;
+            }
+            
+            .cleanup-actions button {
+                width: 100%;
+                margin: 0 !important;
+            }
+        }
+    </style>
+    
     <script src="admin-script.js"></script>
 </body>
 </html>

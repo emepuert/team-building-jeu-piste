@@ -66,6 +66,26 @@ let performanceMetrics = {
     geolocationAttempts: 0
 };
 
+// ===== SYSTÈME DE VERROUILLAGE GPS =====
+let gpsLockState = {
+    isLocked: false,                    // Si le GPS est actuellement verrouillé
+    lastPosition: null,                 // Dernière position valide
+    lastPositionTime: null,             // Timestamp de la dernière position
+    consecutiveBadReadings: 0,          // Nombre de lectures GPS suspectes consécutives
+    stableReadings: 0,                  // Nombre de lectures stables consécutives
+    lockReason: null                    // Raison du verrouillage
+};
+
+// Seuils de sécurité GPS
+const GPS_SAFETY_THRESHOLDS = {
+    maxAccuracy: 80,                    // Précision max acceptable (mètres)
+    maxSpeed: 150,                      // Vitesse max acceptable (km/h)
+    maxJumpDistance: 200,               // Distance max acceptable entre 2 positions (mètres)
+    minTimeBetweenJumps: 3000,          // Temps min entre 2 positions pour calculer la vitesse (ms)
+    badReadingsToLock: 2,               // Nombre de lectures mauvaises avant verrouillage
+    stableReadingsToUnlock: 3           // Nombre de lectures stables avant déverrouillage
+};
+
 // ===== CONSOLE LOGGER MOBILE =====
 
 // Intercepter les logs console
@@ -86,6 +106,7 @@ function initializeMobileConsoleLogger() {
             const shouldKeep = 
                 type === 'error' || 
                 type === 'warn' || 
+                type === 'admin' ||  // ✅ Toujours garder les logs admin
                 (type === 'log' && (
                     message.includes('❌') || 
                     message.includes('⚠️') || 
@@ -233,6 +254,14 @@ function createMobileConsoleLogger() {
         .console-error { color: #ff6b6b; }
         .console-warn { color: #ffd93d; }
         .console-info { color: #74c0fc; }
+        .console-admin {
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.1);
+            padding: 2px 4px;
+            border-left: 3px solid #a78bfa;
+            margin: 2px 0;
+            font-weight: bold;
+        }
     `;
     document.head.appendChild(style);
 }
@@ -265,6 +294,32 @@ function updateMobileConsoleDisplay() {
     if (shouldAutoScroll && window.consoleAutoScroll !== false) {
         content.scrollTop = content.scrollHeight;
     }
+}
+
+// Ajouter un log admin à la console mobile
+function logAdminAction(message) {
+    const timestamp = new Date().toLocaleTimeString();
+    
+    // Toujours afficher les logs admin, même avec le filtre activé
+    consoleHistory.push({
+        timestamp,
+        type: 'admin',
+        message,
+        full: `[${timestamp}] 👑 ADMIN: ${message}`
+    });
+    
+    // Limiter l'historique
+    if (consoleHistory.length > maxConsoleHistory) {
+        consoleHistory.shift();
+    }
+    
+    // Mettre à jour le logger mobile s'il est ouvert
+    if (mobileConsoleLogger && mobileConsoleLogger.style.display !== 'none') {
+        updateMobileConsoleDisplay();
+    }
+    
+    // Afficher aussi dans la vraie console
+    console.log(`👑 [ADMIN] ${message}`);
 }
 
 // Fonctions de contrôle du logger
@@ -399,6 +454,9 @@ function healthCheck() {
         team: !!currentTeam,
         checkpoints: GAME_CONFIG.checkpoints?.length || 0,
         userPosition: !!userPosition,
+        gpsLocked: gpsLockState.isLocked,
+        gpsLockReason: gpsLockState.lockReason,
+        gpsAccuracy: userPosition?.accuracy || null,
         errors: performanceMetrics.errors,
         uptime: Math.round((Date.now() - performanceMetrics.startTime) / 1000)
     };
@@ -1735,6 +1793,34 @@ async function requestGeolocation() {
 function onLocationSuccess(position) {
     console.log('✅ Position obtenue:', position.coords);
     
+    // ✅ VALIDATION GPS AVANT TOUTE OPÉRATION
+    const validation = validateGPSPosition(position);
+    
+    if (!validation.isValid) {
+        // Position GPS suspecte
+        gpsLockState.consecutiveBadReadings++;
+        
+        console.warn(`⚠️ Position GPS initiale rejetée (${gpsLockState.consecutiveBadReadings}/${GPS_SAFETY_THRESHOLDS.badReadingsToLock}):`, validation.reason);
+        
+        // Verrouiller si trop de lectures mauvaises
+        if (gpsLockState.consecutiveBadReadings >= GPS_SAFETY_THRESHOLDS.badReadingsToLock) {
+            lockGPS(validation.reason);
+        }
+        
+        return; // ❌ Ne pas mettre à jour la position
+    }
+    
+    // Position valide
+    gpsLockState.consecutiveBadReadings = 0;
+    gpsLockState.stableReadings++;
+    
+    // Sauvegarder cette position comme dernière position valide
+    gpsLockState.lastPosition = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+    };
+    gpsLockState.lastPositionTime = Date.now();
+    
     // N'afficher la notification que la première fois
     const isFirstPosition = !hasEverGotPosition;
     
@@ -1874,18 +1960,54 @@ function updateRouteProgress() {
 }
 
 function onLocationUpdate(position) {
-    userPosition = {
+    // ✅ VALIDATION GPS AVANT TOUTE OPÉRATION
+    const validation = validateGPSPosition(position);
+    
+    if (!validation.isValid) {
+        // Position GPS suspecte
+        gpsLockState.consecutiveBadReadings++;
+        
+        console.warn(`⚠️ Position GPS rejetée (${gpsLockState.consecutiveBadReadings}/${GPS_SAFETY_THRESHOLDS.badReadingsToLock}):`, validation.reason);
+        
+        // Verrouiller si trop de lectures mauvaises
+        if (gpsLockState.consecutiveBadReadings >= GPS_SAFETY_THRESHOLDS.badReadingsToLock) {
+            lockGPS(validation.reason);
+        }
+        
+        return; // ❌ Ne pas mettre à jour la position
+    }
+    
+    // Position valide
+    gpsLockState.consecutiveBadReadings = 0;
+    gpsLockState.stableReadings++;
+    
+    // Déverrouiller si assez de lectures stables et si verrouillé
+    if (gpsLockState.isLocked && gpsLockState.stableReadings >= GPS_SAFETY_THRESHOLDS.stableReadingsToUnlock) {
+        unlockGPS();
+    }
+    
+    // Sauvegarder cette position comme dernière position valide
+    gpsLockState.lastPosition = {
         lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        accuracy: position.coords.accuracy
+        lng: position.coords.longitude
     };
+    gpsLockState.lastPositionTime = Date.now();
     
-    updateUserMarker();
-    checkProximityToCheckpoints();
-    
-    // Mettre à jour la route si elle existe (grignotage)
-    if (currentRoute) {
-        updateRouteProgress();
+    // ✅ Si déverrouillé, mettre à jour normalement
+    if (!gpsLockState.isLocked) {
+        userPosition = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+        };
+        
+        updateUserMarker();
+        checkProximityToCheckpoints();
+        
+        // Mettre à jour la route si elle existe (grignotage)
+        if (currentRoute) {
+            updateRouteProgress();
+        }
     }
 }
 
@@ -2185,6 +2307,12 @@ function checkProximityToCheckpoints() {
 
 // Validation serveur de la proximité (anti-triche basique)
 async function validateCheckpointProximity(checkpoint, distance) {
+    // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ
+    if (!isGPSOperationAllowed()) {
+        console.warn('🔒 Validation de checkpoint bloquée: GPS verrouillé');
+        return;
+    }
+    
     const validationData = {
         checkpointId: checkpoint.id,
         teamId: currentTeamId,
@@ -2225,6 +2353,11 @@ async function validateCheckpointProximity(checkpoint, distance) {
 
 // Détection d'activité suspecte basique
 function detectSuspiciousActivity(data) {
+    // Vérifier d'abord si le GPS est verrouillé
+    if (gpsLockState.isLocked) {
+        return `GPS verrouillé: ${gpsLockState.lockReason}`;
+    }
+    
     // Vérifier la précision GPS
     if (data.accuracy > 100) {
         return 'Précision GPS trop faible';
@@ -2248,6 +2381,118 @@ function detectSuspiciousActivity(data) {
     
     performanceMetrics.lastValidation = data;
     return null;
+}
+
+// ===== SYSTÈME DE VALIDATION ET VERROUILLAGE GPS =====
+
+/**
+ * Valide une position GPS et détermine si elle doit être acceptée ou rejetée
+ * @param {Object} position - Position GPS avec coords.latitude, coords.longitude, coords.accuracy
+ * @returns {Object} { isValid: boolean, reason: string|null }
+ */
+function validateGPSPosition(position) {
+    const now = Date.now();
+    const accuracy = position.coords.accuracy;
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    
+    // 1. Vérifier la précision GPS
+    if (accuracy > GPS_SAFETY_THRESHOLDS.maxAccuracy) {
+        return {
+            isValid: false,
+            reason: `Précision GPS insuffisante (${Math.round(accuracy)}m > ${GPS_SAFETY_THRESHOLDS.maxAccuracy}m)`
+        };
+    }
+    
+    // 2. Vérifier les sauts de position (téléportation)
+    if (gpsLockState.lastPosition && gpsLockState.lastPositionTime) {
+        const timeDiff = now - gpsLockState.lastPositionTime;
+        
+        // Seulement si assez de temps s'est écoulé
+        if (timeDiff >= GPS_SAFETY_THRESHOLDS.minTimeBetweenJumps) {
+            const distance = calculateDistance(
+                lat, lng,
+                gpsLockState.lastPosition.lat,
+                gpsLockState.lastPosition.lng
+            );
+            
+            // Calculer la vitesse
+            const speed = (distance / 1000) / (timeDiff / 3600000); // km/h
+            
+            // Vérifier si la vitesse est impossible
+            if (speed > GPS_SAFETY_THRESHOLDS.maxSpeed) {
+                return {
+                    isValid: false,
+                    reason: `Vitesse impossible détectée (${Math.round(speed)} km/h)`
+                };
+            }
+            
+            // Vérifier si le saut de distance est trop important
+            if (distance > GPS_SAFETY_THRESHOLDS.maxJumpDistance) {
+                return {
+                    isValid: false,
+                    reason: `Saut de position suspect (${Math.round(distance)}m en ${Math.round(timeDiff/1000)}s)`
+                };
+            }
+        }
+    }
+    
+    // Position valide
+    return { isValid: true, reason: null };
+}
+
+/**
+ * Verrouille le GPS et bloque toutes les opérations
+ */
+function lockGPS(reason) {
+    if (!gpsLockState.isLocked) {
+        gpsLockState.isLocked = true;
+        gpsLockState.lockReason = reason;
+        gpsLockState.stableReadings = 0;
+        
+        console.error(`🔒 GPS VERROUILLÉ: ${reason}`);
+        showNotification('⚠️ GPS instable détecté - Opérations suspendues', 'warning');
+        updateStatus(`GPS verrouillé: ${reason}`);
+        
+        // Ajouter une indication visuelle
+        if (userMarker) {
+            userMarker.setOpacity(0.3); // Rendre le marqueur semi-transparent
+        }
+        
+        logError(`GPS verrouillé: ${reason}`, 'GPS Lock System', true);
+    }
+}
+
+/**
+ * Déverrouille le GPS si les conditions sont remplies
+ */
+function unlockGPS() {
+    if (gpsLockState.isLocked) {
+        gpsLockState.isLocked = false;
+        gpsLockState.lockReason = null;
+        gpsLockState.consecutiveBadReadings = 0;
+        
+        console.log(`🔓 GPS DÉVERROUILLÉ - Signal stable retrouvé`);
+        showNotification('✅ GPS stabilisé - Opérations reprises', 'success');
+        updateStatus('Position trouvée !');
+        
+        // Restaurer l'opacité normale du marqueur
+        if (userMarker) {
+            userMarker.setOpacity(1.0);
+        }
+    }
+}
+
+/**
+ * Vérifie si une opération GPS peut être effectuée
+ * @returns {boolean} true si l'opération est autorisée
+ */
+function isGPSOperationAllowed() {
+    if (gpsLockState.isLocked) {
+        console.warn('⚠️ Opération bloquée: GPS verrouillé -', gpsLockState.lockReason);
+        return false;
+    }
+    return true;
 }
 
 function foundCheckpoint(checkpoint) {
@@ -2361,29 +2606,37 @@ function foundCheckpoint(checkpoint) {
     // Pour les checkpoints photo : validation automatique après 30 secondes
     // Ni pour les checkpoints audio (attendre réussite épreuve)
     if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio') {
-        // Plus besoin d'utilisateurs - équipe directement
-        
-        // Mettre à jour l'équipe aussi pour que l'admin voit les changements
-        firebaseService.updateTeamProgress(currentTeamId, {
-            foundCheckpoints: foundCheckpoints,
-            unlockedCheckpoints: unlockedCheckpoints
-        });
-        
-        console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
-            teamId: currentTeamId,
-            foundCheckpoints, 
-            unlockedCheckpoints
-        });
+        // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ avant d'envoyer
+        if (!isGPSOperationAllowed()) {
+            console.warn('🔒 Sauvegarde Firebase bloquée: GPS verrouillé');
+        } else {
+            // Plus besoin d'utilisateurs - équipe directement
+            
+            // Mettre à jour l'équipe aussi pour que l'admin voit les changements
+            firebaseService.updateTeamProgress(currentTeamId, {
+                foundCheckpoints: foundCheckpoints,
+                unlockedCheckpoints: unlockedCheckpoints
+            });
+            
+            console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
+                teamId: currentTeamId,
+                foundCheckpoints, 
+                unlockedCheckpoints
+            });
+        }
     } else if (checkpoint.type === 'photo') {
         console.log('📸 Checkpoint photo - validation automatique dans 30s');
         // Auto-validation après 30 secondes pour éviter le blocage
         setTimeout(() => {
-            if (firebaseService && currentTeam && currentTeamId) {
+            // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ avant d'envoyer
+            if (firebaseService && currentTeam && currentTeamId && isGPSOperationAllowed()) {
                 firebaseService.updateTeamProgress(currentTeamId, {
                     foundCheckpoints: foundCheckpoints,
                     unlockedCheckpoints: unlockedCheckpoints
                 });
                 console.log('📸 Auto-validation photo après timeout');
+            } else if (gpsLockState.isLocked) {
+                console.warn('🔒 Auto-validation photo bloquée: GPS verrouillé');
             }
         }, 30000);
     } else if (checkpoint.type === 'audio') {
@@ -3784,6 +4037,45 @@ function startTeamSync() {
     
     // Écouter les notifications de refus d'aide/validation
     setupNotificationListeners();
+    
+    // 👑 Écouter les logs admin pour cette équipe
+    setupAdminLogsListener();
+}
+
+// Écouter les logs admin de l'équipe
+function setupAdminLogsListener() {
+    if (!firebaseService || !currentTeamId) {
+        console.warn('⚠️ Impossible de configurer les logs admin - service non disponible');
+        return;
+    }
+    
+    console.log('👑 Démarrage écoute des logs admin pour équipe:', currentTeamId);
+    
+    // Écouter les logs admin pour cette équipe
+    firebaseService.onTeamAdminLogs(currentTeamId, (logs) => {
+        console.log(`👑 ${logs.length} logs admin reçus`, logs);
+        
+        // Afficher chaque nouveau log dans la console mobile
+        logs.forEach(log => {
+            // Vérifier si on a déjà affiché ce log
+            const alreadyDisplayed = consoleHistory.some(entry => 
+                entry.type === 'admin' && entry.message === log.message
+            );
+            
+            if (!alreadyDisplayed) {
+                logAdminAction(log.message);
+                
+                // Optionnel : afficher une notification pour les actions importantes
+                if (log.action === 'checkpoint_unlocked') {
+                    showNotification(`🔓 Admin: ${log.message}`, 'success');
+                } else if (log.action === 'validation_approved') {
+                    showNotification(`✅ Admin: ${log.message}`, 'success');
+                } else if (log.action === 'help_granted') {
+                    showNotification(`🆘 Admin: ${log.message}`, 'success');
+                }
+            }
+        });
+    });
 }
 
 // Révéler un checkpoint sur la carte (appelé quand l'admin débloque)

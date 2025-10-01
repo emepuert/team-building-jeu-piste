@@ -787,6 +787,14 @@ async function unlockNextCheckpoint(teamId) {
         console.log(`🔓 Admin rend accessible checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
         showNotification(`✅ "${checkpointName}" rendu accessible pour ${team.name}`, 'success');
         
+        // 📝 Logger l'action admin pour les users
+        await firebaseService.createAdminLog(
+            'checkpoint_unlocked',
+            `🔓 Indice débloqué: "${checkpointName}"`,
+            teamId,
+            { checkpointId: nextCheckpointId, checkpointName }
+        );
+        
     } catch (error) {
         console.error('Erreur déblocage checkpoint:', error);
         showNotification('❌ Erreur lors du déblocage', 'error');
@@ -797,9 +805,17 @@ async function resetTeam(teamId) {
     if (!confirm('Êtes-vous sûr de vouloir reset cette équipe ?')) return;
     
     try {
-        await firebaseService.resetTeam(teamId);
         const team = teamsData.find(t => t.id === teamId);
+        await firebaseService.resetTeam(teamId);
         showNotification(`🔄 Équipe ${team?.name} resetée`, 'success');
+        
+        // 📝 Logger l'action admin pour les users
+        await firebaseService.createAdminLog(
+            'team_reset',
+            `🔄 Équipe réinitialisée par l'admin`,
+            teamId,
+            { teamName: team?.name }
+        );
     } catch (error) {
         console.error('Erreur reset équipe:', error);
         showNotification('❌ Erreur lors du reset', 'error');
@@ -836,30 +852,55 @@ async function approveValidation(validationId) {
             // Ajouter le checkpoint aux trouvés s'il n'y est pas déjà
             if (!foundCheckpoints.includes(validation.checkpointId)) {
                 foundCheckpoints.push(validation.checkpointId);
-                
-                // Débloquer le checkpoint suivant dans le parcours
-                const teamRoute = team.route || [];
-                const currentIndex = teamRoute.indexOf(validation.checkpointId);
-                const nextCheckpointId = currentIndex >= 0 && currentIndex < teamRoute.length - 1
-                    ? teamRoute[currentIndex + 1]
-                    : null;
-                
-                if (nextCheckpointId && !unlockedCheckpoints.includes(nextCheckpointId)) {
-                    unlockedCheckpoints.push(nextCheckpointId);
-                    console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpointId}`);
-                }
-                
-                // Mettre à jour la progression de l'équipe
+            }
+            
+            // ✅ TOUJOURS débloquer le checkpoint suivant après validation admin
+            const teamRoute = team.route || [];
+            const currentIndex = teamRoute.indexOf(validation.checkpointId);
+            const nextCheckpointId = currentIndex >= 0 && currentIndex < teamRoute.length - 1
+                ? teamRoute[currentIndex + 1]
+                : null;
+            
+            let hasChanges = false;
+            
+            if (nextCheckpointId && !unlockedCheckpoints.includes(nextCheckpointId)) {
+                unlockedCheckpoints.push(nextCheckpointId);
+                hasChanges = true;
+                console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpointId}`);
+            } else if (nextCheckpointId) {
+                console.log(`ℹ️ Checkpoint suivant ${nextCheckpointId} déjà débloqué`);
+            } else {
+                console.log(`🏁 Dernier checkpoint du parcours atteint`);
+            }
+            
+            // Mettre à jour la progression de l'équipe si des changements
+            if (hasChanges || !foundCheckpoints.includes(validation.checkpointId)) {
                 await firebaseService.updateTeamProgress(validation.teamId, {
                     foundCheckpoints,
                     unlockedCheckpoints
                 });
                 
                 console.log(`✅ Photo validée et progression mise à jour pour ${team.name}`);
+            } else {
+                console.log(`ℹ️ Aucun changement nécessaire pour ${team.name}`);
             }
         }
         
         showNotification('✅ Validation approuvée et progression mise à jour', 'success');
+        
+        // 📝 Logger l'action admin pour les users
+        const checkpoint = await firebaseService.getAllCheckpoints().then(cps => 
+            cps.find(cp => cp.id === validation.checkpointId)
+        );
+        const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
+        
+        await firebaseService.createAdminLog(
+            'validation_approved',
+            `✅ Photo validée pour "${checkpointName}"`,
+            validation.teamId,
+            { checkpointId: validation.checkpointId, checkpointName, validationType: validation.type }
+        );
+        
     } catch (error) {
         console.error('Erreur approbation:', error);
         showNotification('❌ Erreur lors de l\'approbation', 'error');
@@ -870,8 +911,27 @@ async function rejectValidation(validationId) {
     const reason = prompt('Raison du rejet (optionnel):') || 'Rejeté par admin';
     
     try {
+        // Récupérer les infos de la validation
+        const validation = validationsData.find(v => v.id === validationId);
+        
         await firebaseService.updateValidation(validationId, 'rejected', reason);
         showNotification('❌ Validation rejetée', 'info');
+        
+        // 📝 Logger l'action admin pour les users
+        if (validation) {
+            const checkpoint = await firebaseService.getAllCheckpoints().then(cps => 
+                cps.find(cp => cp.id === validation.checkpointId)
+            );
+            const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
+            
+            await firebaseService.createAdminLog(
+                'validation_rejected',
+                `❌ Photo rejetée pour "${checkpointName}": ${reason}`,
+                validation.teamId,
+                { checkpointId: validation.checkpointId, checkpointName, reason }
+            );
+        }
+        
     } catch (error) {
         console.error('Erreur rejet:', error);
         showNotification('❌ Erreur lors du rejet', 'error');
@@ -1049,27 +1109,86 @@ async function cleanupAllUsers() {
     }
 }
 
-async function cleanupAllData() {
-    console.log('🚨 cleanupAllData() appelée');
+// Ouvrir la modale de nettoyage sélectif
+function cleanupAllData() {
+    console.log('🧹 Ouverture modale nettoyage sélectif');
+    const modal = document.getElementById('cleanup-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+// Fermer la modale
+function closeCleanupModal() {
+    const modal = document.getElementById('cleanup-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Sélectionner toutes les options
+function selectAllCleanup() {
+    const checkboxes = document.querySelectorAll('.cleanup-checkbox input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = true);
+}
+
+// Désélectionner toutes les options
+function deselectAllCleanup() {
+    const checkboxes = document.querySelectorAll('.cleanup-checkbox input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+}
+
+// Confirmer et exécuter le nettoyage sélectif
+async function confirmCleanup() {
+    // Récupérer les options sélectionnées
+    const selected = [];
+    const checkboxes = document.querySelectorAll('.cleanup-checkbox input[type="checkbox"]:checked');
     
-    if (!confirm('🚨 NETTOYAGE COMPLET FIREBASE\n\nCela va supprimer TOUTES les données :\n• Tous les utilisateurs\n• Toutes les équipes\n• Tous les checkpoints\n• Tous les parcours\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nTaper "SUPPRIMER TOUT" pour confirmer:')) {
-        console.log('❌ Nettoyage complet annulé par utilisateur');
+    if (checkboxes.length === 0) {
+        showNotification('⚠️ Aucune option sélectionnée', 'warning');
         return;
     }
     
-    const confirmation = prompt('Tapez "SUPPRIMER TOUT" en majuscules pour confirmer :');
-    if (confirmation !== 'SUPPRIMER TOUT') {
-        showNotification('❌ Nettoyage annulé', 'info');
+    checkboxes.forEach(cb => selected.push(cb.value));
+    
+    // Créer le message de confirmation
+    const labels = {
+        'teams': '🏆 Équipes',
+        'users': '👥 Utilisateurs',
+        'checkpoints': '📍 Checkpoints',
+        'routes': '🛤️ Parcours',
+        'validations': '✅ Validations',
+        'help_requests': '🆘 Demandes d\'aide',
+        'admin_logs': '📝 Logs Admin'
+    };
+    
+    const selectedLabels = selected.map(s => labels[s]).join('\n• ');
+    
+    if (!confirm(`🚨 CONFIRMATION DE SUPPRESSION\n\nVous allez supprimer :\n• ${selectedLabels}\n\n⚠️ Cette action est IRRÉVERSIBLE !\n\nContinuer ?`)) {
+        console.log('❌ Nettoyage annulé par utilisateur');
         return;
     }
+    
+    // Fermer la modale
+    closeCleanupModal();
     
     try {
-        showNotification('🧹 Nettoyage complet de Firebase...', 'info');
+        showNotification('🧹 Nettoyage en cours...', 'info');
         
-        const result = await firebaseService.cleanupAllData();
+        const result = await firebaseService.cleanupSelectedData(selected);
+        
+        // Construire le message de résultat
+        const resultMessages = [];
+        if (result.teams > 0) resultMessages.push(`${result.teams} équipes`);
+        if (result.users > 0) resultMessages.push(`${result.users} utilisateurs`);
+        if (result.checkpoints > 0) resultMessages.push(`${result.checkpoints} checkpoints`);
+        if (result.routes > 0) resultMessages.push(`${result.routes} parcours`);
+        if (result.validations > 0) resultMessages.push(`${result.validations} validations`);
+        if (result.help_requests > 0) resultMessages.push(`${result.help_requests} demandes d'aide`);
+        if (result.admin_logs > 0) resultMessages.push(`${result.admin_logs} logs admin`);
         
         showNotification(
-            `✅ Firebase nettoyé ! Supprimé : ${result.users} users, ${result.teams} teams, ${result.checkpoints} checkpoints, ${result.routes} routes`, 
+            `✅ Nettoyage terminé ! Supprimé : ${resultMessages.join(', ')}`, 
             'success'
         );
         
@@ -1077,8 +1196,8 @@ async function cleanupAllData() {
         loadManagementData();
         
     } catch (error) {
-        console.error('❌ Erreur nettoyage complet:', error);
-        showNotification('❌ Erreur lors du nettoyage complet', 'error');
+        console.error('❌ Erreur nettoyage sélectif:', error);
+        showNotification('❌ Erreur lors du nettoyage : ' + error.message, 'error');
     }
 }
 
@@ -1317,6 +1436,14 @@ async function grantHelpRequest(helpId) {
         
         showNotification(`✅ Aide accordée à l'équipe "${teamName}" pour "${checkpointName}"`, 'success');
         
+        // 📝 Logger l'action admin pour les users
+        await firebaseService.createAdminLog(
+            'help_granted',
+            `🆘 Aide accordée pour "${checkpointName}" (${typeText})`,
+            helpRequest.teamId,
+            { checkpointId: helpRequest.checkpointId, checkpointName, helpType: helpRequest.type }
+        );
+        
     } catch (error) {
         console.error('❌ Erreur lors de l\'accord d\'aide:', error);
         showNotification('❌ Erreur lors du traitement', 'error');
@@ -1342,6 +1469,17 @@ async function denyHelpRequest(helpId) {
         
         showNotification(`❌ Demande d'aide refusée pour l'équipe "${teamName}"`, 'info');
         
+        // 📝 Logger l'action admin pour les users
+        const checkpoint = checkpointsData.find(cp => cp.id === helpRequest.checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${helpRequest.checkpointId}`;
+        
+        await firebaseService.createAdminLog(
+            'help_denied',
+            `❌ Demande d'aide refusée: ${reason}`,
+            helpRequest.teamId,
+            { checkpointId: helpRequest.checkpointId, checkpointName, reason }
+        );
+        
     } catch (error) {
         console.error('❌ Erreur lors du refus d\'aide:', error);
         showNotification('❌ Erreur lors du traitement', 'error');
@@ -1365,6 +1503,10 @@ window.editRoute = editRoute;
 window.fixTeamDataConsistency = fixTeamDataConsistency;
 window.cleanupAllUsers = cleanupAllUsers;
 window.cleanupAllData = cleanupAllData;
+window.closeCleanupModal = closeCleanupModal;
+window.selectAllCleanup = selectAllCleanup;
+window.deselectAllCleanup = deselectAllCleanup;
+window.confirmCleanup = confirmCleanup;
 window.grantHelpRequest = grantHelpRequest;
 window.denyHelpRequest = denyHelpRequest;
 

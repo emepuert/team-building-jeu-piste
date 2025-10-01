@@ -18,7 +18,8 @@ export const DB_COLLECTIONS = {
     GAME_SESSIONS: 'game_sessions',
     VALIDATIONS: 'validations',
     USERS: 'users',
-    HELP_REQUESTS: 'help_requests'
+    HELP_REQUESTS: 'help_requests',
+    ADMIN_LOGS: 'admin_logs'  // Logs des actions admin visibles par les users
 };
 
 // Types d'épreuves

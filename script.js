@@ -3350,8 +3350,11 @@ function updatePlayerRouteProgress() {
                     <button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>
                 `;
             } else if (checkpoint?.clue?.riddle) {
-                // Avec énigme → bouton aide résolution
-                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🆘</button>`;
+                // Avec énigme → bouton retenter + aide résolution
+                helpButtons = `
+                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Afficher l'énigme">🧩</button>
+                    <button class="help-btn-small help-resolution" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🆘</button>
+                `;
             } else {
                 // Sans énigme → bouton aide localisation
                 helpButtons = `<button class="help-btn-small help-location" onclick="requestLocationHelpFor(${checkpointId})" title="Demander de l'aide pour trouver ce point">📍</button>`;
@@ -4037,6 +4040,28 @@ function openChallengeFromPopup(checkpointId) {
     
     console.log('✅ [POPUP] Checkpoint trouvé:', checkpoint.name, 'Type:', checkpoint.type);
     
+    // VÉRIFICATION ANTI-TRICHE : Vérifier que l'utilisateur est dans la zone du checkpoint
+    if (!userPosition) {
+        console.warn('⚠️ [POPUP] Position utilisateur inconnue');
+        showNotification('⚠️ Position GPS non disponible', 'warning');
+        return;
+    }
+    
+    const distance = calculateDistance(
+        userPosition.lat,
+        userPosition.lng,
+        checkpoint.coordinates[0],
+        checkpoint.coordinates[1]
+    );
+    
+    console.log(`📏 [POPUP] Distance au checkpoint: ${distance.toFixed(1)}m (seuil: ${GAME_CONFIG.proximityThreshold}m)`);
+    
+    if (distance > GAME_CONFIG.proximityThreshold) {
+        console.warn(`⚠️ [POPUP] Trop loin du checkpoint (${distance.toFixed(1)}m > ${GAME_CONFIG.proximityThreshold}m)`);
+        showNotification(`⚠️ Vous devez être dans la zone du checkpoint (${distance.toFixed(0)}m restants)`, 'warning');
+        return;
+    }
+    
     // Retirer de dismissedModals pour permettre l'ouverture manuelle
     if (dismissedModals.has(checkpointId)) {
         dismissedModals.delete(checkpointId);
@@ -4055,6 +4080,9 @@ function openChallengeFromPopup(checkpointId) {
         showAudioChallenge(checkpoint);
     } else if (checkpoint.type === 'qcm') {
         showQCMChallenge(checkpoint);
+    } else if (checkpoint.clue?.riddle) {
+        // Checkpoint avec énigme
+        showRiddle(checkpoint.clue);
     } else {
         console.warn('⚠️ [POPUP] Type de checkpoint non géré:', checkpoint.type);
         showNotification(`⚠️ Type d'épreuve non supporté: ${checkpoint.type}`, 'warning');

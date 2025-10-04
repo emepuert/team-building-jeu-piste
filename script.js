@@ -4718,6 +4718,9 @@ async function requestQCMHelpFor(checkpointId) {
 
 // Afficher le modal photo pour un checkpoint
 function showPhotoChallenge(checkpoint) {
+    console.log(`🔍 [showPhotoChallenge] Tentative ouverture pour ${checkpoint?.name}, ID: ${checkpoint?.id}`);
+    console.log(`🔍 [showPhotoChallenge] États: dismissedModals=${dismissedModals.has(checkpoint?.id)}, pendingValidations=${pendingPhotoValidations.has(checkpoint?.id)}, activeModals=${activeModals.has(`photo-${checkpoint?.id}`)}`);
+    
     if (!checkpoint || checkpoint.type !== 'photo') {
         console.error('❌ Checkpoint invalide pour défi photo:', checkpoint);
         return;

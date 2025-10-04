@@ -3334,7 +3334,7 @@ function updatePlayerRouteProgress() {
             } else if (checkpoint?.type === 'photo') {
                 // Checkpoint photo accessible → boutons reprendre + validation forcée
                 helpButtons = `
-                    <button class="help-btn-small photo-location" onclick="showPhotoChallenge(GAME_CONFIG.checkpoints.find(cp => cp.id === ${checkpointId}))" title="Reprendre une photo">📸</button>
+                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Reprendre une photo">📸</button>
                     <button class="help-btn-small help-resolution" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
                 `;
             } else if (checkpoint?.type === 'audio') {

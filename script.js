@@ -5574,6 +5574,12 @@ function setupNotificationListeners() {
             processedNotifications.add(validation.id);
             
             if (validation.status === 'rejected') {
+                // Ne pas afficher le rejet si le checkpoint a finalement été validé (après refresh)
+                if (foundCheckpoints.includes(validation.checkpointId)) {
+                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} déjà validé depuis`);
+                    return;
+                }
+                
                 showAdminRefusalNotification('validation', validation);
                 // Retirer du Set des validations en attente pour permettre une nouvelle tentative
                 pendingPhotoValidations.delete(validation.checkpointId);

@@ -4147,34 +4147,10 @@ function startTeamSync() {
 // Monitoring du listener Firebase temps réel
 function startFirebaseMonitoring() {
     console.log('🔍 Démarrage du monitoring Firebase...');
+    console.warn('⚠️ Le listener Firebase onSnapshot ne fonctionne pas correctement - utilisation du polling uniquement');
     
-    // Vérifier toutes les 20 secondes si le listener est actif
-    setInterval(() => {
-        const timeSinceLastUpdate = Date.now() - lastFirebaseUpdate;
-        const isStale = timeSinceLastUpdate > 30000; // Plus de 30 secondes sans update
-        
-        console.log('🏥 Firebase Listener Health:', {
-            active: firebaseListenerActive,
-            timeSinceLastUpdate: Math.round(timeSinceLastUpdate / 1000) + 's',
-            isStale: isStale,
-            lastUpdate: lastFirebaseUpdate > 0 ? new Date(lastFirebaseUpdate).toLocaleTimeString() : 'jamais'
-        });
-        
-        // Si le listener semble inactif après 30 secondes, démarrer le fallback
-        if (isStale && !fallbackPollingInterval) {
-            console.warn('⚠️ Listener Firebase semble inactif - démarrage du fallback polling');
-            startFallbackPolling();
-        }
-    }, 20000);
-    
-    // Premier check après 15 secondes pour détecter rapidement un problème
-    setTimeout(() => {
-        const timeSinceLastUpdate = Date.now() - lastFirebaseUpdate;
-        if (!firebaseListenerActive || timeSinceLastUpdate > 15000) {
-            console.warn('⚠️ Listener Firebase n\'a pas reçu de données récentes - démarrage du fallback polling');
-            startFallbackPolling();
-        }
-    }, 15000);
+    // Démarrer le fallback immédiatement au lieu d'attendre
+    startFallbackPolling();
 }
 
 // Système de polling de secours si le listener temps réel ne fonctionne pas
@@ -4184,62 +4160,68 @@ function startFallbackPolling() {
         return;
     }
     
-    console.log('🔄 Démarrage du fallback polling (vérification toutes les 10s)');
+    console.log('🔄 Démarrage du polling Firebase (vérification toutes les 5s)');
+    
+    // Première vérification immédiate
+    pollTeamData();
     
     fallbackPollingInterval = setInterval(async () => {
-        if (!firebaseService || !currentTeamId) return;
-        
-        try {
-            console.log('🔄 [Fallback] Récupération manuelle des données équipe...');
-            const teamData = await firebaseService.getTeam(currentTeamId);
+        await pollTeamData();
+    }, 5000); // Vérifier toutes les 5 secondes
+}
+
+// Fonction de polling des données équipe
+async function pollTeamData() {
+    if (!firebaseService || !currentTeamId) return;
+    
+    try {
+        console.log('🔄 [Polling] Récupération manuelle des données équipe...');
+        const teamData = await firebaseService.getTeam(currentTeamId);
             
-            if (teamData) {
-                console.log('📡 [Fallback] Données équipe récupérées:', {
-                    name: teamData.name,
-                    foundCheckpoints: teamData.foundCheckpoints,
-                    unlockedCheckpoints: teamData.unlockedCheckpoints
+        if (teamData) {
+            // Appliquer les mêmes mises à jour que le listener temps réel
+            currentTeam = teamData;
+            
+            // Vérifier les changements
+            const firebaseFoundCheckpoints = teamData.foundCheckpoints || [];
+            const localFoundCheckpoints = foundCheckpoints || [];
+            const hasChanges = JSON.stringify(firebaseFoundCheckpoints.sort()) !== JSON.stringify(localFoundCheckpoints.sort());
+            
+            if (hasChanges) {
+                const nouveauxCheckpoints = firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id));
+                console.log('🔄 [Polling] Mise à jour détectée:', {
+                    local: localFoundCheckpoints,
+                    firebase: firebaseFoundCheckpoints,
+                    nouveaux: nouveauxCheckpoints
                 });
                 
-                // Appliquer les mêmes mises à jour que le listener temps réel
-                currentTeam = teamData;
-                
-                // Vérifier les changements
-                const firebaseFoundCheckpoints = teamData.foundCheckpoints || [];
-                const localFoundCheckpoints = foundCheckpoints || [];
-                const hasChanges = JSON.stringify(firebaseFoundCheckpoints.sort()) !== JSON.stringify(localFoundCheckpoints.sort());
-                
-                if (hasChanges) {
-                    const nouveauxCheckpoints = firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id));
-                    console.log('🔄 [Fallback] Mise à jour détectée:', {
-                        local: localFoundCheckpoints,
-                        firebase: firebaseFoundCheckpoints,
-                        nouveaux: nouveauxCheckpoints
+                // Notifier l'utilisateur des nouveaux checkpoints validés
+                if (nouveauxCheckpoints.length > 0) {
+                    nouveauxCheckpoints.forEach(cpId => {
+                        const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
+                        if (cp && cp.type === 'photo') {
+                            showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                        }
                     });
-                    
-                    // Notifier l'utilisateur des nouveaux checkpoints validés
-                    if (nouveauxCheckpoints.length > 0) {
-                        nouveauxCheckpoints.forEach(cpId => {
-                            const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
-                            if (cp && cp.type === 'photo') {
-                                showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
-                            }
-                        });
-                    }
-                    
-                    foundCheckpoints = [...firebaseFoundCheckpoints];
-                    unlockedCheckpoints = [...(teamData.unlockedCheckpoints || [0])];
-                    
-                    updatePlayerRouteProgress();
-                    updateProgress();
-                    updateUI();
-                    
-                    console.log('✅ [Fallback] Interface mise à jour');
                 }
+                
+                foundCheckpoints = [...firebaseFoundCheckpoints];
+                unlockedCheckpoints = [...(teamData.unlockedCheckpoints || [0])];
+                
+                updatePlayerRouteProgress();
+                updateProgress();
+                updateUI();
+                
+                console.log('✅ [Polling] Interface mise à jour');
+                
+                // Mise à jour du timestamp pour le health check
+                lastFirebaseUpdate = Date.now();
+                firebaseListenerActive = true;
             }
-        } catch (error) {
-            console.error('❌ [Fallback] Erreur lors du polling:', error);
         }
-    }, 10000); // Vérifier toutes les 10 secondes
+    } catch (error) {
+        console.error('❌ [Polling] Erreur lors du polling:', error);
+    }
 }
 
 // Écouter les logs admin de l'équipe

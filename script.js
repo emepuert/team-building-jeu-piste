@@ -4175,7 +4175,6 @@ async function pollTeamData() {
     if (!firebaseService || !currentTeamId) return;
     
     try {
-        console.log('🔄 [Polling] Récupération manuelle des données équipe...');
         const teamData = await firebaseService.getTeam(currentTeamId);
             
         if (teamData) {
@@ -4189,11 +4188,9 @@ async function pollTeamData() {
             
             if (hasChanges) {
                 const nouveauxCheckpoints = firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id));
-                console.log('🔄 [Polling] Mise à jour détectée:', {
-                    local: localFoundCheckpoints,
-                    firebase: firebaseFoundCheckpoints,
-                    nouveaux: nouveauxCheckpoints
-                });
+                
+                // Log admin visible pour debug
+                logToAdminConsole('🔄 SYNC', `Nouveaux checkpoints: ${nouveauxCheckpoints.length}`, 'info');
                 
                 // Notifier l'utilisateur des nouveaux checkpoints validés
                 if (nouveauxCheckpoints.length > 0) {
@@ -4201,6 +4198,7 @@ async function pollTeamData() {
                         const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
                         if (cp && cp.type === 'photo') {
                             showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                            logToAdminConsole('✅ PHOTO', `${cp.name} validée`, 'success');
                         }
                     });
                 }
@@ -4211,8 +4209,6 @@ async function pollTeamData() {
                 updatePlayerRouteProgress();
                 updateProgress();
                 updateUI();
-                
-                console.log('✅ [Polling] Interface mise à jour');
                 
                 // Mise à jour du timestamp pour le health check
                 lastFirebaseUpdate = Date.now();

@@ -2307,11 +2307,11 @@ function addCheckpointsToMap() {
             .addTo(map)
             .bindPopup(popupContent);
         
-        // Ajouter un événement de clic pour les épreuves audio non réussies
+        // Ajouter un événement de clic pour rouvrir les épreuves si elles ont été fermées manuellement
         marker.on('click', function() {
-            // Si c'est un checkpoint audio et qu'il n'est pas encore trouvé, permettre de relancer l'épreuve
-            if (checkpoint.type === 'audio' && !foundCheckpoints.includes(checkpoint.id)) {
-                showAudioChallenge(checkpoint);
+            // Si le checkpoint est dans dismissedModals, le retirer pour permettre la réouverture
+            if (dismissedModals.has(checkpoint.id)) {
+                console.log(`🔓 Clic sur marker: ${checkpoint.name} retiré de dismissedModals`);
             }
         });
         
@@ -3539,6 +3539,8 @@ function setupEventListeners() {
             // Ajouter à dismissedModals pour éviter réouverture automatique
             dismissedModals.add(currentPhotoCheckpoint.id);
             console.log(`🚫 Modal photo fermé manuellement pour ${currentPhotoCheckpoint.name}, ajouté à dismissedModals`);
+            // Notification pour l'utilisateur
+            showNotification(`📸 Modal fermé. Cliquez sur le checkpoint ${currentPhotoCheckpoint.emoji} pour le rouvrir`, 'info');
         }
         resetPhotoInterface();
     });
@@ -3556,6 +3558,8 @@ function setupEventListeners() {
             // Ajouter à dismissedModals pour éviter réouverture automatique
             dismissedModals.add(currentAudioCheckpoint.id);
             console.log(`🚫 Modal audio fermé manuellement pour ${currentAudioCheckpoint.name}, ajouté à dismissedModals`);
+            // Notification pour l'utilisateur
+            showNotification(`🎤 Modal fermé. Cliquez sur le checkpoint ${currentAudioCheckpoint.emoji} pour le rouvrir`, 'info');
         }
         resetAudioInterface();
     });
@@ -4016,22 +4020,29 @@ function calculateRouteFromPopup(checkpointId) {
 
 // Ouvrir manuellement une épreuve depuis le popup (bypass dismissedModals)
 function openChallengeFromPopup(checkpointId) {
+    console.log('🎯 [POPUP] Tentative ouverture manuelle checkpoint:', checkpointId);
+    
     const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
     if (!checkpoint) {
-        console.error('❌ Checkpoint non trouvé:', checkpointId);
+        console.error('❌ [POPUP] Checkpoint non trouvé:', checkpointId);
+        showNotification('❌ Checkpoint introuvable', 'error');
         return;
     }
+    
+    console.log('✅ [POPUP] Checkpoint trouvé:', checkpoint.name, 'Type:', checkpoint.type);
     
     // Retirer de dismissedModals pour permettre l'ouverture manuelle
     if (dismissedModals.has(checkpointId)) {
         dismissedModals.delete(checkpointId);
-        console.log(`🔓 Checkpoint ${checkpoint.name} retiré de dismissedModals (ouverture manuelle)`);
+        console.log(`🔓 [POPUP] Checkpoint ${checkpoint.name} retiré de dismissedModals (ouverture manuelle)`);
     }
     
     // Fermer le popup
     map.closePopup();
     
     // Ouvrir le modal correspondant au type de checkpoint
+    console.log(`🚀 [POPUP] Ouverture modal ${checkpoint.type} pour ${checkpoint.name}`);
+    
     if (checkpoint.type === 'photo') {
         showPhotoChallenge(checkpoint);
     } else if (checkpoint.type === 'audio') {
@@ -4039,7 +4050,8 @@ function openChallengeFromPopup(checkpointId) {
     } else if (checkpoint.type === 'qcm') {
         showQCMChallenge(checkpoint);
     } else {
-        console.warn('⚠️ Type de checkpoint non géré:', checkpoint.type);
+        console.warn('⚠️ [POPUP] Type de checkpoint non géré:', checkpoint.type);
+        showNotification(`⚠️ Type d'épreuve non supporté: ${checkpoint.type}`, 'warning');
     }
 }
 
@@ -4375,11 +4387,11 @@ function revealCheckpointOnMap(checkpointId) {
             .addTo(map)
             .bindPopup(popupContent);
         
-        // Ajouter un événement de clic pour les épreuves audio non réussies
+        // Ajouter un événement de clic pour rouvrir les épreuves si elles ont été fermées manuellement
         marker.on('click', function() {
-            // Si c'est un checkpoint audio et qu'il n'est pas encore trouvé, permettre de relancer l'épreuve
-            if (checkpoint.type === 'audio' && !foundCheckpoints.includes(checkpoint.id)) {
-                showAudioChallenge(checkpoint);
+            // Si le checkpoint est dans dismissedModals, le retirer pour permettre la réouverture
+            if (dismissedModals.has(checkpoint.id)) {
+                console.log(`🔓 Clic sur marker: ${checkpoint.name} retiré de dismissedModals`);
             }
         });
         

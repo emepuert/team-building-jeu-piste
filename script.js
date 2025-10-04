@@ -3269,31 +3269,47 @@ function updatePlayerRouteProgress() {
                 GAME_CONFIG.checkpoints.map(cp => cp.id));
         }
         
-        // Déterminer le statut et la couleur
+        // Déterminer le statut et la couleur avec détails en temps réel
         let statusIcon, statusText, statusColor, clickable = false;
         
         if (isFound) {
+            // Checkpoint validé
             statusIcon = '✅';
-            statusText = 'trouvé';
+            statusText = 'validé';
             statusColor = '#27ae60';
         } else if (isUnlocked) {
-            // Vérifier si c'est un checkpoint photo en attente de validation
-            if (checkpoint?.type === 'photo') {
-                // TODO: Vérifier s'il y a une validation en attente pour ce checkpoint
-                statusIcon = '📸';
-                statusText = 'en attente validation';
-                statusColor = '#e67e22';
-                clickable = true; // Peut cliquer pour zoomer
-            } else {
-            statusIcon = '🎯';
-            statusText = 'accessible';
-            statusColor = '#f39c12';
-            clickable = true; // Peut cliquer pour zoomer
+            // Checkpoint débloqué mais pas encore validé
+            
+            // Vérifier si une photo/épreuve est en attente de validation admin
+            if (checkpoint?.type === 'photo' && pendingPhotoValidations.has(checkpointId)) {
+                statusIcon = '⏳';
+                statusText = 'en attente validation admin';
+                statusColor = '#e67e22'; // Orange
+                clickable = true;
+            }
+            // Vérifier si le checkpoint est dans la zone (peut faire l'épreuve maintenant)
+            else if (checkpointsInRange.has(checkpointId)) {
+                const typeEmoji = checkpoint?.type === 'photo' ? '📸' : 
+                                 checkpoint?.type === 'audio' ? '🎤' : 
+                                 checkpoint?.type === 'qcm' ? '📝' : 
+                                 checkpoint?.clue?.riddle ? '🧩' : '🎯';
+                statusIcon = typeEmoji;
+                statusText = 'dans la zone - épreuve disponible';
+                statusColor = '#3498db'; // Bleu
+                clickable = true;
+            }
+            // Checkpoint accessible mais hors de portée
+            else {
+                statusIcon = '🔓';
+                statusText = 'accessible (rejoindre la zone)';
+                statusColor = '#f39c12'; // Jaune
+                clickable = true;
             }
         } else {
+            // Checkpoint verrouillé
             statusIcon = '🔒';
             statusText = 'verrouillé';
-            statusColor = '#95a5a6';
+            statusColor = '#95a5a6'; // Gris
         }
         
         const clickHandler = clickable && userPosition ? `onclick="zoomToCheckpoint(${checkpointId})"` : '';

@@ -3338,11 +3338,17 @@ function updatePlayerRouteProgress() {
                     <button class="help-btn-small help-resolution" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
                 `;
             } else if (checkpoint?.type === 'audio') {
-                // Épreuve audio → bouton aide résolution
-                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🆘</button>`;
+                // Épreuve audio → bouton retenter + aide résolution
+                helpButtons = `
+                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter l'épreuve audio">🎤</button>
+                    <button class="help-btn-small help-resolution" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🆘</button>
+                `;
             } else if (checkpoint?.type === 'qcm') {
-                // Épreuve QCM → bouton aide résolution
-                helpButtons = `<button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>`;
+                // Épreuve QCM → bouton retenter + aide résolution
+                helpButtons = `
+                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter le QCM">📝</button>
+                    <button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>
+                `;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton aide résolution
                 helpButtons = `<button class="help-btn-small help-resolution" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🆘</button>`;

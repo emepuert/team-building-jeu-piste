@@ -5568,15 +5568,28 @@ function setupNotificationListeners() {
     
     // Écouter les validations résolues
     firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
+        // Créer un Set des checkpoints approuvés dans ce batch pour éviter d'afficher les rejets obsolètes
+        const approvedCheckpoints = new Set(
+            resolvedValidations
+                .filter(v => v.status === 'approved')
+                .map(v => v.checkpointId)
+        );
+        
         resolvedValidations.forEach(validation => {
             // Éviter les doublons
             if (processedNotifications.has(validation.id)) return;
             processedNotifications.add(validation.id);
             
             if (validation.status === 'rejected') {
-                // Ne pas afficher le rejet si le checkpoint a finalement été validé (après refresh)
+                // Ne pas afficher le rejet si :
+                // 1. Le checkpoint a finalement été validé dans le même batch (après refresh)
+                // 2. Le checkpoint est déjà dans foundCheckpoints (déjà validé avant)
+                if (approvedCheckpoints.has(validation.checkpointId)) {
+                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} validé dans le même batch`);
+                    return;
+                }
                 if (foundCheckpoints.includes(validation.checkpointId)) {
-                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} déjà validé depuis`);
+                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} déjà validé`);
                     return;
                 }
                 

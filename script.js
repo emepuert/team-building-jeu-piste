@@ -2320,6 +2320,10 @@ function checkProximityToCheckpoints() {
         
         // ✅ VÉRIFIER QUE LE CHECKPOINT FAIT PARTIE DE LA ROUTE DE L'ÉQUIPE
         if (currentTeam && currentTeam.route && !currentTeam.route.includes(checkpointId)) {
+            console.log(`🚫 Checkpoint ${checkpoint.name} (${checkpointId}) ignoré: pas dans la route de l'équipe`, {
+                checkpointId,
+                teamRoute: currentTeam.route
+            });
             return; // Ce checkpoint n'est pas dans la route de cette équipe
         }
         
@@ -3997,7 +4001,12 @@ function startTeamSync() {
     // Enregistrer le listener et sa fonction de désinscription
     try {
         firebaseListenerUnsubscribe = firebaseService.onTeamChange(currentTeamId, (teamData) => {
-            console.log('📡 Mise à jour reçue de l\'équipe:', teamData);
+            console.log('📡 Mise à jour reçue de l\'équipe:', {
+                name: teamData.name,
+                foundCheckpoints: teamData.foundCheckpoints,
+                unlockedCheckpoints: teamData.unlockedCheckpoints,
+                route: teamData.route
+            });
             firebaseListenerActive = true;
             lastFirebaseUpdate = Date.now();
         
@@ -4058,12 +4067,24 @@ function startTeamSync() {
         const hasDifferentLength = firebaseFoundCheckpoints.length !== localFoundCheckpoints.length;
         
         if (hasNewFromFirebase || hasDifferentLength) {
+            const nouveauxCheckpoints = firebaseFoundCheckpoints.filter(id => !localSet.has(id));
             console.log('🔄 Synchronisation foundCheckpoints depuis Firebase:', {
                 local: localFoundCheckpoints,
                 firebase: firebaseFoundCheckpoints,
-                nouveaux: firebaseFoundCheckpoints.filter(id => !localSet.has(id)),
+                nouveaux: nouveauxCheckpoints,
                 longueurDifférente: hasDifferentLength
             });
+            
+            // Notifier l'utilisateur des nouveaux checkpoints validés
+            if (nouveauxCheckpoints.length > 0) {
+                nouveauxCheckpoints.forEach(cpId => {
+                    const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
+                    if (cp && cp.type === 'photo') {
+                        showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                    }
+                });
+            }
+            
             foundCheckpoints = [...firebaseFoundCheckpoints];
             
             // ⚡ MISE À JOUR IMMÉDIATE de l'affichage après synchronisation
@@ -4161,7 +4182,11 @@ function startFallbackPolling() {
             const teamData = await firebaseService.getTeam(currentTeamId);
             
             if (teamData) {
-                console.log('📡 [Fallback] Données équipe récupérées:', teamData);
+                console.log('📡 [Fallback] Données équipe récupérées:', {
+                    name: teamData.name,
+                    foundCheckpoints: teamData.foundCheckpoints,
+                    unlockedCheckpoints: teamData.unlockedCheckpoints
+                });
                 
                 // Appliquer les mêmes mises à jour que le listener temps réel
                 currentTeam = teamData;
@@ -4172,10 +4197,22 @@ function startFallbackPolling() {
                 const hasChanges = JSON.stringify(firebaseFoundCheckpoints.sort()) !== JSON.stringify(localFoundCheckpoints.sort());
                 
                 if (hasChanges) {
+                    const nouveauxCheckpoints = firebaseFoundCheckpoints.filter(id => !localFoundCheckpoints.includes(id));
                     console.log('🔄 [Fallback] Mise à jour détectée:', {
                         local: localFoundCheckpoints,
-                        firebase: firebaseFoundCheckpoints
+                        firebase: firebaseFoundCheckpoints,
+                        nouveaux: nouveauxCheckpoints
                     });
+                    
+                    // Notifier l'utilisateur des nouveaux checkpoints validés
+                    if (nouveauxCheckpoints.length > 0) {
+                        nouveauxCheckpoints.forEach(cpId => {
+                            const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
+                            if (cp && cp.type === 'photo') {
+                                showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                            }
+                        });
+                    }
                     
                     foundCheckpoints = [...firebaseFoundCheckpoints];
                     unlockedCheckpoints = [...(teamData.unlockedCheckpoints || [0])];

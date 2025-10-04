@@ -1192,15 +1192,18 @@ class FirebaseService {
      * @param {Function} callback - Fonction appelée avec les nouveaux logs
      */
     onTeamAdminLogs(teamId, callback) {
+        // Version simplifiée sans index complexe - on filtre après
         const q = query(
             collection(this.db, DB_COLLECTIONS.ADMIN_LOGS),
-            where('teamId', '==', teamId),
-            orderBy('timestamp', 'desc'),
-            limit(50) // Limiter à 50 logs récents
+            where('teamId', '==', teamId)
         );
         
         return onSnapshot(q, (snapshot) => {
-            const logs = snapshot.docs.map(doc => doc.data());
+            // Récupérer et trier manuellement
+            const logs = snapshot.docs
+                .map(doc => doc.data())
+                .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0))
+                .slice(0, 50); // Limiter à 50 logs récents
             callback(logs);
         });
     }

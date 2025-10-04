@@ -30,6 +30,12 @@ let isGameStarted = false; // Vérifier si le jeu est déjà démarré
 let hasEverGotPosition = false; // Track si on a déjà réussi à obtenir une position
 let geolocationErrorCount = 0; // Compter les erreurs consécutives
 
+// ===== SYSTÈME DE MONITORING FIREBASE =====
+let firebaseListenerActive = false; // Track si le listener Firebase est actif
+let lastFirebaseUpdate = 0; // Timestamp de la dernière mise à jour Firebase
+let firebaseListenerUnsubscribe = null; // Fonction pour désabonner le listener
+let fallbackPollingInterval = null; // Intervalle de polling de secours
+
 // ===== PROTECTION ANTI-SPAM MODALS =====
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
 let activeModals = new Set(); // Modals actuellement ouverts
@@ -436,9 +442,16 @@ function logError(error, context = 'Unknown', critical = false) {
 
 // Health check du système
 function healthCheck() {
+    const timeSinceLastUpdate = lastFirebaseUpdate > 0 ? Date.now() - lastFirebaseUpdate : null;
+    
     const checks = {
         timestamp: new Date().toISOString(),
         firebase: !!window.firebaseService,
+        firebaseListener: {
+            active: firebaseListenerActive,
+            timeSinceLastUpdate: timeSinceLastUpdate ? Math.round(timeSinceLastUpdate / 1000) + 's' : 'jamais',
+            fallbackActive: !!fallbackPollingInterval
+        },
         geolocation: !!navigator.geolocation,
         network: navigator.onLine,
         localStorage: (() => {
@@ -1583,6 +1596,12 @@ async function loadTeamGameData() {
         
     } catch (error) {
         console.error('❌ Erreur lors du chargement des données de jeu:', error);
+        console.error('📊 Détails erreur:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name,
+            currentTeam: currentTeam ? {id: currentTeam.id, name: currentTeam.name} : null
+        });
         showNotification('❌ Erreur de chargement. Rechargez la page.', 'error');
     }
 }
@@ -1619,22 +1638,41 @@ async function startGame() {
         return;
     }
     
-    // Initialiser la carte
-    initializeMap();
-    
-    // Demander la géolocalisation
-    requestGeolocation();
-    
-    // Configurer les événements
-    setupEventListeners();
-    
-    // Synchroniser et ajouter les checkpoints depuis Firebase AVANT de continuer
-    await syncCheckpoints();
-    
-    // Mettre à jour l'interface
-    updateUI();
-    
-    isGameStarted = true;
+    try {
+        console.log('🎮 Démarrage du jeu...');
+        
+        // Initialiser la carte
+        initializeMap();
+        console.log('✅ Carte initialisée');
+        
+        // Demander la géolocalisation
+        requestGeolocation();
+        console.log('✅ Géolocalisation demandée');
+        
+        // Configurer les événements
+        setupEventListeners();
+        console.log('✅ Événements configurés');
+        
+        // Synchroniser et ajouter les checkpoints depuis Firebase AVANT de continuer
+        await syncCheckpoints();
+        console.log('✅ Checkpoints synchronisés');
+        
+        // Mettre à jour l'interface
+        updateUI();
+        console.log('✅ Interface mise à jour');
+        
+        isGameStarted = true;
+        console.log('🎮 Jeu démarré avec succès');
+        
+    } catch (error) {
+        console.error('❌ Erreur lors du démarrage du jeu:', error);
+        console.error('📊 Détails erreur:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
+        throw error; // Propager l'erreur pour qu'elle soit capturée par loadTeamGameData
+    }
 }
 
 function initializeMap() {
@@ -3945,9 +3983,18 @@ function startTeamSync() {
     }
     
     console.log('🔄 Démarrage synchronisation temps réel équipe:', currentTeamId);
+    console.log('🔍 État Firebase avant listener:', {
+        firebaseService: !!firebaseService,
+        currentTeamId: currentTeamId,
+        db: firebaseService?.db ? 'connecté' : 'non connecté'
+    });
     
-    firebaseService.onTeamChange(currentTeamId, (teamData) => {
-        console.log('📡 Mise à jour reçue de l\'équipe:', teamData);
+    // Enregistrer le listener et sa fonction de désinscription
+    try {
+        firebaseListenerUnsubscribe = firebaseService.onTeamChange(currentTeamId, (teamData) => {
+            console.log('📡 Mise à jour reçue de l\'équipe:', teamData);
+            firebaseListenerActive = true;
+            lastFirebaseUpdate = Date.now();
         
         if (!teamData) {
             console.warn('⚠️ Données d\'équipe vides reçues');
@@ -4033,13 +4080,111 @@ function startTeamSync() {
         updatePlayerRouteProgress(); // S'assurer que l'affichage est toujours à jour
         
         // Plus besoin de vérifier les demandes d'aide - intégrées dans le parcours
-    });
+        });
+        
+        console.log('✅ Listener Firebase enregistré avec succès');
+        
+        // Démarrer le monitoring du listener
+        startFirebaseMonitoring();
+        
+    } catch (error) {
+        console.error('❌ Erreur lors de l\'enregistrement du listener Firebase:', error);
+        console.error('📊 Détails erreur:', {
+            message: error.message,
+            stack: error.stack,
+            currentTeamId: currentTeamId
+        });
+        
+        // Démarrer le fallback immédiatement si le listener échoue
+        startFallbackPolling();
+    }
     
     // Écouter les notifications de refus d'aide/validation
     setupNotificationListeners();
     
     // 👑 Écouter les logs admin pour cette équipe
     setupAdminLogsListener();
+}
+
+// Monitoring du listener Firebase temps réel
+function startFirebaseMonitoring() {
+    console.log('🔍 Démarrage du monitoring Firebase...');
+    
+    // Vérifier toutes les 30 secondes si le listener est actif
+    setInterval(() => {
+        const timeSinceLastUpdate = Date.now() - lastFirebaseUpdate;
+        const isStale = timeSinceLastUpdate > 60000; // Plus de 1 minute sans update
+        
+        console.log('🏥 Firebase Listener Health:', {
+            active: firebaseListenerActive,
+            timeSinceLastUpdate: Math.round(timeSinceLastUpdate / 1000) + 's',
+            isStale: isStale,
+            lastUpdate: lastFirebaseUpdate > 0 ? new Date(lastFirebaseUpdate).toLocaleTimeString() : 'jamais'
+        });
+        
+        // Si le listener semble inactif après 2 minutes, démarrer le fallback
+        if (isStale && !fallbackPollingInterval) {
+            console.warn('⚠️ Listener Firebase semble inactif - démarrage du fallback polling');
+            startFallbackPolling();
+        }
+    }, 30000);
+    
+    // Premier check après 10 secondes pour détecter rapidement un problème
+    setTimeout(() => {
+        if (!firebaseListenerActive) {
+            console.warn('⚠️ Listener Firebase n\'a pas reçu de données après 10s - démarrage du fallback polling');
+            startFallbackPolling();
+        }
+    }, 10000);
+}
+
+// Système de polling de secours si le listener temps réel ne fonctionne pas
+function startFallbackPolling() {
+    if (fallbackPollingInterval) {
+        console.log('ℹ️ Fallback polling déjà actif');
+        return;
+    }
+    
+    console.log('🔄 Démarrage du fallback polling (vérification toutes les 15s)');
+    
+    fallbackPollingInterval = setInterval(async () => {
+        if (!firebaseService || !currentTeamId) return;
+        
+        try {
+            console.log('🔄 [Fallback] Récupération manuelle des données équipe...');
+            const teamData = await firebaseService.getTeam(currentTeamId);
+            
+            if (teamData) {
+                console.log('📡 [Fallback] Données équipe récupérées:', teamData);
+                
+                // Appliquer les mêmes mises à jour que le listener temps réel
+                currentTeam = teamData;
+                
+                // Vérifier les changements
+                const firebaseFoundCheckpoints = teamData.foundCheckpoints || [];
+                const localFoundCheckpoints = foundCheckpoints || [];
+                const hasChanges = JSON.stringify(firebaseFoundCheckpoints.sort()) !== JSON.stringify(localFoundCheckpoints.sort());
+                
+                if (hasChanges) {
+                    console.log('🔄 [Fallback] Mise à jour détectée:', {
+                        local: localFoundCheckpoints,
+                        firebase: firebaseFoundCheckpoints
+                    });
+                    
+                    foundCheckpoints = [...firebaseFoundCheckpoints];
+                    unlockedCheckpoints = [...(teamData.unlockedCheckpoints || [0])];
+                    
+                    updatePlayerRouteProgress();
+                    updateProgress();
+                    updateUI();
+                    
+                    console.log('✅ [Fallback] Interface mise à jour');
+                }
+            }
+        } catch (error) {
+            console.error('❌ [Fallback] Erreur lors du polling:', error);
+        }
+    }, 15000); // Vérifier toutes les 15 secondes
 }
 
 // Écouter les logs admin de l'équipe

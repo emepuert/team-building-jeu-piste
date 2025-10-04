@@ -2265,22 +2265,7 @@ function addCheckpointsToMap() {
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
-        // Ajouter un bouton pour tenter l'épreuve si le checkpoint n'est pas trouvé et n'est pas le lobby
-        if (!isFound && !checkpoint.isLobby && (checkpoint.type === 'photo' || checkpoint.type === 'audio' || checkpoint.type === 'qcm')) {
-            const challengeEmoji = checkpoint.type === 'photo' ? '📸' : checkpoint.type === 'audio' ? '🎤' : '📝';
-            popupContent += `
-                <br>
-                <button onclick="openChallengeFromPopup(${checkpoint.id})" 
-                        style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
-                               color: white; border: none; padding: 0.5rem 1rem; 
-                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                               margin-top: 0.5rem; font-weight: bold;">
-                    ${challengeEmoji} Tenter l'épreuve
-                </button>
-            `;
-        }
-        
-        // Ajouter le bouton GPS pour tous les points visibles
+        // Ajouter le bouton GPS pour tous les points visibles (pas de bouton épreuve, ils sont dans la liste en bas)
         if (userPosition) {
             let buttonText = '🧭 Calculer l\'itinéraire GPS';
             let targetId = checkpoint.id;

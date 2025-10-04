@@ -2318,6 +2318,11 @@ function checkProximityToCheckpoints() {
         const checkpoint = markerData.checkpoint;
         const checkpointId = checkpoint.id;
         
+        // ✅ VÉRIFIER QUE LE CHECKPOINT FAIT PARTIE DE LA ROUTE DE L'ÉQUIPE
+        if (currentTeam && currentTeam.route && !currentTeam.route.includes(checkpointId)) {
+            return; // Ce checkpoint n'est pas dans la route de cette équipe
+        }
+        
         // Protection anti-spam : vérifier le cooldown
         const lastTrigger = lastCheckpointTrigger[checkpointId] || 0;
         if (now - lastTrigger < modalCooldown) {
@@ -4110,10 +4115,10 @@ function startTeamSync() {
 function startFirebaseMonitoring() {
     console.log('🔍 Démarrage du monitoring Firebase...');
     
-    // Vérifier toutes les 30 secondes si le listener est actif
+    // Vérifier toutes les 20 secondes si le listener est actif
     setInterval(() => {
         const timeSinceLastUpdate = Date.now() - lastFirebaseUpdate;
-        const isStale = timeSinceLastUpdate > 60000; // Plus de 1 minute sans update
+        const isStale = timeSinceLastUpdate > 30000; // Plus de 30 secondes sans update
         
         console.log('🏥 Firebase Listener Health:', {
             active: firebaseListenerActive,
@@ -4122,20 +4127,21 @@ function startFirebaseMonitoring() {
             lastUpdate: lastFirebaseUpdate > 0 ? new Date(lastFirebaseUpdate).toLocaleTimeString() : 'jamais'
         });
         
-        // Si le listener semble inactif après 2 minutes, démarrer le fallback
+        // Si le listener semble inactif après 30 secondes, démarrer le fallback
         if (isStale && !fallbackPollingInterval) {
             console.warn('⚠️ Listener Firebase semble inactif - démarrage du fallback polling');
             startFallbackPolling();
         }
-    }, 30000);
+    }, 20000);
     
-    // Premier check après 10 secondes pour détecter rapidement un problème
+    // Premier check après 15 secondes pour détecter rapidement un problème
     setTimeout(() => {
-        if (!firebaseListenerActive) {
-            console.warn('⚠️ Listener Firebase n\'a pas reçu de données après 10s - démarrage du fallback polling');
+        const timeSinceLastUpdate = Date.now() - lastFirebaseUpdate;
+        if (!firebaseListenerActive || timeSinceLastUpdate > 15000) {
+            console.warn('⚠️ Listener Firebase n\'a pas reçu de données récentes - démarrage du fallback polling');
             startFallbackPolling();
         }
-    }, 10000);
+    }, 15000);
 }
 
 // Système de polling de secours si le listener temps réel ne fonctionne pas
@@ -4145,7 +4151,7 @@ function startFallbackPolling() {
         return;
     }
     
-    console.log('🔄 Démarrage du fallback polling (vérification toutes les 15s)');
+    console.log('🔄 Démarrage du fallback polling (vérification toutes les 10s)');
     
     fallbackPollingInterval = setInterval(async () => {
         if (!firebaseService || !currentTeamId) return;
@@ -4184,7 +4190,7 @@ function startFallbackPolling() {
         } catch (error) {
             console.error('❌ [Fallback] Erreur lors du polling:', error);
         }
-    }, 15000); // Vérifier toutes les 15 secondes
+    }, 10000); // Vérifier toutes les 10 secondes
 }
 
 // Écouter les logs admin de l'équipe

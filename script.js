@@ -42,6 +42,7 @@ let activeModals = new Set(); // Modals actuellement ouverts
 let dismissedModals = new Set(); // Modals fermés manuellement par l'utilisateur (ne pas réouvrir automatiquement)
 let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
 let pendingPhotoValidations = new Set(); // Checkpoints photos en attente de validation
+let checkpointsInRange = new Set(); // Checkpoints actuellement dans la zone de proximité (mis à jour toutes les 3s)
 
 // ===== CONSOLE LOGGER MOBILE =====
 let mobileConsoleLogger = null;
@@ -2331,7 +2332,7 @@ function checkProximityToCheckpoints() {
     if (!userPosition) return;
     
     const now = Date.now();
-    const checkpointsInRange = new Set(); // Garder trace des checkpoints dans la zone
+    checkpointsInRange.clear(); // Réinitialiser la liste des checkpoints dans la zone
     
     // Vérifier seulement les checkpoints visibles sur la carte
     checkpointMarkers.forEach(markerData => {
@@ -3328,31 +3329,38 @@ function updatePlayerRouteProgress() {
                 riddleData: checkpoint?.clue?.riddle
             });
             
+            // Vérifier si le checkpoint est dans la zone (via le Set global mis à jour par checkProximityToCheckpoints)
+            const isInRange = checkpointsInRange.has(checkpointId);
+            
             if (checkpoint?.type === 'final') {
                 // Point d'arrivée → toujours bouton localisation (pas d'épreuve)
                 helpButtons = `<button class="help-btn-small help-location" onclick="requestLocationHelpFor(${checkpointId})" title="Demander l'aide pour trouver le point d'arrivée">🏁</button>`;
             } else if (checkpoint?.type === 'photo') {
-                // Checkpoint photo accessible → boutons reprendre + validation forcée
+                // Checkpoint photo accessible → bouton reprendre seulement si dans la zone
+                const challengeButton = isInRange ? `<button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Reprendre une photo">📸</button>` : '';
                 helpButtons = `
-                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Reprendre une photo">📸</button>
+                    ${challengeButton}
                     <button class="help-btn-small help-resolution" onclick="requestPhotoHelpFor(${checkpointId})" title="Forcer la validation photo">🆘</button>
                 `;
             } else if (checkpoint?.type === 'audio') {
-                // Épreuve audio → bouton retenter + aide résolution
+                // Épreuve audio → bouton retenter seulement si dans la zone
+                const challengeButton = isInRange ? `<button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter l'épreuve audio">🎤</button>` : '';
                 helpButtons = `
-                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter l'épreuve audio">🎤</button>
+                    ${challengeButton}
                     <button class="help-btn-small help-resolution" onclick="requestAudioHelpFor(${checkpointId})" title="Demander l'aide pour l'épreuve audio">🆘</button>
                 `;
             } else if (checkpoint?.type === 'qcm') {
-                // Épreuve QCM → bouton retenter + aide résolution
+                // Épreuve QCM → bouton retenter seulement si dans la zone
+                const challengeButton = isInRange ? `<button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter le QCM">📝</button>` : '';
                 helpButtons = `
-                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Retenter le QCM">📝</button>
+                    ${challengeButton}
                     <button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>
                 `;
             } else if (checkpoint?.clue?.riddle) {
-                // Avec énigme → bouton retenter + aide résolution
+                // Avec énigme → bouton afficher seulement si dans la zone
+                const challengeButton = isInRange ? `<button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Afficher l'énigme">🧩</button>` : '';
                 helpButtons = `
-                    <button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Afficher l'énigme">🧩</button>
+                    ${challengeButton}
                     <button class="help-btn-small help-resolution" onclick="requestRiddleHelpFor(${checkpointId})" title="Demander l'aide pour l'énigme">🆘</button>
                 `;
             } else {

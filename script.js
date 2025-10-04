@@ -39,6 +39,7 @@ let fallbackPollingInterval = null; // Intervalle de polling de secours
 // ===== PROTECTION ANTI-SPAM MODALS =====
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
 let activeModals = new Set(); // Modals actuellement ouverts
+let dismissedModals = new Set(); // Modals fermés manuellement par l'utilisateur (ne pas réouvrir automatiquement)
 let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
 let pendingPhotoValidations = new Set(); // Checkpoints photos en attente de validation
 
@@ -2263,6 +2264,21 @@ function addCheckpointsToMap() {
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
+        // Ajouter un bouton pour tenter l'épreuve si le checkpoint n'est pas trouvé et n'est pas le lobby
+        if (!isFound && !checkpoint.isLobby && (checkpoint.type === 'photo' || checkpoint.type === 'audio' || checkpoint.type === 'qcm')) {
+            const challengeEmoji = checkpoint.type === 'photo' ? '📸' : checkpoint.type === 'audio' ? '🎤' : '📝';
+            popupContent += `
+                <br>
+                <button onclick="openChallengeFromPopup(${checkpoint.id})" 
+                        style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+                               color: white; border: none; padding: 0.5rem 1rem; 
+                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
+                               margin-top: 0.5rem; font-weight: bold;">
+                    ${challengeEmoji} Tenter l'épreuve
+                </button>
+            `;
+        }
+        
         // Ajouter le bouton GPS pour tous les points visibles
         if (userPosition) {
             let buttonText = '🧭 Calculer l\'itinéraire GPS';
@@ -2315,6 +2331,7 @@ function checkProximityToCheckpoints() {
     if (!userPosition) return;
     
     const now = Date.now();
+    const checkpointsInRange = new Set(); // Garder trace des checkpoints dans la zone
     
     // Vérifier seulement les checkpoints visibles sur la carte
     checkpointMarkers.forEach(markerData => {
@@ -2333,12 +2350,7 @@ function checkProximityToCheckpoints() {
             return; // Ce checkpoint n'est pas dans la route de cette équipe
         }
         
-        // Protection anti-spam : vérifier le cooldown
-        const lastTrigger = lastCheckpointTrigger[checkpointId] || 0;
-        if (now - lastTrigger < modalCooldown) {
-            return; // Trop tôt pour re-déclencher ce checkpoint
-        }
-        
+        // Calculer la distance
         const distance = calculateDistance(
             userPosition.lat,
             userPosition.lng,
@@ -2346,7 +2358,16 @@ function checkProximityToCheckpoints() {
             checkpoint.coordinates[1]
         );
         
+        // Si le checkpoint est dans la zone, l'ajouter au Set
         if (distance <= GAME_CONFIG.proximityThreshold) {
+            checkpointsInRange.add(checkpointId);
+            
+            // Protection anti-spam : vérifier le cooldown
+            const lastTrigger = lastCheckpointTrigger[checkpointId] || 0;
+            if (now - lastTrigger < modalCooldown) {
+                return; // Trop tôt pour re-déclencher ce checkpoint
+            }
+            
             console.log(`🎯 Checkpoint ${checkpoint.name} trouvé ! Distance: ${distance.toFixed(1)}m`);
             
             // Marquer le timestamp pour éviter les re-déclenchements
@@ -2356,6 +2377,9 @@ function checkProximityToCheckpoints() {
             validateCheckpointProximity(checkpoint, distance);
         }
     });
+    
+    // Note: dismissedModals n'est PAS nettoyé automatiquement quand on sort de la zone
+    // L'utilisateur doit cliquer manuellement sur "Tenter l'épreuve" dans le popup du checkpoint
 }
 
 // Validation serveur de la proximité (anti-triche basique)
@@ -3512,6 +3536,9 @@ function setupEventListeners() {
         document.getElementById('photo-modal').style.display = 'none';
         if (currentPhotoCheckpoint) {
             activeModals.delete(`photo-${currentPhotoCheckpoint.id}`);
+            // Ajouter à dismissedModals pour éviter réouverture automatique
+            dismissedModals.add(currentPhotoCheckpoint.id);
+            console.log(`🚫 Modal photo fermé manuellement pour ${currentPhotoCheckpoint.name}, ajouté à dismissedModals`);
         }
         resetPhotoInterface();
     });
@@ -3524,6 +3551,12 @@ function setupEventListeners() {
     // Événements pour le modal audio
     document.querySelector('#audio-modal .close').addEventListener('click', () => {
         document.getElementById('audio-modal').style.display = 'none';
+        if (currentAudioCheckpoint) {
+            activeModals.delete(currentAudioCheckpoint.id);
+            // Ajouter à dismissedModals pour éviter réouverture automatique
+            dismissedModals.add(currentAudioCheckpoint.id);
+            console.log(`🚫 Modal audio fermé manuellement pour ${currentAudioCheckpoint.name}, ajouté à dismissedModals`);
+        }
         resetAudioInterface();
     });
     
@@ -3981,9 +4014,39 @@ function calculateRouteFromPopup(checkpointId) {
     }
 }
 
+// Ouvrir manuellement une épreuve depuis le popup (bypass dismissedModals)
+function openChallengeFromPopup(checkpointId) {
+    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+    if (!checkpoint) {
+        console.error('❌ Checkpoint non trouvé:', checkpointId);
+        return;
+    }
+    
+    // Retirer de dismissedModals pour permettre l'ouverture manuelle
+    if (dismissedModals.has(checkpointId)) {
+        dismissedModals.delete(checkpointId);
+        console.log(`🔓 Checkpoint ${checkpoint.name} retiré de dismissedModals (ouverture manuelle)`);
+    }
+    
+    // Fermer le popup
+    map.closePopup();
+    
+    // Ouvrir le modal correspondant au type de checkpoint
+    if (checkpoint.type === 'photo') {
+        showPhotoChallenge(checkpoint);
+    } else if (checkpoint.type === 'audio') {
+        showAudioChallenge(checkpoint);
+    } else if (checkpoint.type === 'qcm') {
+        showQCMChallenge(checkpoint);
+    } else {
+        console.warn('⚠️ Type de checkpoint non géré:', checkpoint.type);
+    }
+}
+
 // Exposer les fonctions pour les tests et les popups
 window.simulatePosition = simulatePosition;
 window.calculateRouteFromPopup = calculateRouteFromPopup;
+window.openChallengeFromPopup = openChallengeFromPopup;
 window.requestLocationHelpFor = requestLocationHelpFor;
 window.requestRiddleHelpFor = requestRiddleHelpFor;
 window.requestAudioHelpFor = requestAudioHelpFor;
@@ -4642,6 +4705,12 @@ function showPhotoChallenge(checkpoint) {
         return;
     }
     
+    // Vérifier si l'utilisateur a fermé manuellement ce modal
+    if (dismissedModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal photo fermé manuellement pour ${checkpoint.name}, ignoré (sortez de la zone pour réinitialiser)`);
+        return;
+    }
+    
     // Vérifier si une photo est en attente de validation pour ce checkpoint
     if (pendingPhotoValidations.has(checkpoint.id)) {
         console.log(`⏳ Photo en attente de validation pour ${checkpoint.name}, modal bloqué`);
@@ -4701,6 +4770,12 @@ function getVolumeHint(threshold) {
 function showAudioChallenge(checkpoint) {
     if (!checkpoint || checkpoint.type !== 'audio') {
         console.error('❌ Checkpoint invalide pour défi audio:', checkpoint);
+        return;
+    }
+    
+    // Vérifier si l'utilisateur a fermé manuellement ce modal
+    if (dismissedModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal audio fermé manuellement pour ${checkpoint.name}, ignoré (sortez de la zone pour réinitialiser)`);
         return;
     }
     
@@ -5444,7 +5519,7 @@ function setupNotificationListeners() {
                 showAdminRefusalNotification('validation', validation);
                 // Retirer du Set des validations en attente pour permettre une nouvelle tentative
                 pendingPhotoValidations.delete(validation.checkpointId);
-                console.log(`❌ Photo rejetée - ${validation.checkpointId} retiré des validations en attente`);
+                console.log(`❌ Photo rejetée - ${validation.checkpointId} retiré des validations en attente, vous pouvez réessayer`);
             } else if (validation.status === 'approved') {
                 // Retirer du Set des validations en attente - photo validée
                 pendingPhotoValidations.delete(validation.checkpointId);

@@ -2211,6 +2211,12 @@ function addCheckpointsToMap() {
     console.log('📍 Ajout des checkpoints sur la carte...');
     
     GAME_CONFIG.checkpoints.forEach(checkpoint => {
+        // ✅ FILTRER : Ne montrer QUE les checkpoints de la route de l'équipe
+        if (currentTeam && currentTeam.route && !currentTeam.route.includes(checkpoint.id)) {
+            console.log(`🚫 Checkpoint ${checkpoint.name} (${checkpoint.id}) ignoré à l'affichage: pas dans la route`);
+            return; // Skip ce checkpoint
+        }
+        
         const isFound = foundCheckpoints.includes(checkpoint.id);
         const isUnlocked = unlockedCheckpoints.includes(checkpoint.id);
         const isLocked = checkpoint.locked && !isUnlocked;
@@ -3504,6 +3510,9 @@ function setupEventListeners() {
     // Événements pour le modal photo
     document.querySelector('#photo-modal .close').addEventListener('click', () => {
         document.getElementById('photo-modal').style.display = 'none';
+        if (currentPhotoCheckpoint) {
+            activeModals.delete(`photo-${currentPhotoCheckpoint.id}`);
+        }
         resetPhotoInterface();
     });
     
@@ -4000,15 +4009,18 @@ function startTeamSync() {
     
     // Enregistrer le listener et sa fonction de désinscription
     try {
+        console.log('🔗 Tentative d\'enregistrement du listener Firebase pour:', currentTeamId);
         firebaseListenerUnsubscribe = firebaseService.onTeamChange(currentTeamId, (teamData) => {
-            console.log('📡 Mise à jour reçue de l\'équipe:', {
-                name: teamData.name,
-                foundCheckpoints: teamData.foundCheckpoints,
-                unlockedCheckpoints: teamData.unlockedCheckpoints,
-                route: teamData.route
+            const now = Date.now();
+            console.log(`📡 [${new Date().toLocaleTimeString()}] Mise à jour reçue de l'équipe:`, {
+                name: teamData?.name,
+                foundCheckpoints: teamData?.foundCheckpoints,
+                unlockedCheckpoints: teamData?.unlockedCheckpoints,
+                route: teamData?.route,
+                timestamp: now
             });
             firebaseListenerActive = true;
-            lastFirebaseUpdate = Date.now();
+            lastFirebaseUpdate = now;
         
         if (!teamData) {
             console.warn('⚠️ Données d\'équipe vides reçues');
@@ -4658,12 +4670,21 @@ function showPhotoChallenge(checkpoint) {
         return;
     }
     
+    // ✅ Vérifier le Set activeModals
+    if (activeModals.has(`photo-${checkpoint.id}`)) {
+        console.log(`🚫 Modal photo déjà actif pour ${checkpoint.name} (activeModals), ignoré`);
+        return;
+    }
+    
     // Vérifier si le modal est déjà ouvert pour ce checkpoint
     const photoModal = document.getElementById('photo-modal');
     if (photoModal && photoModal.style.display === 'flex' && currentPhotoCheckpoint?.id === checkpoint.id) {
-        console.log(`🚫 Modal photo déjà ouvert pour ${checkpoint.name}, ignoré`);
+        console.log(`🚫 Modal photo déjà ouvert pour ${checkpoint.name} (DOM), ignoré`);
         return;
     }
+    
+    // Marquer comme actif
+    activeModals.add(`photo-${checkpoint.id}`);
     
     currentPhotoCheckpoint = checkpoint;
     
@@ -5385,6 +5406,9 @@ async function submitPhoto() {
         
         // Fermer le modal
         document.getElementById('photo-modal').style.display = 'none';
+        if (currentPhotoCheckpoint) {
+            activeModals.delete(`photo-${currentPhotoCheckpoint.id}`);
+        }
         resetPhotoInterface();
         
         showNotification(`📸 Photo envoyée pour validation de "${currentPhotoCheckpoint.name}"`, 'success');

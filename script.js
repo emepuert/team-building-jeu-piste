@@ -94,6 +94,22 @@ const GPS_SAFETY_THRESHOLDS = {
     stableReadingsToUnlock: 3           // Nombre de lectures stables avant déverrouillage
 };
 
+// ===== SYSTÈME D'AUTO-SAVE INTELLIGENT =====
+let autoSaveInterval = null;            // Intervalle d'auto-save
+let lastSavedState = null;              // Dernier état sauvegardé (pour throttling)
+let lastSaveTime = 0;                   // Timestamp de la dernière sauvegarde
+let saveHistory = [];                   // Historique des sauvegardes (pour debug)
+let saveMetrics = {
+    totalSaves: 0,                      // Nombre total de sauvegardes
+    skippedSaves: 0,                    // Nombre de sauvegardes ignorées (throttling)
+    failedSaves: 0,                     // Nombre de sauvegardes échouées
+    lastError: null                     // Dernière erreur
+};
+const AUTO_SAVE_INTERVAL = 10000;       // Sauvegarder toutes les 10 secondes
+const MAX_SAVE_HISTORY = 50;            // Garder les 50 dernières sauvegardes
+let isAutoSaveActive = false;           // Track si l'auto-save est actif
+let gpsWatchId = null;                  // ID du GPS watch pour pause/resume
+
 // ===== CONSOLE LOGGER MOBILE =====
 
 // Intercepter les logs console
@@ -1009,19 +1025,20 @@ function enableGameProtection() {
     
     console.log('🌐 Navigateur détecté:', BROWSER_INFO.name);
     
-    // Protection rechargement/fermeture de page
+    // ===== ANCIENS HANDLERS BEFOREUNLOAD DÉSACTIVÉS =====
+    // COMMENTÉ : beforeunload ne fonctionne pas bien sur mobile (surtout iOS)
+    // Maintenant géré par visibilitychange dans setupEnhancedVisibilityHandler()
+    /*
     const beforeUnloadHandler = (event) => {
         if (gameStarted && currentTeam) {
             const message = '⚠️ Êtes-vous sûr de vouloir quitter ? Votre progression sera sauvegardée mais vous devrez vous reconnecter.';
             
             if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
-                // Safari nécessite une approche différente
                 console.log('🍎 Safari: Tentative de protection beforeunload');
                 event.preventDefault();
                 event.returnValue = '';
                 return '';
             } else {
-                // Chrome/Firefox standard
                 event.preventDefault();
                 event.returnValue = message;
                 return message;
@@ -1030,6 +1047,7 @@ function enableGameProtection() {
     };
     
     window.addEventListener('beforeunload', beforeUnloadHandler);
+    */
     
     // Protection navigation arrière (mobile)
     const popStateHandler = (event) => {
@@ -1047,59 +1065,15 @@ function enableGameProtection() {
     
     window.addEventListener('popstate', popStateHandler);
     
+    // ===== ANCIEN SYSTÈME SAFARI DÉSACTIVÉ (remplacé par setupEnhancedVisibilityHandler) =====
     // Protection spéciale Safari avec visibilitychange
-    if (BROWSER_INFO.isSafari || BROWSER_INFO.isIOS) {
-        console.log('🍎 Activation protection Safari avec visibilitychange');
-        
-        const visibilityHandler = () => {
-            if (document.visibilityState === 'hidden' && gameStarted && currentTeam) {
-                // Sauvegarder immédiatement sur Safari quand la page devient cachée
-                console.log('🍎 Safari: Sauvegarde d\'urgence avant fermeture');
-                if (currentTeam && foundCheckpoints.length > 0) {
-                    // Sauvegarde synchrone rapide
-                    safeLocalStorage().setItem('safariEmergencyBackup', JSON.stringify({
-                        teamId: currentTeam.id,
-                        foundCheckpoints: foundCheckpoints,
-                        unlockedCheckpoints: unlockedCheckpoints,
-                        timestamp: Date.now()
-                    }));
-                }
-            }
-        };
-        
-        document.addEventListener('visibilitychange', visibilityHandler);
-        
-        // Protection supplémentaire avec pagehide (Safari)
-        const pageHideHandler = (event) => {
-            if (gameStarted && currentTeam) {
-                console.log('🍎 Safari: Événement pagehide détecté');
-                // Dernière chance de sauvegarder
-                if (currentTeam && foundCheckpoints.length > 0) {
-                    safeLocalStorage().setItem('safariEmergencyBackup', JSON.stringify({
-                        teamId: currentTeam.id,
-                        foundCheckpoints: foundCheckpoints,
-                        unlockedCheckpoints: unlockedCheckpoints,
-                        timestamp: Date.now()
-                    }));
-                }
-            }
-        };
-        
-        window.addEventListener('pagehide', pageHideHandler);
-        
-        // Stocker les handlers pour pouvoir les supprimer
-        window.gameProtectionHandlers = {
-            beforeUnload: beforeUnloadHandler,
-            popState: popStateHandler,
-            visibility: visibilityHandler,
-            pageHide: pageHideHandler
-        };
-    } else {
-        window.gameProtectionHandlers = {
-            beforeUnload: beforeUnloadHandler,
-            popState: popStateHandler
-        };
-    }
+    // COMMENTÉ : Maintenant géré par setupEnhancedVisibilityHandler() qui est plus robuste
+    
+    // Stocker seulement popStateHandler (beforeUnload commenté)
+    window.gameProtectionHandlers = {
+        // beforeUnload: beforeUnloadHandler, // DÉSACTIVÉ
+        popState: popStateHandler
+    };
     
     // Ajouter un état dans l'historique pour capturer le retour
     history.pushState(null, null, window.location.href);
@@ -1140,8 +1114,19 @@ function disconnectTeam() {
         // Désactiver la protection avant de déconnecter
         disableGameProtection();
         
+        // ===== NOUVEAU: Arrêter l'auto-save =====
+        stopAutoSave();
+        
+        // ===== NOUVEAU: Arrêter le GPS =====
+        if (gpsWatchId !== null) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+        }
+        
         // Nettoyer les données locales
         safeLocalStorage().removeItem('currentTeamId');
+        safeLocalStorage().removeItem('gameState');
+        safeLocalStorage().removeItem('gameState_backup');
         
         // Réinitialiser les variables
         currentTeam = null;
@@ -1149,6 +1134,17 @@ function disconnectTeam() {
         foundCheckpoints = [];
         unlockedCheckpoints = [0];
         gameStarted = false;
+        
+        // Réinitialiser les métriques de save
+        saveMetrics = {
+            totalSaves: 0,
+            skippedSaves: 0,
+            failedSaves: 0,
+            lastError: null
+        };
+        saveHistory = [];
+        lastSavedState = null;
+        lastSaveTime = 0;
         
         // Nettoyer la carte
         if (map) {
@@ -1351,8 +1347,8 @@ async function initializeApp() {
 }
 
 function checkTeamLogin() {
-    // Vérifier d'abord s'il y a une sauvegarde d'urgence Safari
-    checkSafariEmergencyBackup();
+    // ===== ANCIEN: checkSafariEmergencyBackup() désactivé =====
+    // Maintenant la récupération se fait automatiquement via Firebase + localStorage
     
     // Vérifier si une équipe est déjà connectée avec gestion d'erreurs
     const savedTeamId = safeExecute(
@@ -1370,7 +1366,10 @@ function checkTeamLogin() {
     }
 }
 
-// Vérifier et récupérer la sauvegarde d'urgence Safari
+// ===== ANCIEN SYSTÈME SAFARI EMERGENCY BACKUP DÉSACTIVÉ =====
+// COMMENTÉ : Maintenant remplacé par l'auto-save hybride + localStorage
+// La récupération se fait automatiquement via Firebase + localStorage dans loadTeamGameData()
+/*
 function checkSafariEmergencyBackup() {
     try {
         const backup = safeLocalStorage().getItem('safariEmergencyBackup');
@@ -1378,7 +1377,6 @@ function checkSafariEmergencyBackup() {
             const backupData = JSON.parse(backup);
             const timeDiff = Date.now() - backupData.timestamp;
             
-            // Si la sauvegarde a moins de 5 minutes, proposer la récupération
             if (timeDiff < 5 * 60 * 1000) {
                 console.log('🍎 Sauvegarde d\'urgence Safari trouvée:', backupData);
                 
@@ -1391,27 +1389,22 @@ function checkSafariEmergencyBackup() {
                 );
                 
                 if (restore) {
-                    // Restaurer les données
                     safeLocalStorage().setItem('currentTeamId', backupData.teamId);
-                    
-                    // Afficher une notification
                     setTimeout(() => {
                         showNotification('🍎 Progression Safari récupérée !', 'success');
                     }, 1000);
-                    
                     console.log('✅ Progression Safari restaurée');
                 }
             }
             
-            // Nettoyer la sauvegarde d'urgence
             safeLocalStorage().removeItem('safariEmergencyBackup');
         }
     } catch (error) {
         console.warn('⚠️ Erreur lors de la vérification de la sauvegarde Safari:', error);
-        // Nettoyer en cas d'erreur
         safeLocalStorage().removeItem('safariEmergencyBackup');
     }
 }
+*/
 
 // Wrapper sécurisé pour localStorage
 function safeLocalStorage() {
@@ -1587,6 +1580,12 @@ async function loadTeamGameData() {
         // Activer la protection anti-rechargement maintenant que le jeu a commencé
         gameStarted = true;
         enableGameProtection();
+        
+        // ===== NOUVEAU: Démarrer l'auto-save intelligent =====
+        startAutoSave();
+        
+        // ===== NOUVEAU: Installer le handler visibilitychange amélioré =====
+        setupEnhancedVisibilityHandler();
         // Notification discrète dans la console seulement
         console.log('🛡️ Protection anti-rechargement activée - Le jeu vous demandera confirmation avant de quitter');
         
@@ -1822,11 +1821,14 @@ async function requestGeolocation() {
         maximumAge: BROWSER_INFO.isMobile ? 60000 : 300000
     };
     
-    navigator.geolocation.watchPosition(
+    // Stocker l'ID du watch pour pouvoir le pauser/reprendre
+    gpsWatchId = navigator.geolocation.watchPosition(
         onLocationUpdate,
         onLocationError,
         watchOptions
     );
+    
+    console.log('📍 GPS watch démarré (ID:', gpsWatchId, ')');
 }
 
 
@@ -2370,11 +2372,9 @@ function checkProximityToCheckpoints() {
 
 // Validation serveur de la proximité (anti-triche basique)
 async function validateCheckpointProximity(checkpoint, distance) {
-    // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ
-    if (!isGPSOperationAllowed()) {
-        console.warn('🔒 Validation de checkpoint bloquée: GPS verrouillé');
-        return;
-    }
+    // ===== ANCIEN: GPS Lock check désactivé =====
+    // Plus de blocage par GPS lock pour les validations
+    // Le GPS Lock reste actif pour la détection de position mais ne bloque plus les actions
     
     const validationData = {
         checkpointId: checkpoint.id,
@@ -2665,41 +2665,40 @@ function foundCheckpoint(checkpoint) {
         }, 1000);
     }
     
-    // Sauvegarder la progression dans Firebase (équipe seulement)
-    // Pour les checkpoints photo : validation automatique après 30 secondes
-    // Ni pour les checkpoints audio (attendre réussite épreuve)
+    // ===== SAUVEGARDE IMMÉDIATE pour checkpoint trouvé =====
+    // L'auto-save gère déjà les sauvegardes périodiques, mais on sauve immédiatement 
+    // quand un checkpoint est trouvé pour avoir une réactivité maximale
     if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio') {
-        // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ avant d'envoyer
-        if (!isGPSOperationAllowed()) {
-            console.warn('🔒 Sauvegarde Firebase bloquée: GPS verrouillé');
-        } else {
-            // Plus besoin d'utilisateurs - équipe directement
-            
-            // Mettre à jour l'équipe aussi pour que l'admin voit les changements
-            firebaseService.updateTeamProgress(currentTeamId, {
-                foundCheckpoints: foundCheckpoints,
-                unlockedCheckpoints: unlockedCheckpoints
-            });
-            
-            console.log('💾 Progression sauvegardée (utilisateur + équipe):', {
-                teamId: currentTeamId,
-                foundCheckpoints, 
-                unlockedCheckpoints
-            });
-        }
+        // ===== ANCIEN: GPS Lock check désactivé =====
+        // Plus de blocage par GPS lock, l'auto-save gère tout
+        // Plus besoin d'utilisateurs - équipe directement
+        
+        // Mettre à jour l'équipe aussi pour que l'admin voit les changements
+        firebaseService.updateTeamProgress(currentTeamId, {
+            foundCheckpoints: foundCheckpoints,
+            unlockedCheckpoints: unlockedCheckpoints
+        });
+        
+        console.log('💾 Progression sauvegardée immédiatement (checkpoint trouvé):', {
+            teamId: currentTeamId,
+            foundCheckpoints, 
+            unlockedCheckpoints
+        });
+        
+        // Sauvegarder aussi dans le système hybride pour cohérence
+        forceSave('checkpoint_found');
     } else if (checkpoint.type === 'photo') {
         console.log('📸 Checkpoint photo - validation automatique dans 30s');
         // Auto-validation après 30 secondes pour éviter le blocage
         setTimeout(() => {
-            // ✅ VÉRIFIER SI LE GPS EST VERROUILLÉ avant d'envoyer
-            if (firebaseService && currentTeam && currentTeamId && isGPSOperationAllowed()) {
+            // ===== ANCIEN: GPS Lock check désactivé =====
+            if (firebaseService && currentTeam && currentTeamId) {
                 firebaseService.updateTeamProgress(currentTeamId, {
                     foundCheckpoints: foundCheckpoints,
                     unlockedCheckpoints: unlockedCheckpoints
                 });
                 console.log('📸 Auto-validation photo après timeout');
-            } else if (gpsLockState.isLocked) {
-                console.warn('🔒 Auto-validation photo bloquée: GPS verrouillé');
+                forceSave('photo_timeout');
             }
         }, 30000);
     } else if (checkpoint.type === 'audio') {
@@ -4251,8 +4250,9 @@ function startTeamSync() {
             currentTeamId: currentTeamId
         });
         
-        // Démarrer le fallback immédiatement si le listener échoue
-        startFallbackPolling();
+        // ===== ANCIEN: Fallback polling désactivé =====
+        // Maintenant l'auto-save gère tout, pas besoin de fallback polling
+        // startFallbackPolling(); // DÉSACTIVÉ
     }
     
     // Écouter les notifications de refus d'aide/validation
@@ -4262,13 +4262,13 @@ function startTeamSync() {
     setupAdminLogsListener();
 }
 
-// Monitoring du listener Firebase temps réel
+// ===== ANCIEN SYSTÈME DE MONITORING DÉSACTIVÉ =====
+// COMMENTÉ : Le fallback polling est maintenant remplacé par l'auto-save intelligent
+// qui sauvegarde toutes les 10s avec throttling
+// Le listener Firebase reste actif pour recevoir les changements de l'admin
 function startFirebaseMonitoring() {
-    console.log('🔍 Démarrage du monitoring Firebase...');
-    console.warn('⚠️ Le listener Firebase onSnapshot ne fonctionne pas correctement - utilisation du polling uniquement');
-    
-    // Démarrer le fallback immédiatement au lieu d'attendre
-    startFallbackPolling();
+    console.log('🔍 Monitoring Firebase désactivé - auto-save actif');
+    // startFallbackPolling(); // DÉSACTIVÉ - remplacé par auto-save
 }
 
 // Système de polling de secours si le listener temps réel ne fonctionne pas
@@ -5865,5 +5865,561 @@ function showPersistentNotification(title, message, photoCheckpoint = null) {
 }
 
 // Anciennes fonctions d'aide supprimées - remplacées par les fonctions spécifiques par checkpoint
+
+// ===== SYSTÈME D'AUTO-SAVE INTELLIGENT =====
+
+/**
+ * Obtenir l'état actuel du jeu pour sauvegarde
+ */
+function getCurrentGameState() {
+    return {
+        teamId: currentTeamId,
+        foundCheckpoints: [...foundCheckpoints],
+        unlockedCheckpoints: [...unlockedCheckpoints],
+        lastPosition: userPosition ? {
+            lat: Math.round(userPosition.lat * 10000) / 10000, // Arrondir à 4 décimales
+            lng: Math.round(userPosition.lng * 10000) / 10000,
+            accuracy: userPosition.accuracy
+        } : null,
+        gpsLockState: {
+            isLocked: gpsLockState.isLocked,
+            lockReason: gpsLockState.lockReason
+        },
+        timestamp: Date.now()
+    };
+}
+
+/**
+ * Vérifier si l'état a changé depuis la dernière sauvegarde
+ */
+function hasGameStateChanged() {
+    const currentState = getCurrentGameState();
+    
+    if (!lastSavedState) return true;
+    
+    // Comparer les états (ignorer timestamp)
+    const current = JSON.stringify({
+        ...currentState,
+        timestamp: 0
+    });
+    const last = JSON.stringify({
+        ...lastSavedState,
+        timestamp: 0
+    });
+    
+    return current !== last;
+}
+
+/**
+ * Sauvegarde hybride : Firebase + localStorage
+ */
+async function hybridSave(state, reason = 'auto') {
+    const saveStart = Date.now();
+    let success = false;
+    let error = null;
+    
+    try {
+        // 1. Sauvegarder dans localStorage (instantané)
+        try {
+            const localData = {
+                ...state,
+                savedAt: saveStart,
+                reason: reason
+            };
+            localStorage.setItem('gameState', JSON.stringify(localData));
+            localStorage.setItem('gameState_backup', JSON.stringify(localData)); // Double backup
+        } catch (localError) {
+            console.warn('⚠️ Erreur localStorage:', localError);
+        }
+        
+        // 2. Sauvegarder dans Firebase (sync)
+        if (firebaseService && state.teamId) {
+            await firebaseService.updateTeamProgress(state.teamId, {
+                foundCheckpoints: state.foundCheckpoints,
+                unlockedCheckpoints: state.unlockedCheckpoints,
+                lastPosition: state.lastPosition,
+                lastSaveReason: reason,
+                updatedAt: new Date()
+            });
+        }
+        
+        success = true;
+        saveMetrics.totalSaves++;
+        lastSaveTime = Date.now();
+        lastSavedState = state;
+        
+        // Ajouter à l'historique
+        addToSaveHistory({
+            timestamp: saveStart,
+            duration: Date.now() - saveStart,
+            reason: reason,
+            success: true,
+            checkpointsCount: state.foundCheckpoints.length
+        });
+        
+    } catch (err) {
+        error = err;
+        saveMetrics.failedSaves++;
+        saveMetrics.lastError = err.message;
+        
+        addToSaveHistory({
+            timestamp: saveStart,
+            duration: Date.now() - saveStart,
+            reason: reason,
+            success: false,
+            error: err.message
+        });
+        
+        console.error('❌ Erreur sauvegarde hybride:', err);
+    }
+    
+    return { success, error };
+}
+
+/**
+ * Ajouter une entrée à l'historique des sauvegardes
+ */
+function addToSaveHistory(entry) {
+    saveHistory.unshift(entry);
+    
+    // Limiter la taille de l'historique
+    if (saveHistory.length > MAX_SAVE_HISTORY) {
+        saveHistory = saveHistory.slice(0, MAX_SAVE_HISTORY);
+    }
+    
+    // Mettre à jour le debug panel si ouvert
+    if (document.getElementById('debug-panel-modal')?.style.display === 'flex') {
+        updateDebugPanel();
+    }
+}
+
+/**
+ * Fonction d'auto-save appelée périodiquement
+ */
+async function autoSaveGameState() {
+    if (!currentTeam || !currentTeamId) {
+        return; // Pas d'équipe connectée
+    }
+    
+    // Vérifier si l'état a changé
+    if (!hasGameStateChanged()) {
+        saveMetrics.skippedSaves++;
+        console.log('⏭️ Auto-save skipped (no changes)');
+        return;
+    }
+    
+    console.log('💾 Auto-save triggered...');
+    const state = getCurrentGameState();
+    await hybridSave(state, 'auto');
+}
+
+/**
+ * Démarrer l'auto-save
+ */
+function startAutoSave() {
+    if (autoSaveInterval) {
+        console.log('ℹ️ Auto-save déjà actif');
+        return;
+    }
+    
+    console.log(`🔄 Démarrage auto-save (interval: ${AUTO_SAVE_INTERVAL}ms)`);
+    
+    // Première sauvegarde immédiate
+    autoSaveGameState();
+    
+    // Puis sauvegardes périodiques
+    autoSaveInterval = setInterval(autoSaveGameState, AUTO_SAVE_INTERVAL);
+    isAutoSaveActive = true;
+}
+
+/**
+ * Arrêter l'auto-save
+ */
+function stopAutoSave() {
+    if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+        autoSaveInterval = null;
+        isAutoSaveActive = false;
+        console.log('⏸️ Auto-save arrêté');
+    }
+}
+
+/**
+ * Force save immédiate (utilisé pour visibilitychange, etc.)
+ */
+async function forceSave(reason = 'force') {
+    if (!currentTeam || !currentTeamId) return;
+    
+    console.log(`💾 Force save (reason: ${reason})`);
+    const state = getCurrentGameState();
+    return await hybridSave(state, reason);
+}
+
+/**
+ * Charger l'état depuis localStorage (recovery rapide)
+ */
+function loadFromLocalStorage() {
+    try {
+        const saved = localStorage.getItem('gameState');
+        if (saved) {
+            const data = JSON.parse(saved);
+            
+            // Vérifier que les données sont récentes (< 1 heure)
+            const age = Date.now() - data.savedAt;
+            if (age < 3600000) { // 1 heure
+                console.log('📂 Données localStorage trouvées:', {
+                    age: Math.round(age / 1000) + 's',
+                    checkpoints: data.foundCheckpoints?.length || 0
+                });
+                return data;
+            } else {
+                console.log('⚠️ Données localStorage trop anciennes');
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ Erreur chargement localStorage:', error);
+    }
+    return null;
+}
+
+/**
+ * Gestion améliorée du visibilitychange
+ */
+function setupEnhancedVisibilityHandler() {
+    document.addEventListener('visibilitychange', async () => {
+        if (document.hidden) {
+            // Page cachée/mise en arrière-plan
+            console.log('👋 App mise en arrière-plan');
+            
+            // Sauvegarder immédiatement
+            await forceSave('visibility_hidden');
+            
+            // Pause GPS pour économiser la batterie
+            pauseGPS();
+            
+        } else {
+            // Page redevient visible
+            console.log('👀 App revenue au premier plan');
+            
+            // Reprendre GPS
+            resumeGPS();
+            
+            // Recharger l'état depuis Firebase
+            if (currentTeamId && firebaseService) {
+                try {
+                    const teamData = await firebaseService.getTeam(currentTeamId);
+                    if (teamData) {
+                        // Appliquer les changements distants
+                        const hadChanges = syncRemoteChanges(teamData);
+                        if (hadChanges) {
+                            showNotification('🔄 Progression synchronisée !', 'info');
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ Erreur sync au retour:', error);
+                }
+            }
+        }
+    });
+    
+    console.log('✅ Enhanced visibilitychange handler installé');
+}
+
+/**
+ * Synchroniser les changements distants (depuis Firebase)
+ */
+function syncRemoteChanges(remoteData) {
+    let hasChanges = false;
+    
+    // Vérifier foundCheckpoints
+    const remoteFound = remoteData.foundCheckpoints || [];
+    const localFound = foundCheckpoints || [];
+    
+    const newCheckpoints = remoteFound.filter(id => !localFound.includes(id));
+    if (newCheckpoints.length > 0) {
+        foundCheckpoints = [...remoteFound];
+        hasChanges = true;
+        console.log('🔄 Nouveaux checkpoints distants:', newCheckpoints);
+    }
+    
+    // Vérifier unlockedCheckpoints
+    const remoteUnlocked = remoteData.unlockedCheckpoints || [0];
+    const localUnlocked = unlockedCheckpoints || [0];
+    
+    const newUnlocked = remoteUnlocked.filter(id => !localUnlocked.includes(id));
+    if (newUnlocked.length > 0) {
+        unlockedCheckpoints = [...remoteUnlocked];
+        hasChanges = true;
+        console.log('🔓 Nouveaux checkpoints débloqués:', newUnlocked);
+    }
+    
+    if (hasChanges) {
+        updateUI();
+        updateProgress();
+        updatePlayerRouteProgress();
+    }
+    
+    return hasChanges;
+}
+
+/**
+ * Pause GPS (économie batterie)
+ */
+function pauseGPS() {
+    if (gpsWatchId !== null) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        console.log('⏸️ GPS mis en pause');
+    }
+}
+
+/**
+ * Reprendre GPS
+ */
+function resumeGPS() {
+    if (gpsWatchId === null && isGameStarted) {
+        startGeolocation();
+        console.log('▶️ GPS repris');
+    }
+}
+
+// ===== DEBUG PANEL =====
+
+/**
+ * Afficher le panneau de debug
+ */
+function showDebugPanel() {
+    let modal = document.getElementById('debug-panel-modal');
+    
+    if (!modal) {
+        // Créer le modal de debug
+        modal = document.createElement('div');
+        modal.id = 'debug-panel-modal';
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content debug-panel-content">
+                <div class="debug-panel-header">
+                    <h2>🔧 Debug Panel</h2>
+                    <button class="debug-close-btn" onclick="closeDebugPanel()">✖</button>
+                </div>
+                <div id="debug-panel-body">
+                    <p>Chargement...</p>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        modal.style.display = 'flex';
+    }
+    
+    updateDebugPanel();
+}
+
+/**
+ * Fermer le panneau de debug
+ */
+function closeDebugPanel() {
+    const modal = document.getElementById('debug-panel-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+/**
+ * Mettre à jour le contenu du debug panel
+ */
+function updateDebugPanel() {
+    const body = document.getElementById('debug-panel-body');
+    if (!body) return;
+    
+    const now = Date.now();
+    const timeSinceLastSave = lastSaveTime ? Math.round((now - lastSaveTime) / 1000) : '∞';
+    const currentState = getCurrentGameState();
+    
+    // Calculer les stats
+    const successRate = saveMetrics.totalSaves > 0 
+        ? Math.round((saveMetrics.totalSaves / (saveMetrics.totalSaves + saveMetrics.failedSaves)) * 100)
+        : 100;
+    
+    body.innerHTML = `
+        <div class="debug-section">
+            <h3>📊 État Actuel</h3>
+            <div class="debug-info">
+                <div class="debug-row">
+                    <span>Dernière save:</span>
+                    <span class="${lastSaveTime ? 'success' : 'error'}">${timeSinceLastSave}s ago</span>
+                </div>
+                <div class="debug-row">
+                    <span>Checkpoints trouvés:</span>
+                    <span>${currentState.foundCheckpoints.length}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Checkpoints débloqués:</span>
+                    <span>${currentState.unlockedCheckpoints.length}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Position GPS:</span>
+                    <span>${currentState.lastPosition ? `${currentState.lastPosition.lat.toFixed(4)}, ${currentState.lastPosition.lng.toFixed(4)}` : 'N/A'}</span>
+                </div>
+                <div class="debug-row">
+                    <span>GPS Lock:</span>
+                    <span class="${currentState.gpsLockState.isLocked ? 'error' : 'success'}">${currentState.gpsLockState.isLocked ? '🔒 Verrouillé' : '🔓 OK'}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Auto-save:</span>
+                    <span class="${isAutoSaveActive ? 'success' : 'error'}">${isAutoSaveActive ? '✅ Actif' : '❌ Inactif'}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>📈 Métriques</h3>
+            <div class="debug-info">
+                <div class="debug-row">
+                    <span>Total saves:</span>
+                    <span>${saveMetrics.totalSaves}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Saves skipped (throttling):</span>
+                    <span>${saveMetrics.skippedSaves}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Saves failed:</span>
+                    <span class="${saveMetrics.failedSaves > 0 ? 'error' : 'success'}">${saveMetrics.failedSaves}</span>
+                </div>
+                <div class="debug-row">
+                    <span>Success rate:</span>
+                    <span class="${successRate >= 90 ? 'success' : 'warning'}">${successRate}%</span>
+                </div>
+                <div class="debug-row">
+                    <span>Dernier sync Firebase:</span>
+                    <span>${lastFirebaseUpdate ? Math.round((now - lastFirebaseUpdate) / 1000) + 's ago' : 'N/A'}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>💾 Historique Saves (10 dernières)</h3>
+            <div class="debug-history">
+                ${saveHistory.slice(0, 10).map(entry => {
+                    const time = new Date(entry.timestamp).toLocaleTimeString();
+                    const icon = entry.success ? '✅' : '❌';
+                    const status = entry.success 
+                        ? `${entry.duration}ms - ${entry.checkpointsCount} CPs`
+                        : entry.error;
+                    return `
+                        <div class="debug-history-entry ${entry.success ? 'success' : 'error'}">
+                            <span>${icon} [${time}]</span>
+                            <span>${entry.reason}</span>
+                            <span>${status}</span>
+                        </div>
+                    `;
+                }).join('') || '<p style="text-align: center; color: #666;">Aucune sauvegarde</p>'}
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <h3>🔄 Actions</h3>
+            <div class="debug-actions">
+                <button onclick="forceSave('manual').then(() => { showNotification('✅ Save manuelle OK', 'success'); updateDebugPanel(); })" class="debug-btn primary">
+                    💾 Force Save Now
+                </button>
+                <button onclick="loadFromFirebase()" class="debug-btn">
+                    ☁️ Reload from Firebase
+                </button>
+                <button onclick="showLocalStorageBackup()" class="debug-btn">
+                    📂 View localStorage
+                </button>
+                <button onclick="exportDebugData()" class="debug-btn">
+                    📊 Export Debug Data
+                </button>
+            </div>
+        </div>
+        
+        ${saveMetrics.lastError ? `
+        <div class="debug-section error">
+            <h3>⚠️ Dernière Erreur</h3>
+            <pre>${saveMetrics.lastError}</pre>
+        </div>
+        ` : ''}
+    `;
+}
+
+/**
+ * Recharger depuis Firebase
+ */
+async function loadFromFirebase() {
+    if (!currentTeamId || !firebaseService) {
+        showNotification('❌ Pas de connexion Firebase', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('🔄 Chargement depuis Firebase...', 'info');
+        const teamData = await firebaseService.getTeam(currentTeamId);
+        
+        if (teamData) {
+            syncRemoteChanges(teamData);
+            showNotification('✅ Données Firebase chargées !', 'success');
+            updateDebugPanel();
+        } else {
+            showNotification('❌ Équipe non trouvée', 'error');
+        }
+    } catch (error) {
+        showNotification('❌ Erreur chargement: ' + error.message, 'error');
+    }
+}
+
+/**
+ * Afficher le backup localStorage
+ */
+function showLocalStorageBackup() {
+    const data = loadFromLocalStorage();
+    if (data) {
+        const age = Math.round((Date.now() - data.savedAt) / 1000);
+        alert(`📂 Backup localStorage:\n\n` +
+              `Age: ${age}s\n` +
+              `Checkpoints trouvés: ${data.foundCheckpoints?.length || 0}\n` +
+              `Checkpoints débloqués: ${data.unlockedCheckpoints?.length || 0}\n` +
+              `Position: ${data.lastPosition ? 'Oui' : 'Non'}\n` +
+              `Reason: ${data.reason || 'N/A'}`);
+    } else {
+        alert('📂 Aucun backup localStorage trouvé');
+    }
+}
+
+/**
+ * Exporter les données de debug
+ */
+function exportDebugData() {
+    const data = {
+        currentState: getCurrentGameState(),
+        metrics: saveMetrics,
+        history: saveHistory,
+        team: {
+            id: currentTeamId,
+            name: currentTeam?.name
+        },
+        timestamp: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `debug-${currentTeam?.name || 'unknown'}-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('📊 Données debug exportées !', 'success');
+}
+
+// Exposer les fonctions pour le HTML
+window.showDebugPanel = showDebugPanel;
+window.closeDebugPanel = closeDebugPanel;
+window.forceSave = forceSave;
+window.loadFromFirebase = loadFromFirebase;
+window.showLocalStorageBackup = showLocalStorageBackup;
+window.exportDebugData = exportDebugData;
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

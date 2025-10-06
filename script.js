@@ -1252,6 +1252,20 @@ const TEAMS = {
 
 // Gestionnaire d'erreurs global
 window.addEventListener('error', (event) => {
+    // Filtrer les erreurs "Script error" génériques qui ne sont pas informatifs
+    // Ces erreurs viennent souvent de scripts externes, extensions navigateur, ou restrictions CORS
+    const errorMessage = event.error?.message || event.message || '';
+    if (errorMessage === 'Script error.' || errorMessage === 'Script error') {
+        console.warn('⚠️ Erreur script générique ignorée (probablement externe/CORS)');
+        return;
+    }
+    
+    // Filtrer aussi les erreurs sans stack trace et sans contexte
+    if (!event.error && typeof event.message === 'string' && event.message.length < 20) {
+        console.warn('⚠️ Erreur générique ignorée:', event.message);
+        return;
+    }
+    
     logError(event.error || event.message, 'Global Error Handler', true);
 });
 
@@ -6083,9 +6097,13 @@ function loadFromLocalStorage() {
 }
 
 /**
- * Gestion améliorée du visibilitychange
+ * Gestion améliorée du visibilitychange + interaction
  */
+let lastInteractionResume = 0; // Throttling pour éviter les relances multiples
+let hasResumedSinceVisible = false; // Flag pour savoir si on a déjà repris depuis la dernière visibilité
+
 function setupEnhancedVisibilityHandler() {
+    // ===== EVENT: VISIBILITYCHANGE =====
     document.addEventListener('visibilitychange', async () => {
         if (document.hidden) {
             // Page cachée/mise en arrière-plan
@@ -6097,12 +6115,16 @@ function setupEnhancedVisibilityHandler() {
             // Pause GPS pour économiser la batterie
             pauseGPS();
             
+            // Réinitialiser le flag de reprise
+            hasResumedSinceVisible = false;
+            
         } else {
             // Page redevient visible
             console.log('👀 App revenue au premier plan');
             
-            // Reprendre GPS
+            // Reprendre GPS immédiatement
             resumeGPS();
+            hasResumedSinceVisible = true;
             
             // Recharger l'état depuis Firebase
             if (currentTeamId && firebaseService) {
@@ -6122,7 +6144,45 @@ function setupEnhancedVisibilityHandler() {
         }
     });
     
-    console.log('✅ Enhanced visibilitychange handler installé');
+    // ===== EVENT: FOCUS DE LA FENÊTRE =====
+    // Redémarrer le GPS si la fenêtre récupère le focus
+    window.addEventListener('focus', () => {
+        if (!document.hidden && !hasResumedSinceVisible && isGameStarted) {
+            console.log('🔍 Fenêtre a le focus - tentative reprise GPS');
+            resumeGPS();
+            hasResumedSinceVisible = true;
+        }
+    });
+    
+    // ===== EVENT: INTERACTION UTILISATEUR =====
+    // Détecter le premier touch/click après le déverrouillage pour relancer le GPS si besoin
+    const interactionHandler = () => {
+        const now = Date.now();
+        
+        // Throttling: minimum 3 secondes entre les tentatives
+        if (now - lastInteractionResume < 3000) {
+            return;
+        }
+        
+        // Si on est visible, le jeu est démarré, mais qu'on n'a pas de watchID actif
+        if (!document.hidden && isGameStarted && gpsWatchId === null) {
+            console.log('👆 Interaction détectée - relance GPS après verrouillage');
+            resumeGPS();
+            lastInteractionResume = now;
+            hasResumedSinceVisible = true;
+            
+            // Sauvegarder aussi pour être sûr
+            forceSave('interaction_resume').catch(err => {
+                console.error('❌ Erreur save après interaction:', err);
+            });
+        }
+    };
+    
+    // Écouter touch et click sur le document
+    document.addEventListener('touchstart', interactionHandler, { passive: true });
+    document.addEventListener('click', interactionHandler, { passive: true });
+    
+    console.log('✅ Enhanced visibilitychange + interaction handler installé');
 }
 
 /**
@@ -6168,6 +6228,7 @@ function syncRemoteChanges(remoteData) {
 function pauseGPS() {
     if (gpsWatchId !== null) {
         navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null; // Réinitialiser l'ID pour permettre la reprise
         console.log('⏸️ GPS mis en pause');
     }
 }
@@ -6177,7 +6238,7 @@ function pauseGPS() {
  */
 function resumeGPS() {
     if (gpsWatchId === null && isGameStarted) {
-        startGeolocation();
+        requestGeolocation();
         console.log('▶️ GPS repris');
     }
 }

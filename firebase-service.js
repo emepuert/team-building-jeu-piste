@@ -168,6 +168,7 @@ class FirebaseService {
 
     // Écouter les validations résolues pour une équipe (pour notifications user)
     onTeamValidationsResolved(teamId, callback) {
+        console.log(`🔔 Firebase: Configuration listener validations pour équipe ${teamId}`);
         const q = query(
             collection(this.db, DB_COLLECTIONS.VALIDATIONS),
             where('teamId', '==', teamId),
@@ -175,12 +176,20 @@ class FirebaseService {
             orderBy('validatedAt', 'desc')
         );
         return onSnapshot(q, (snapshot) => {
+            console.log(`🔔 Firebase: Snapshot reçu pour validations, ${snapshot.docs.length} documents`);
             const resolvedValidations = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
             console.log(`🔔 Firebase: ${resolvedValidations.length} validations résolues pour équipe ${teamId}:`, resolvedValidations.map(v => ({ id: v.id, status: v.status, adminNotes: v.adminNotes })));
-            callback(resolvedValidations);
+            try {
+                callback(resolvedValidations);
+                console.log(`✅ Firebase: Callback validations exécuté avec succès`);
+            } catch (error) {
+                console.error(`❌ Firebase: Erreur dans callback validations:`, error);
+            }
+        }, (error) => {
+            console.error(`❌ Firebase: Erreur listener validations:`, error);
         });
     }
 

@@ -5617,12 +5617,18 @@ function blobToBase64(blob) {
 
 // Configurer les listeners pour les notifications de refus
 function setupNotificationListeners() {
+    console.log('🔔 [SETUP] setupNotificationListeners appelé', {
+        firebaseService: !!firebaseService,
+        currentTeamId: currentTeamId
+    });
+    
     if (!firebaseService || !currentTeamId) {
         console.warn('⚠️ Impossible de configurer les notifications - service non disponible');
         return;
     }
     
     // Écouter les demandes d'aide résolues
+    console.log('🔔 [SETUP] Configuration listener demandes aide...');
     firebaseService.onTeamHelpRequestsResolved(currentTeamId, (resolvedRequests) => {
         resolvedRequests.forEach(request => {
             // Éviter les doublons
@@ -5636,9 +5642,11 @@ function setupNotificationListeners() {
             }
         });
     });
+    console.log('✅ [SETUP] Listener demandes aide configuré');
     
     // Écouter les validations résolues
-    firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
+    console.log('🔔 [SETUP] Configuration listener validations pour teamId:', currentTeamId);
+    const unsubscribeValidations = firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
         console.log(`🔔 [VALIDATIONS] Reçu ${resolvedValidations.length} validations:`, resolvedValidations.map(v => ({
             id: v.id,
             status: v.status,
@@ -5711,6 +5719,7 @@ function setupNotificationListeners() {
             }
         });
     });
+    console.log('✅ [SETUP] Listener validations configuré avec succès');
 }
 
 // Traiter une demande d'aide accordée par l'admin

@@ -43,6 +43,7 @@ let dismissedModals = new Set(); // Modals fermés manuellement par l'utilisateu
 let modalCooldown = 2000; // 2 secondes minimum entre déclenchements
 let pendingPhotoValidations = new Set(); // Checkpoints photos en attente de validation
 let checkpointsInRange = new Set(); // Checkpoints actuellement dans la zone de proximité (mis à jour toutes les 3s)
+let discoveredCheckpoints = new Set(); // Checkpoints dont la notification de découverte a déjà été affichée
 
 // ===== CONSOLE LOGGER MOBILE =====
 let mobileConsoleLogger = null;
@@ -1134,6 +1135,7 @@ function disconnectTeam() {
         foundCheckpoints = [];
         unlockedCheckpoints = [0];
         gameStarted = false;
+        discoveredCheckpoints.clear(); // Réinitialiser les checkpoints découverts
         
         // Réinitialiser les métriques de save
         saveMetrics = {
@@ -2364,6 +2366,12 @@ function checkProximityToCheckpoints() {
         if (distance <= GAME_CONFIG.proximityThreshold) {
             checkpointsInRange.add(checkpointId);
             
+            // ✅ VÉRIFIER SI LA NOTIFICATION DE DÉCOUVERTE A DÉJÀ ÉTÉ AFFICHÉE
+            // Ceci évite les logs en boucle pour les checkpoints photo/audio qui ne sont pas ajoutés immédiatement à foundCheckpoints
+            if (discoveredCheckpoints.has(checkpointId)) {
+                return; // Notification déjà affichée pour ce checkpoint, on ne re-déclenche pas
+            }
+            
             // Protection anti-spam : vérifier le cooldown
             const lastTrigger = lastCheckpointTrigger[checkpointId] || 0;
             if (now - lastTrigger < modalCooldown) {
@@ -2371,6 +2379,9 @@ function checkProximityToCheckpoints() {
             }
             
             console.log(`🎯 Checkpoint ${checkpoint.name} trouvé ! Distance: ${distance.toFixed(1)}m`);
+            
+            // Marquer comme découvert pour ne plus afficher la notification
+            discoveredCheckpoints.add(checkpointId);
             
             // Marquer le timestamp pour éviter les re-déclenchements
             lastCheckpointTrigger[checkpointId] = now;

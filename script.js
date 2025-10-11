@@ -35,6 +35,8 @@ let firebaseListenerActive = false; // Track si le listener Firebase est actif
 let lastFirebaseUpdate = 0; // Timestamp de la dernière mise à jour Firebase
 let firebaseListenerUnsubscribe = null; // Fonction pour désabonner le listener
 let fallbackPollingInterval = null; // Intervalle de polling de secours
+let validationsListenerUnsubscribe = null; // Fonction pour désabonner le listener de validations
+let helpRequestsListenerUnsubscribe = null; // Fonction pour désabonner le listener de demandes d'aide
 
 // ===== PROTECTION ANTI-SPAM MODALS =====
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
@@ -1327,9 +1329,11 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 async function initializeApp() {
-    // Éviter la double initialisation
+    // Éviter la double initialisation MAIS permettre la reconnexion des listeners
     if (window.appInitialized) {
-        console.log('⚠️ App déjà initialisée, on ignore');
+        console.log('⚠️ App déjà initialisée, vérification de la connexion équipe...');
+        // Vérifier si une équipe est connectée et reconfigurer les listeners si besoin
+        checkTeamLogin();
         return;
     }
     window.appInitialized = true;
@@ -4312,10 +4316,13 @@ function startTeamSync() {
     }
     
     // Écouter les notifications de refus d'aide/validation
+    // ✅ TOUJOURS reconfigurer les listeners même si startTeamSync est appelée plusieurs fois
     setupNotificationListeners();
     
     // 👑 Écouter les logs admin pour cette équipe
     setupAdminLogsListener();
+    
+    console.log('✅ Synchronisation équipe démarrée avec succès');
 }
 
 // ===== ANCIEN SYSTÈME DE MONITORING DÉSACTIVÉ =====
@@ -5627,9 +5634,21 @@ function setupNotificationListeners() {
         return;
     }
     
+    // ✅ Nettoyer les anciens listeners s'ils existent
+    if (helpRequestsListenerUnsubscribe) {
+        console.log('🧹 Nettoyage ancien listener demandes aide');
+        helpRequestsListenerUnsubscribe();
+        helpRequestsListenerUnsubscribe = null;
+    }
+    if (validationsListenerUnsubscribe) {
+        console.log('🧹 Nettoyage ancien listener validations');
+        validationsListenerUnsubscribe();
+        validationsListenerUnsubscribe = null;
+    }
+    
     // Écouter les demandes d'aide résolues
     console.log('🔔 [SETUP] Configuration listener demandes aide...');
-    firebaseService.onTeamHelpRequestsResolved(currentTeamId, (resolvedRequests) => {
+    helpRequestsListenerUnsubscribe = firebaseService.onTeamHelpRequestsResolved(currentTeamId, (resolvedRequests) => {
         resolvedRequests.forEach(request => {
             // Éviter les doublons
             if (processedNotifications.has(request.id)) return;
@@ -5646,7 +5665,7 @@ function setupNotificationListeners() {
     
     // Écouter les validations résolues
     console.log('🔔 [SETUP] Configuration listener validations pour teamId:', currentTeamId);
-    const unsubscribeValidations = firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
+    validationsListenerUnsubscribe = firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
         console.log(`🔔 [VALIDATIONS] Reçu ${resolvedValidations.length} validations:`, resolvedValidations.map(v => ({
             id: v.id,
             status: v.status,

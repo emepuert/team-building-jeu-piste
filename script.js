@@ -1,5 +1,5 @@
 // Configuration du jeu de piste - Version Test
-console.log('✅✅✅ SCRIPT.JS VERSION 18:32 - FIX INDENTATION TRY-CATCH ✅✅✅');
+console.log('✅✅✅ SCRIPT.JS VERSION 18:38 - DEBUG ULTRA DETAILLE ✅✅✅');
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -142,6 +142,8 @@ function initializeMobileConsoleLogger() {
                     message.includes('🚫') || 
                     message.includes('✅✅✅') ||  // ✅ Logs de version du script
                     message.includes('✅ [Checkpoint Validation Log]') ||
+                    message.includes('✅ Photo approuvée') ||  // ✅ Validation photo
+                    message.includes('✅ Checkpoint') && message.includes('ajouté') ||
                     message.includes('🎉') ||
                     message.includes('📸 Modal photo ouvert') ||
                     message.includes('🎤 Modal audio ouvert') ||
@@ -152,6 +154,9 @@ function initializeMobileConsoleLogger() {
                     message.includes('🔧') ||  // ✅ Logs de debug/config
                     message.includes('🔔') ||  // ✅ Logs de setup listeners
                     message.includes('🔵') ||  // ✅ Logs de debug detaillés
+                    message.includes('🆕') ||  // ✅ Logs de traitement nouveau
+                    message.includes('🔄') ||  // ✅ Logs de retraitement
+                    message.includes('ℹ️') ||  // ✅ Logs info
                     message.includes('🎯 Checkpoint') && message.includes('trouvé')
                 ));
             
@@ -1361,7 +1366,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:32 CHARGÉE - FIX INDENTATION TRY-CATCH ✅✅✅');
+    console.log('✅✅✅ VERSION 18:38 CHARGÉE - DEBUG ULTRA DETAILLE ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -5738,6 +5743,10 @@ function setupNotificationListeners() {
                 }
                 processedNotifications.add(notificationKey);
                 console.log(`🔵 [DEBUG] notificationKey ajouté au Set`);
+                console.log(`🔵 [DEBUG] Ligne 5741 atteinte`);
+                console.log(`🔵 [DEBUG] validation.id=${validation.id}`);
+                console.log(`🔵 [DEBUG] validation.status=${validation.status}`);
+                console.log(`🔵 [DEBUG] validation.checkpointId=${validation.checkpointId}`);
                 
                 console.log(`🆕 Traitement validation ${validation.id} (${validation.status}) pour checkpoint ${validation.checkpointId}`);
                 

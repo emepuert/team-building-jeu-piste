@@ -140,6 +140,7 @@ function initializeMobileConsoleLogger() {
                     message.includes('❌') || 
                     message.includes('⚠️') || 
                     message.includes('🚫') || 
+                    message.includes('✅✅✅') ||  // ✅ Logs de version du script
                     message.includes('✅ [Checkpoint Validation Log]') ||
                     message.includes('🎉') ||
                     message.includes('📸 Modal photo ouvert') ||
@@ -148,6 +149,8 @@ function initializeMobileConsoleLogger() {
                     message.includes('🏥 Health Check') ||
                     message.includes('💾 Progression sauvegardée') ||
                     message.includes('🔓 Checkpoint suivant débloqué') ||
+                    message.includes('🔧') ||  // ✅ Logs de debug/config
+                    message.includes('🔔') ||  // ✅ Logs de setup listeners
                     message.includes('🎯 Checkpoint') && message.includes('trouvé')
                 ));
             

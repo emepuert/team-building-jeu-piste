@@ -1,5 +1,5 @@
 // Configuration du jeu de piste - Version Test
-console.log('✅✅✅ SCRIPT.JS VERSION 18:38 - DEBUG ULTRA DETAILLE ✅✅✅');
+console.log('✅✅✅ SCRIPT.JS VERSION 18:47 - FIX DEBLOCAGE CHECKPOINT SUIVANT ✅✅✅');
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -1366,7 +1366,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:38 CHARGÉE - DEBUG ULTRA DETAILLE ✅✅✅');
+    console.log('✅✅✅ VERSION 18:47 CHARGÉE - FIX DEBLOCAGE CHECKPOINT SUIVANT ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -5776,6 +5776,28 @@ function setupNotificationListeners() {
                     if (!foundCheckpoints.includes(validation.checkpointId)) {
                         foundCheckpoints.push(validation.checkpointId);
                         console.log(`✅ Checkpoint ${validation.checkpointId} ajouté à foundCheckpoints`);
+                        
+                        // ✅ METTRE À JOUR currentTeam IMMÉDIATEMENT pour que l'UI se mette à jour
+                        if (currentTeam) {
+                            if (!currentTeam.foundCheckpoints) currentTeam.foundCheckpoints = [];
+                            if (!currentTeam.foundCheckpoints.includes(validation.checkpointId)) {
+                                currentTeam.foundCheckpoints.push(validation.checkpointId);
+                                console.log(`✅ Checkpoint ${validation.checkpointId} ajouté à currentTeam.foundCheckpoints`);
+                            }
+                            
+                            // Débloquer le checkpoint suivant dans la route
+                            const route = currentTeam.route || [];
+                            const currentIndex = route.indexOf(validation.checkpointId);
+                            if (currentIndex !== -1 && currentIndex < route.length - 1) {
+                                const nextCheckpointId = route[currentIndex + 1];
+                                if (!currentTeam.unlockedCheckpoints) currentTeam.unlockedCheckpoints = [0];
+                                if (!currentTeam.unlockedCheckpoints.includes(nextCheckpointId)) {
+                                    currentTeam.unlockedCheckpoints.push(nextCheckpointId);
+                                    unlockedCheckpoints.push(nextCheckpointId);
+                                    console.log(`🔓 Checkpoint suivant ${nextCheckpointId} débloqué !`);
+                                }
+                            }
+                        }
                         
                         // Sauvegarder immédiatement
                         forceSave('photo_validated').catch(err => {

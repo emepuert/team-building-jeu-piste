@@ -1,5 +1,5 @@
 // Configuration du jeu de piste - Version Test
-console.log('✅✅✅ SCRIPT.JS VERSION 18:23 - DEBUG VALIDATIONS ACTIF ✅✅✅');
+console.log('✅✅✅ SCRIPT.JS VERSION 18:32 - FIX INDENTATION TRY-CATCH ✅✅✅');
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -1361,7 +1361,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:23 CHARGÉE - DEBUG VALIDATIONS ACTIF ✅✅✅');
+    console.log('✅✅✅ VERSION 18:32 CHARGÉE - FIX INDENTATION TRY-CATCH ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -5740,50 +5740,50 @@ function setupNotificationListeners() {
                 console.log(`🔵 [DEBUG] notificationKey ajouté au Set`);
                 
                 console.log(`🆕 Traitement validation ${validation.id} (${validation.status}) pour checkpoint ${validation.checkpointId}`);
-            
-            if (validation.status === 'rejected') {
-                // Ne pas afficher le rejet si :
-                // 1. Le checkpoint a finalement été validé dans le même batch (après refresh)
-                // 2. Le checkpoint est déjà dans foundCheckpoints (déjà validé avant)
-                if (approvedCheckpoints.has(validation.checkpointId)) {
-                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} validé dans le même batch`);
-                    return;
-                }
-                if (foundCheckpoints.includes(validation.checkpointId)) {
-                    console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} déjà validé`);
-                    return;
-                }
                 
-                showAdminRefusalNotification('validation', validation);
-                // Retirer du Set des validations en attente pour permettre une nouvelle tentative
-                pendingPhotoValidations.delete(validation.checkpointId);
-                console.log(`❌ Photo rejetée - ${validation.checkpointId} retiré des validations en attente, vous pouvez réessayer`);
-            } else if (validation.status === 'approved') {
-                // Retirer du Set des validations en attente - photo validée
-                pendingPhotoValidations.delete(validation.checkpointId);
-                console.log(`✅ Photo approuvée - ${validation.checkpointId} retiré des validations en attente`);
-                
-                // ✅ MARQUER LE CHECKPOINT COMME COMPLÉTÉ
-                if (!foundCheckpoints.includes(validation.checkpointId)) {
-                    foundCheckpoints.push(validation.checkpointId);
-                    console.log(`✅ Checkpoint ${validation.checkpointId} ajouté à foundCheckpoints`);
+                if (validation.status === 'rejected') {
+                    // Ne pas afficher le rejet si :
+                    // 1. Le checkpoint a finalement été validé dans le même batch (après refresh)
+                    // 2. Le checkpoint est déjà dans foundCheckpoints (déjà validé avant)
+                    if (approvedCheckpoints.has(validation.checkpointId)) {
+                        console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} validé dans le même batch`);
+                        return;
+                    }
+                    if (foundCheckpoints.includes(validation.checkpointId)) {
+                        console.log(`ℹ️ Rejet ignoré - checkpoint ${validation.checkpointId} déjà validé`);
+                        return;
+                    }
                     
-                    // Sauvegarder immédiatement
-                    forceSave('photo_validated').catch(err => {
-                        console.error('❌ Erreur save après validation photo:', err);
-                    });
+                    showAdminRefusalNotification('validation', validation);
+                    // Retirer du Set des validations en attente pour permettre une nouvelle tentative
+                    pendingPhotoValidations.delete(validation.checkpointId);
+                    console.log(`❌ Photo rejetée - ${validation.checkpointId} retiré des validations en attente, vous pouvez réessayer`);
+                } else if (validation.status === 'approved') {
+                    // Retirer du Set des validations en attente - photo validée
+                    pendingPhotoValidations.delete(validation.checkpointId);
+                    console.log(`✅ Photo approuvée - ${validation.checkpointId} retiré des validations en attente`);
                     
-                    // Afficher notification de succès
-                    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === validation.checkpointId);
-                    const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
-                    showNotification(`🎉 Photo validée pour "${checkpointName}" !`, 'success');
-                    
-                    // Mettre à jour l'interface
-                    updatePlayerRouteProgress();
-                } else {
-                    console.log(`ℹ️ Checkpoint ${validation.checkpointId} déjà dans foundCheckpoints`);
+                    // ✅ MARQUER LE CHECKPOINT COMME COMPLÉTÉ
+                    if (!foundCheckpoints.includes(validation.checkpointId)) {
+                        foundCheckpoints.push(validation.checkpointId);
+                        console.log(`✅ Checkpoint ${validation.checkpointId} ajouté à foundCheckpoints`);
+                        
+                        // Sauvegarder immédiatement
+                        forceSave('photo_validated').catch(err => {
+                            console.error('❌ Erreur save après validation photo:', err);
+                        });
+                        
+                        // Afficher notification de succès
+                        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === validation.checkpointId);
+                        const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
+                        showNotification(`🎉 Photo validée pour "${checkpointName}" !`, 'success');
+                        
+                        // Mettre à jour l'interface
+                        updatePlayerRouteProgress();
+                    } else {
+                        console.log(`ℹ️ Checkpoint ${validation.checkpointId} déjà dans foundCheckpoints`);
+                    }
                 }
-            }
             } catch (error) {
                 console.error(`❌ [ERROR] Erreur traitement validation ${validation.id}:`, error);
                 console.error(`❌ [ERROR] Stack:`, error.stack);

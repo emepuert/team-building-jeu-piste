@@ -336,6 +336,62 @@ section h2 {
 .reset-btn { background: #e74c3c; color: white; }
 .reset-btn:hover { background: #c0392b; }
 
+/* Mini-boutons pour les actions sur les checkpoints */
+.mini-btn {
+    padding: 0.4rem 0.8rem;
+    border: none;
+    border-radius: 12px;
+    font-family: "Oswald", sans-serif;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.mini-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%) !important;
+    color: white;
+    box-shadow: none;
+}
+
+.locate-btn {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+}
+
+.locate-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2980b9 0%, #3498db 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
+}
+
+.locate-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
+}
+
+.validate-btn {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+}
+
+.validate-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+}
+
+.validate-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(39, 174, 96, 0.3);
+}
+
 /* Bouton info stylisé */
 .info-btn {
     background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);

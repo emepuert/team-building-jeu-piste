@@ -372,9 +372,6 @@ function updateTeamsDisplay() {
             </div>
             
             <div class="team-actions">
-                <button class="unlock-btn" onclick="unlockNextCheckpoint('${team.id}')">
-                    🔓 Débloquer suivant
-                </button>
                 <button class="reset-btn" onclick="resetTeam('${team.id}')">
                     🔄 Reset équipe
                 </button>
@@ -588,13 +585,14 @@ function getRouteProgressDisplay(team) {
         // Trouver les infos du checkpoint
         const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
         const checkpointName = checkpoint ? `${checkpoint.emoji} ${checkpoint.name}` : `Point ${checkpointId}`;
+        const isLobby = checkpoint && checkpoint.isLobby;
         
         // Déterminer le statut et la couleur
         let statusIcon, statusText, statusColor;
         
         if (isFound) {
             statusIcon = '✅';
-            statusText = 'trouvé';
+            statusText = 'validé';
             statusColor = '#27ae60';
         } else if (isUnlocked) {
             statusIcon = '🔓';
@@ -602,13 +600,37 @@ function getRouteProgressDisplay(team) {
             statusColor = '#f39c12';
         } else {
             statusIcon = '⏳';
-            statusText = 'à débloquer';
+            statusText = 'verrouillé';
             statusColor = '#95a5a6';
         }
         
+        // Boutons d'action
+        let actionsHTML = '';
+        
+        if (!isFound) {
+            // Checkpoint pas encore validé
+            
+            // Bouton LOCALISER (désactivé pour les lobbys car déjà visibles)
+            if (isLobby) {
+                actionsHTML += `<button class="mini-btn" disabled title="Lobby déjà visible">📍 Visible</button>`;
+            } else {
+                actionsHTML += `<button class="mini-btn locate-btn" onclick="locateCheckpoint('${team.id}', ${checkpointId})" title="Marquer comme découvert">📍 Localiser</button>`;
+            }
+            
+            // Bouton VALIDER (passe au suivant)
+            actionsHTML += `<button class="mini-btn validate-btn" onclick="validateCheckpoint('${team.id}', ${checkpointId})" title="Valider et débloquer le suivant">✅ Valider</button>`;
+        }
+        
         progressHTML += `
-            <div class="checkpoint-progress-item" style="color: ${statusColor};">
-                ${statusIcon} ${index + 1}. ${checkpointName} <small>(${statusText})</small>
+            <div class="checkpoint-progress-item" style="border-left: 3px solid ${statusColor}; padding-left: 10px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="color: ${statusColor};">
+                        ${statusIcon} ${index + 1}. ${checkpointName} <small>(${statusText})</small>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        ${actionsHTML}
+                    </div>
+                </div>
             </div>
         `;
     });
@@ -676,7 +698,8 @@ function formatDate(timestamp) {
 }
 
 // Actions admin
-async function unlockNextCheckpoint(teamId) {
+// Localiser un checkpoint (ajouter à foundCheckpoints)
+async function locateCheckpoint(teamId, checkpointId) {
     try {
         const team = teamsData.find(t => t.id === teamId);
         if (!team) {
@@ -684,120 +707,123 @@ async function unlockNextCheckpoint(teamId) {
             return;
         }
         
-        // SYSTÈME SIMPLIFIÉ : On se base UNIQUEMENT sur foundCheckpoints
         const foundCheckpoints = team.foundCheckpoints || [];
-        const teamRoute = team.route || [];
+        const unlockedCheckpoints = team.unlockedCheckpoints || [0];
         
-        console.log(`🔓 SYSTÈME SIMPLIFIÉ - Recherche prochain checkpoint pour ${team.name}:`, {
-            route: teamRoute,
-            found: foundCheckpoints
+        // Vérifier si déjà trouvé
+        if (foundCheckpoints.includes(checkpointId)) {
+            showNotification('Checkpoint déjà localisé', 'warning');
+            return;
+        }
+        
+        // Vérifier si le checkpoint est débloqué
+        if (!unlockedCheckpoints.includes(checkpointId)) {
+            showNotification('⚠️ Checkpoint non débloqué, localisation forcée', 'warning');
+        }
+        
+        // Ajouter aux checkpoints trouvés
+        const updatedFound = [...foundCheckpoints, checkpointId];
+        
+        await firebaseService.updateTeamProgress(teamId, {
+            foundCheckpoints: updatedFound
         });
         
-        // Chercher le PREMIER checkpoint de la route qui n'est PAS ENCORE DÉBLOQUÉ
-        // (Logique : on débloque les checkpoints dans l'ordre, pas selon les trouvés)
-        const currentUnlockedTemp = team.unlockedCheckpoints || [0];
-        let nextCheckpointId = null;
-        
-        for (const checkpointId of teamRoute) {
-            if (checkpointId === 0) continue; // Ignorer le lobby
-            
-            const isFound = foundCheckpoints.includes(checkpointId);
-            const isUnlocked = currentUnlockedTemp.includes(checkpointId);
-            
-            console.log(`  Checkpoint ${checkpointId}: found=${isFound}, unlocked=${isUnlocked}`);
-            
-            // On cherche le premier checkpoint PAS ENCORE DÉBLOQUÉ ET PAS ENCORE TROUVÉ
-            // (Un checkpoint trouvé ne doit JAMAIS être redébloqué !)
-            if (!isUnlocked && !isFound) {
-                nextCheckpointId = checkpointId;
-                console.log(`  ➡️ À débloquer (rendre accessible): ${checkpointId}`);
-                break;
-            } else if (isFound && !isUnlocked) {
-                console.log(`  ⚠️ INCOHÉRENCE: Checkpoint ${checkpointId} trouvé mais pas débloqué - IGNORÉ`);
-            }
-        }
-        
-        if (!nextCheckpointId) {
-            // Vérifier s'il y a des incohérences à corriger (checkpoints trouvés mais pas débloqués)
-            const foundButNotUnlocked = foundCheckpoints.filter(id => !currentUnlockedTemp.includes(id));
-            if (foundButNotUnlocked.length > 0) {
-                console.log(`🔧 CORRECTION AUTO: Checkpoints trouvés mais pas débloqués:`, foundButNotUnlocked);
-                showNotification(`🔧 Correction automatique des incohérences pour ${team.name}`, 'info');
-                
-                // Auto-corriger en ajoutant les checkpoints trouvés aux débloqués
-                const correctedUnlocked = [...new Set([...currentUnlockedTemp, ...foundCheckpoints])];
-                await firebaseService.updateTeamProgress(teamId, {
-                    unlockedCheckpoints: correctedUnlocked
-                });
-                return;
-            }
-            
-            showNotification(`Équipe ${team.name} a déjà tous ses checkpoints disponibles`, 'warning');
-            return;
-        }
-        
-        console.log(`🔧 Checkpoint trouvé à débloquer: ${nextCheckpointId}`);
-        console.log(`🔧 Team data:`, team);
-        
-        // NOUVEAU : On ajoute le checkpoint aux "unlockedCheckpoints" pour le rendre accessible
-        // Mais on garde la logique basée sur foundCheckpoints comme référence
-        let currentUnlocked;
-        try {
-            currentUnlocked = team.unlockedCheckpoints || [0];
-            console.log(`🔧 currentUnlocked extrait:`, currentUnlocked);
-        } catch (error) {
-            console.error(`❌ Erreur extraction unlockedCheckpoints:`, error);
-            currentUnlocked = [0];
-        }
-        console.log(`🔧 currentUnlocked:`, currentUnlocked);
-        console.log(`🔧 nextCheckpointId:`, nextCheckpointId);
-        console.log(`🔧 includes check:`, currentUnlocked.includes(nextCheckpointId));
-        
-        if (!currentUnlocked.includes(nextCheckpointId)) {
-            // AVANT de débloquer, corriger les incohérences (checkpoints trouvés doivent être débloqués)
-            const correctedUnlocked = [...new Set([...currentUnlocked, ...foundCheckpoints, 0])]; // Merge + dédoublonner
-            const finalUnlocked = [...correctedUnlocked, nextCheckpointId];
-            
-            console.log(`🔧 Avant update Firebase:`, {
-                correctedUnlocked,
-                finalUnlocked,
-                teamId
-            });
-            
-            try {
-                await firebaseService.updateTeamProgress(teamId, {
-                    unlockedCheckpoints: finalUnlocked
-                });
-                console.log(`✅ Firebase update réussi !`);
-            } catch (error) {
-                console.error(`❌ Erreur Firebase update:`, error);
-                throw error;
-            }
-        } else {
-            console.log(`ℹ️ Checkpoint ${nextCheckpointId} déjà dans unlocked:`, currentUnlocked);
-            showNotification(`Checkpoint ${nextCheckpointId} déjà accessible pour ${team.name}`, 'info');
-            return;
-        }
-        
         // Trouver le nom du checkpoint
-        const checkpointsData = await firebaseService.getAllCheckpoints();
-        const checkpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
-        const checkpointName = checkpoint ? checkpoint.name : `Point ${nextCheckpointId}`;
+        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
         
-        console.log(`🔓 Admin rend accessible checkpoint ${nextCheckpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`✅ "${checkpointName}" rendu accessible pour ${team.name}`, 'success');
+        console.log(`📍 Admin localise checkpoint ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(`📍 "${checkpointName}" localisé pour ${team.name}`, 'success');
         
-        // 📝 Logger l'action admin pour les users
+        // Logger l'action admin
         await firebaseService.createAdminLog(
-            'checkpoint_unlocked',
-            `🔓 Indice débloqué: "${checkpointName}"`,
+            'checkpoint_located',
+            `📍 Checkpoint localisé: "${checkpointName}"`,
             teamId,
-            { checkpointId: nextCheckpointId, checkpointName }
+            { checkpointId, checkpointName }
         );
         
     } catch (error) {
-        console.error('Erreur déblocage checkpoint:', error);
-        showNotification('❌ Erreur lors du déblocage', 'error');
+        console.error('Erreur localisation checkpoint:', error);
+        showNotification('❌ Erreur lors de la localisation', 'error');
+    }
+}
+
+// Valider un checkpoint (ajouter à foundCheckpoints + débloquer le suivant)
+async function validateCheckpoint(teamId, checkpointId) {
+    try {
+        const team = teamsData.find(t => t.id === teamId);
+        if (!team) {
+            showNotification('Équipe non trouvée', 'error');
+            return;
+        }
+        
+        const foundCheckpoints = team.foundCheckpoints || [];
+        const unlockedCheckpoints = team.unlockedCheckpoints || [0];
+        const teamRoute = team.route || [];
+        
+        // Vérifier si déjà validé
+        if (foundCheckpoints.includes(checkpointId)) {
+            showNotification('⚠️ Checkpoint déjà validé', 'warning');
+            return;
+        }
+        
+        // Ajouter aux checkpoints trouvés
+        const updatedFound = [...foundCheckpoints, checkpointId];
+        
+        // Trouver le checkpoint suivant dans la route
+        const currentIndex = teamRoute.indexOf(checkpointId);
+        let nextCheckpointId = null;
+        
+        if (currentIndex !== -1 && currentIndex < teamRoute.length - 1) {
+            nextCheckpointId = teamRoute[currentIndex + 1];
+        }
+        
+        // Préparer les checkpoints débloqués
+        let updatedUnlocked = [...unlockedCheckpoints];
+        
+        // S'assurer que le checkpoint validé est dans les débloqués
+        if (!updatedUnlocked.includes(checkpointId)) {
+            updatedUnlocked.push(checkpointId);
+        }
+        
+        // Débloquer le suivant s'il existe
+        if (nextCheckpointId && !updatedUnlocked.includes(nextCheckpointId)) {
+            updatedUnlocked.push(nextCheckpointId);
+        }
+        
+        // Mettre à jour Firebase
+        await firebaseService.updateTeamProgress(teamId, {
+            foundCheckpoints: updatedFound,
+            unlockedCheckpoints: updatedUnlocked
+        });
+        
+        // Trouver les noms des checkpoints
+        const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
+        const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
+        
+        let message = `✅ "${checkpointName}" validé pour ${team.name}`;
+        
+        if (nextCheckpointId) {
+            const nextCheckpoint = checkpointsData.find(cp => cp.id === nextCheckpointId);
+            const nextCheckpointName = nextCheckpoint ? nextCheckpoint.name : `Point ${nextCheckpointId}`;
+            message += ` → "${nextCheckpointName}" débloqué`;
+        }
+        
+        console.log(`✅ Admin valide checkpoint ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(message, 'success');
+        
+        // Logger l'action admin
+        await firebaseService.createAdminLog(
+            'checkpoint_validated',
+            `✅ Checkpoint validé: "${checkpointName}"${nextCheckpointId ? ` → Suivant débloqué` : ''}`,
+            teamId,
+            { checkpointId, checkpointName, nextCheckpointId }
+        );
+        
+    } catch (error) {
+        console.error('Erreur validation checkpoint:', error);
+        showNotification('❌ Erreur lors de la validation', 'error');
     }
 }
 

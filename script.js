@@ -5661,6 +5661,27 @@ function setupNotificationListeners() {
                 // Retirer du Set des validations en attente - photo validée
                 pendingPhotoValidations.delete(validation.checkpointId);
                 console.log(`✅ Photo approuvée - ${validation.checkpointId} retiré des validations en attente`);
+                
+                // ✅ MARQUER LE CHECKPOINT COMME COMPLÉTÉ
+                if (!foundCheckpoints.includes(validation.checkpointId)) {
+                    foundCheckpoints.push(validation.checkpointId);
+                    console.log(`✅ Checkpoint ${validation.checkpointId} ajouté à foundCheckpoints`);
+                    
+                    // Sauvegarder immédiatement
+                    forceSave('photo_validated').catch(err => {
+                        console.error('❌ Erreur save après validation photo:', err);
+                    });
+                    
+                    // Afficher notification de succès
+                    const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === validation.checkpointId);
+                    const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
+                    showNotification(`🎉 Photo validée pour "${checkpointName}" !`, 'success');
+                    
+                    // Mettre à jour l'interface
+                    updatePlayerRouteProgress();
+                } else {
+                    console.log(`ℹ️ Checkpoint ${validation.checkpointId} déjà dans foundCheckpoints`);
+                }
             }
         });
     });

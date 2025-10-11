@@ -1,5 +1,5 @@
 // Configuration du jeu de piste - Version Test
-console.log('✅✅✅ SCRIPT.JS VERSION 18:04 - AVEC LISTENERS FORCÉS ✅✅✅');
+console.log('✅✅✅ SCRIPT.JS VERSION 18:23 - DEBUG VALIDATIONS ACTIF ✅✅✅');
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -151,6 +151,7 @@ function initializeMobileConsoleLogger() {
                     message.includes('🔓 Checkpoint suivant débloqué') ||
                     message.includes('🔧') ||  // ✅ Logs de debug/config
                     message.includes('🔔') ||  // ✅ Logs de setup listeners
+                    message.includes('🔵') ||  // ✅ Logs de debug detaillés
                     message.includes('🎯 Checkpoint') && message.includes('trouvé')
                 ));
             
@@ -1358,6 +1359,9 @@ async function initializeApp() {
     
     // Initialiser le logger mobile console
     initializeMobileConsoleLogger();
+    
+    // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
+    console.log('✅✅✅ VERSION 18:23 CHARGÉE - DEBUG VALIDATIONS ACTIF ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -5719,18 +5723,23 @@ function setupNotificationListeners() {
         );
         
         resolvedValidations.forEach(validation => {
-            // ✅ UTILISER ID + STATUS pour permettre le retraitement si le statut change
-            // (ex: une validation rejected puis approved doit être traitée 2 fois)
-            const notificationKey = `${validation.id}_${validation.status}`;
-            
-            // Éviter les doublons pour cette combinaison ID + status
-            if (processedNotifications.has(notificationKey)) {
-                console.log(`🔄 Validation ${validation.id} (${validation.status}) déjà traitée, ignorée`);
-                return;
-            }
-            processedNotifications.add(notificationKey);
-            
-            console.log(`🆕 Traitement validation ${validation.id} (${validation.status}) pour checkpoint ${validation.checkpointId}`);
+            try {
+                console.log(`🔵 [DEBUG] Début traitement validation ${validation.id} status=${validation.status} checkpointId=${validation.checkpointId}`);
+                
+                // ✅ UTILISER ID + STATUS pour permettre le retraitement si le statut change
+                // (ex: une validation rejected puis approved doit être traitée 2 fois)
+                const notificationKey = `${validation.id}_${validation.status}`;
+                console.log(`🔵 [DEBUG] notificationKey créé: ${notificationKey}`);
+                
+                // Éviter les doublons pour cette combinaison ID + status
+                if (processedNotifications.has(notificationKey)) {
+                    console.log(`🔄 Validation ${validation.id} (${validation.status}) déjà traitée, ignorée`);
+                    return;
+                }
+                processedNotifications.add(notificationKey);
+                console.log(`🔵 [DEBUG] notificationKey ajouté au Set`);
+                
+                console.log(`🆕 Traitement validation ${validation.id} (${validation.status}) pour checkpoint ${validation.checkpointId}`);
             
             if (validation.status === 'rejected') {
                 // Ne pas afficher le rejet si :
@@ -5774,6 +5783,10 @@ function setupNotificationListeners() {
                 } else {
                     console.log(`ℹ️ Checkpoint ${validation.checkpointId} déjà dans foundCheckpoints`);
                 }
+            }
+            } catch (error) {
+                console.error(`❌ [ERROR] Erreur traitement validation ${validation.id}:`, error);
+                console.error(`❌ [ERROR] Stack:`, error.stack);
             }
         });
     });

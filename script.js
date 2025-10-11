@@ -37,6 +37,7 @@ let firebaseListenerUnsubscribe = null; // Fonction pour désabonner le listener
 let fallbackPollingInterval = null; // Intervalle de polling de secours
 let validationsListenerUnsubscribe = null; // Fonction pour désabonner le listener de validations
 let helpRequestsListenerUnsubscribe = null; // Fonction pour désabonner le listener de demandes d'aide
+let notificationListenersConfigured = false; // Track si les listeners de notifications sont configurés
 
 // ===== PROTECTION ANTI-SPAM MODALS =====
 let lastCheckpointTrigger = {}; // Timestamp par checkpoint
@@ -1126,6 +1127,16 @@ function disconnectTeam() {
             gpsWatchId = null;
         }
         
+        // ===== NOUVEAU: Nettoyer les listeners de notifications =====
+        if (helpRequestsListenerUnsubscribe) {
+            helpRequestsListenerUnsubscribe();
+            helpRequestsListenerUnsubscribe = null;
+        }
+        if (validationsListenerUnsubscribe) {
+            validationsListenerUnsubscribe();
+            validationsListenerUnsubscribe = null;
+        }
+        
         // Nettoyer les données locales
         safeLocalStorage().removeItem('currentTeamId');
         safeLocalStorage().removeItem('gameState');
@@ -1138,6 +1149,7 @@ function disconnectTeam() {
         unlockedCheckpoints = [0];
         gameStarted = false;
         discoveredCheckpoints.clear(); // Réinitialiser les checkpoints découverts
+        notificationListenersConfigured = false; // Reset le flag des listeners
         
         // Réinitialiser les métriques de save
         saveMetrics = {
@@ -1370,6 +1382,18 @@ function checkTeamLogin() {
     // ===== ANCIEN: checkSafariEmergencyBackup() désactivé =====
     // Maintenant la récupération se fait automatiquement via Firebase + localStorage
     
+    console.log('🔍 checkTeamLogin appelé', {
+        currentTeamId: currentTeamId,
+        firebaseService: !!firebaseService
+    });
+    
+    // ✅ SI L'ÉQUIPE EST DÉJÀ CONNECTÉE EN MÉMOIRE, RECONFIGURER LES LISTENERS
+    if (currentTeamId && firebaseService) {
+        console.log('🔄 Équipe déjà connectée en mémoire, reconfiguration des listeners...');
+        setupNotificationListeners();
+        return;
+    }
+    
     // Vérifier si une équipe est déjà connectée avec gestion d'erreurs
     const savedTeamId = safeExecute(
         () => localStorage.getItem('currentTeamId'),
@@ -1379,9 +1403,11 @@ function checkTeamLogin() {
     
     if (savedTeamId) {
         // Équipe déjà connectée, charger ses données
+        console.log('📂 Chargement équipe depuis localStorage:', savedTeamId);
         loadTeamData(savedTeamId);
     } else {
         // Pas d'équipe connectée, afficher le modal de connexion
+        console.log('🚪 Aucune équipe connectée, affichage modal login');
         showTeamLoginModal();
     }
 }
@@ -5626,7 +5652,8 @@ function blobToBase64(blob) {
 function setupNotificationListeners() {
     console.log('🔔 [SETUP] setupNotificationListeners appelé', {
         firebaseService: !!firebaseService,
-        currentTeamId: currentTeamId
+        currentTeamId: currentTeamId,
+        alreadyConfigured: notificationListenersConfigured
     });
     
     if (!firebaseService || !currentTeamId) {
@@ -5645,6 +5672,8 @@ function setupNotificationListeners() {
         validationsListenerUnsubscribe();
         validationsListenerUnsubscribe = null;
     }
+    
+    notificationListenersConfigured = false; // Reset avant de reconfigurer
     
     // Écouter les demandes d'aide résolues
     console.log('🔔 [SETUP] Configuration listener demandes aide...');
@@ -5738,8 +5767,23 @@ function setupNotificationListeners() {
             }
         });
     });
+    
+    notificationListenersConfigured = true; // Marquer comme configuré
     console.log('✅ [SETUP] Listener validations configuré avec succès');
 }
+
+// ✅ VÉRIFIER ET CONFIGURER LES LISTENERS AUTOMATIQUEMENT
+function ensureNotificationListenersAreActive() {
+    if (!notificationListenersConfigured && firebaseService && currentTeamId) {
+        console.log('🔧 Auto-configuration des listeners de notifications...');
+        setupNotificationListeners();
+    }
+}
+
+// ✅ VÉRIFIER PÉRIODIQUEMENT QUE LES LISTENERS SONT ACTIFS
+setInterval(() => {
+    ensureNotificationListenersAreActive();
+}, 5000); // Toutes les 5 secondes
 
 // Traiter une demande d'aide accordée par l'admin
 function handleGrantedHelpRequest(request) {

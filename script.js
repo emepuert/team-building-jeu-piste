@@ -5639,6 +5639,12 @@ function setupNotificationListeners() {
     
     // Écouter les validations résolues
     firebaseService.onTeamValidationsResolved(currentTeamId, (resolvedValidations) => {
+        console.log(`🔔 [VALIDATIONS] Reçu ${resolvedValidations.length} validations:`, resolvedValidations.map(v => ({
+            id: v.id,
+            status: v.status,
+            checkpointId: v.checkpointId
+        })));
+        
         // Créer un Set des checkpoints approuvés dans ce batch pour éviter d'afficher les rejets obsolètes
         const approvedCheckpoints = new Set(
             resolvedValidations
@@ -5647,9 +5653,18 @@ function setupNotificationListeners() {
         );
         
         resolvedValidations.forEach(validation => {
-            // Éviter les doublons
-            if (processedNotifications.has(validation.id)) return;
-            processedNotifications.add(validation.id);
+            // ✅ UTILISER ID + STATUS pour permettre le retraitement si le statut change
+            // (ex: une validation rejected puis approved doit être traitée 2 fois)
+            const notificationKey = `${validation.id}_${validation.status}`;
+            
+            // Éviter les doublons pour cette combinaison ID + status
+            if (processedNotifications.has(notificationKey)) {
+                console.log(`🔄 Validation ${validation.id} (${validation.status}) déjà traitée, ignorée`);
+                return;
+            }
+            processedNotifications.add(notificationKey);
+            
+            console.log(`🆕 Traitement validation ${validation.id} (${validation.status}) pour checkpoint ${validation.checkpointId}`);
             
             if (validation.status === 'rejected') {
                 // Ne pas afficher le rejet si :

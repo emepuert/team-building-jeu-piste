@@ -3576,10 +3576,41 @@ function setupEventListeners() {
         resetPhotoInterface();
     });
     
-    document.getElementById('start-camera-btn').addEventListener('click', startCamera);
-    document.getElementById('take-photo-btn').addEventListener('click', takePhoto);
-    document.getElementById('retake-photo-btn').addEventListener('click', retakePhoto);
-    document.getElementById('submit-photo-btn').addEventListener('click', submitPhoto);
+    const startCameraBtn = document.getElementById('start-camera-btn');
+    const takePhotoBtn = document.getElementById('take-photo-btn');
+    const retakePhotoBtn = document.getElementById('retake-photo-btn');
+    const submitPhotoBtn = document.getElementById('submit-photo-btn');
+    
+    if (startCameraBtn) {
+        startCameraBtn.addEventListener('click', startCamera);
+        console.log('✅ Event listener attaché à start-camera-btn');
+    } else {
+        console.error('❌ Bouton start-camera-btn non trouvé');
+    }
+    
+    if (takePhotoBtn) {
+        takePhotoBtn.addEventListener('click', takePhoto);
+        console.log('✅ Event listener attaché à take-photo-btn');
+    } else {
+        console.error('❌ Bouton take-photo-btn non trouvé');
+    }
+    
+    if (retakePhotoBtn) {
+        retakePhotoBtn.addEventListener('click', retakePhoto);
+        console.log('✅ Event listener attaché à retake-photo-btn');
+    } else {
+        console.error('❌ Bouton retake-photo-btn non trouvé');
+    }
+    
+    if (submitPhotoBtn) {
+        submitPhotoBtn.addEventListener('click', () => {
+            console.log('🔘 Clic détecté sur submit-photo-btn');
+            submitPhoto();
+        });
+        console.log('✅ Event listener attaché à submit-photo-btn');
+    } else {
+        console.error('❌ Bouton submit-photo-btn non trouvé');
+    }
     
     // Événements pour le modal audio
     document.querySelector('#audio-modal .close').addEventListener('click', () => {
@@ -5496,14 +5527,26 @@ function retakePhoto() {
 
 // Envoyer la photo pour validation
 async function submitPhoto() {
+    console.log('🔍 [submitPhoto] Fonction appelée', {
+        capturedPhotoBlob: !!capturedPhotoBlob,
+        currentPhotoCheckpoint: currentPhotoCheckpoint?.name,
+        currentTeamId: currentTeamId
+    });
+    
     if (!capturedPhotoBlob || !currentPhotoCheckpoint) {
+        console.error('❌ [submitPhoto] Données manquantes:', {
+            capturedPhotoBlob: !!capturedPhotoBlob,
+            currentPhotoCheckpoint: !!currentPhotoCheckpoint
+        });
         showNotification('❌ Aucune photo à envoyer', 'error');
         return;
     }
     
     try {
+        console.log('🔄 [submitPhoto] Conversion blob en base64...');
         // Convertir le blob en base64
         const base64 = await blobToBase64(capturedPhotoBlob);
+        console.log('✅ [submitPhoto] Conversion réussie, taille:', base64.length);
         
         // Créer la demande de validation avec la photo
         const validationData = {
@@ -5518,12 +5561,14 @@ async function submitPhoto() {
             message: `Photo envoyée pour "${currentPhotoCheckpoint.name}"`
         };
         
+        console.log('🔄 [submitPhoto] Envoi à Firebase...');
         await firebaseService.createValidationRequest(
             validationData.teamId,
             validationData.checkpointId,
             validationData.type,
             JSON.stringify(validationData.data)
         );
+        console.log('✅ [submitPhoto] Envoi Firebase réussi');
         
         // Marquer le checkpoint comme en attente de validation
         pendingPhotoValidations.add(currentPhotoCheckpoint.id);
@@ -5538,11 +5583,12 @@ async function submitPhoto() {
         
         showNotification(`📸 Photo envoyée pour validation de "${currentPhotoCheckpoint.name}"`, 'success');
         
-        console.log('📸 Photo envoyée pour validation:', currentPhotoCheckpoint.name);
+        console.log('✅ [submitPhoto] Photo envoyée pour validation:', currentPhotoCheckpoint.name);
         
     } catch (error) {
-        console.error('❌ Erreur envoi photo:', error);
-        showNotification('❌ Erreur lors de l\'envoi', 'error');
+        console.error('❌ [submitPhoto] Erreur envoi photo:', error);
+        console.error('📊 [submitPhoto] Stack trace:', error.stack);
+        showNotification('❌ Erreur lors de l\'envoi: ' + error.message, 'error');
     }
 }
 
@@ -6156,7 +6202,22 @@ function setupEnhancedVisibilityHandler() {
     
     // ===== EVENT: INTERACTION UTILISATEUR =====
     // Détecter le premier touch/click après le déverrouillage pour relancer le GPS si besoin
-    const interactionHandler = () => {
+    const interactionHandler = (event) => {
+        // ⚠️ NE PAS INTERFERER avec les clics sur les boutons, modals, etc.
+        // Seulement détecter les interactions générales avec la page
+        const target = event.target;
+        if (target && (
+            target.tagName === 'BUTTON' || 
+            target.tagName === 'A' ||
+            target.tagName === 'INPUT' ||
+            target.closest('button') ||
+            target.closest('.modal') ||
+            target.closest('.photo-btn')
+        )) {
+            // C'est un clic intentionnel sur un élément interactif, on ignore
+            return;
+        }
+        
         const now = Date.now();
         
         // Throttling: minimum 3 secondes entre les tentatives
@@ -6179,6 +6240,7 @@ function setupEnhancedVisibilityHandler() {
     };
     
     // Écouter touch et click sur le document
+    // Note: On garde passive: true car on ne modifie pas le comportement par défaut
     document.addEventListener('touchstart', interactionHandler, { passive: true });
     document.addEventListener('click', interactionHandler, { passive: true });
     

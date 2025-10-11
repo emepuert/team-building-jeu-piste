@@ -11,6 +11,8 @@ let validationsData = [];
 let helpRequestsData = [];
 // let usersData = []; // Supprimé - 1 équipe = 1 joueur
 let managementTeamsData = [];
+let checkpointsData = [];
+let currentEditingCheckpointId = null;
 
 // Configuration admin - Emails autorisés
 const ADMIN_CONFIG = {
@@ -1514,7 +1516,8 @@ async function denyHelpRequest(helpId) {
 
 // Exposer les fonctions globalement pour les onclick
 window.initializeAdmin = initializeAdmin;
-window.unlockNextCheckpoint = unlockNextCheckpoint;
+window.locateCheckpoint = locateCheckpoint;
+window.validateCheckpoint = validateCheckpoint;
 window.resetTeam = resetTeam;
 window.resetTeamProgression = resetTeamProgression;
 window.approveValidation = approveValidation;
@@ -1803,7 +1806,6 @@ async function loadManagementData() {
 }
 
 // Variables globales pour les données
-let checkpointsData = [];
 let routesData = [];
 
 // ===== SYSTÈME DE VÉRIFICATION DE SANTÉ =====
@@ -3012,7 +3014,6 @@ async function loadRoutes() {
 }
 
 // ===== ÉDITION DE CHECKPOINT =====
-let currentEditingCheckpointId = null;
 
 async function editCheckpoint(checkpointId) {
     try {

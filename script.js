@@ -1,4 +1,5 @@
 // Configuration du jeu de piste - Version Test
+console.log('🚀🚀🚀 SCRIPT.JS VERSION 17:43 - AVEC LISTENERS FORCÉS 🚀🚀🚀');
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],

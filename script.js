@@ -70,6 +70,9 @@ let audioAnimationId = null;
 let currentQCMCheckpoint = null;
 let selectedAnswers = [];
 
+// Variables pour l'énigme
+let currentRiddleCheckpoint = null;
+
 // ===== SYSTÈME DE MONITORING =====
 let errorLog = [];
 let performanceMetrics = {
@@ -2855,7 +2858,7 @@ function showClue(clue, checkpoint = null) {
     
     // Si l'indice contient une énigme, afficher la modal d'énigme
     if (clue.riddle) {
-        showRiddle(clue);
+        showRiddle(clue, checkpoint);
         return;
     }
     
@@ -2877,7 +2880,13 @@ function showClue(clue, checkpoint = null) {
     modal.style.display = 'block';
 }
 
-function showRiddle(clue) {
+function showRiddle(clue, checkpoint = null) {
+    // Vérifier si le modal a été fermé manuellement
+    if (checkpoint && dismissedModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal énigme fermé manuellement pour ${checkpoint.name}, ignoré (cliquez sur le marker pour rouvrir)`);
+        return;
+    }
+    
     const modal = document.getElementById('riddle-modal');
     const question = document.getElementById('riddle-question');
     const answerInput = document.getElementById('riddle-answer');
@@ -2890,6 +2899,9 @@ function showRiddle(clue) {
         console.error('❌ Configuration énigme manquante:', clue);
         return;
     }
+    
+    // Stocker le checkpoint actuel
+    currentRiddleCheckpoint = checkpoint;
     
     console.log('🧩 Configuration énigme trouvée:', riddleConfig);
     console.log('🧩 Structure complète de l\'indice:', clue);
@@ -3693,6 +3705,17 @@ function setupEventListeners() {
     // Événements pour le modal QCM
     document.querySelector('#qcm-modal .close').addEventListener('click', () => {
         document.getElementById('qcm-modal').style.display = 'none';
+        
+        // Ajouter à dismissedModals pour éviter réouverture automatique
+        if (currentQCMCheckpoint) {
+            dismissedModals.add(currentQCMCheckpoint.id);
+            console.log(`🚫 Modal QCM fermé manuellement pour ${currentQCMCheckpoint.name}, ajouté à dismissedModals`);
+        }
+        
+        // Retirer de activeModals
+        if (currentQCMCheckpoint) {
+            activeModals.delete(currentQCMCheckpoint.id);
+        }
     });
     
     document.getElementById('qcm-submit-btn').addEventListener('click', submitQCMAnswer);
@@ -3740,6 +3763,12 @@ function setupEventListeners() {
         }
         if (event.target === riddleModal) {
             riddleModal.style.display = 'none';
+            
+            // Ajouter à dismissedModals pour éviter réouverture automatique
+            if (currentRiddleCheckpoint) {
+                dismissedModals.add(currentRiddleCheckpoint.id);
+                console.log(`🚫 Modal énigme fermé manuellement pour ${currentRiddleCheckpoint.name}, ajouté à dismissedModals`);
+            }
         }
         if (event.target === successModal) {
             successModal.style.display = 'none';
@@ -4196,7 +4225,7 @@ function openChallengeFromPopup(checkpointId) {
         showQCMChallenge(checkpoint);
     } else if (checkpoint.clue?.riddle) {
         // Checkpoint avec énigme
-        showRiddle(checkpoint.clue);
+        showRiddle(checkpoint.clue, checkpoint);
     } else {
         console.warn('⚠️ [POPUP] Type de checkpoint non géré:', checkpoint.type);
         showNotification(`⚠️ Type d'épreuve non supporté: ${checkpoint.type}`, 'warning');
@@ -5001,6 +5030,12 @@ function showAudioChallenge(checkpoint) {
 function showQCMChallenge(checkpoint) {
     if (!checkpoint || checkpoint.type !== 'qcm') {
         console.error('❌ Checkpoint invalide pour défi QCM:', checkpoint);
+        return;
+    }
+    
+    // Vérifier si le modal a été fermé manuellement
+    if (dismissedModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal QCM fermé manuellement pour ${checkpoint.name}, ignoré (cliquez sur le marker pour rouvrir)`);
         return;
     }
     

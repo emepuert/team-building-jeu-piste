@@ -1618,7 +1618,13 @@ async function loadTeamGameData() {
         await startGame();
         
         // Démarrer la synchronisation temps réel avec l'équipe
+        console.log('📞 [DEBUG] Appel à startTeamSync()...');
         startTeamSync();
+        console.log('✅ [DEBUG] startTeamSync() terminé');
+        
+        // ✅ FORCER la configuration des listeners MAINTENANT
+        console.log('🔧 [FORCE] Configuration FORCÉE des listeners depuis loadTeamGameData');
+        setupNotificationListeners();
         
         // Démarrer la surveillance des modifications de checkpoints
         startCheckpointWatcher();

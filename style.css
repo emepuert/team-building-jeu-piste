@@ -158,7 +158,9 @@ main {
     border: none;
 }
 
-/* Fixer le z-index des contrôles Leaflet */
+/* === STYLES LEAFLET === */
+
+/* Contrôles */
 .leaflet-control-container {
     z-index: 500 !important;
 }
@@ -172,6 +174,91 @@ main {
     position: absolute;
     z-index: 800;
     pointer-events: none;
+}
+
+/* Popups modernes */
+.leaflet-popup-content-wrapper {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: 
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        0 8px 24px rgba(0, 0, 0, 0.12),
+        0 16px 48px rgba(93, 45, 230, 0.08);
+    padding: 0;
+    border: none;
+}
+
+.leaflet-popup-content {
+    margin: 20px;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    min-width: 200px;
+}
+
+.leaflet-popup-content h3 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gray-950);
+    font-family: var(--font-heading);
+}
+
+.leaflet-popup-content p {
+    margin: 8px 0;
+    color: var(--gray-700);
+}
+
+.leaflet-popup-content p em {
+    color: var(--gray-600);
+    font-style: italic;
+    font-size: 13px;
+}
+
+.leaflet-popup-content small {
+    color: var(--gray-500);
+    font-size: 12px;
+}
+
+.leaflet-popup-content button {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    border: none;
+    padding: 12px 20px;
+    border-radius: 12px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 12px;
+    width: 100%;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(93, 45, 230, 0.2);
+}
+
+.leaflet-popup-content button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(93, 45, 230, 0.3);
+}
+
+.leaflet-popup-content button:active {
+    transform: translateY(0);
+}
+
+.leaflet-popup-tip {
+    background: var(--white);
+    box-shadow: 0 3px 14px rgba(0,0,0,0.1);
+}
+
+.leaflet-popup-close-button {
+    font-size: 24px;
+    color: var(--gray-400);
+    padding: 8px 12px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.leaflet-popup-close-button:hover {
+    color: var(--gray-900);
 }
 
 #info-panel {
@@ -1967,22 +2054,27 @@ button:active:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
         border: none;
         border-radius: 50%;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 0;
     }
     
     .mobile-menu-close:hover {
-        background: var(--gray-100);
+        background: rgba(239, 68, 68, 0.1);
     }
     
     .mobile-menu-close:active {
-        background: var(--gray-200);
-        transform: scale(0.9);
+        background: rgba(239, 68, 68, 0.2);
+        transform: scale(0.95);
     }
     
     .mobile-menu-close svg {
-        color: var(--gray-700);
-        width: 22px;
-        height: 22px;
+        color: #ef4444;
+        stroke: #ef4444;
+        width: 26px;
+        height: 26px;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
     }
     
     /* Contenu du menu */

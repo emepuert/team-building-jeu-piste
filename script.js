@@ -3362,12 +3362,40 @@ function showSuccessModal() {
     const messageEl = document.getElementById('success-message');
     const teamInfoEl = document.getElementById('success-team-info');
     
-    // Personnaliser le message selon l'équipe
-    if (currentTeam && currentTeam.name) {
+    // Récupérer le dernier checkpoint (checkpoint final) pour son message personnalisé
+    const teamRoute = currentTeam?.route || [];
+    const lastCheckpointId = teamRoute[teamRoute.length - 1];
+    const finalCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === lastCheckpointId);
+    
+    // Utiliser le message personnalisé du checkpoint final si disponible
+    let customMessage = null;
+    let customInstructions = null;
+    
+    if (finalCheckpoint && finalCheckpoint.clue) {
+        customMessage = finalCheckpoint.clue.text;
+        customInstructions = finalCheckpoint.clue.instructions;
+        console.log('🏁 Message personnalisé du checkpoint final trouvé:', {
+            checkpoint: finalCheckpoint.name,
+            message: customMessage,
+            instructions: customInstructions
+        });
+    }
+    
+    // Afficher le message (personnalisé ou par défaut)
+    if (customMessage) {
+        messageEl.textContent = customMessage;
+    } else if (currentTeam && currentTeam.name) {
         messageEl.textContent = `L'équipe "${currentTeam.name}" a terminé son parcours !`;
-        teamInfoEl.textContent = `Félicitations équipe ${currentTeam.name} ! Vous avez relevé tous les défis de votre parcours. Tous les points restent accessibles pour continuer l'exploration.`;
     } else {
         messageEl.textContent = 'Vous avez terminé le jeu de piste !';
+    }
+    
+    // Afficher les instructions (personnalisées ou par défaut)
+    if (customInstructions) {
+        teamInfoEl.textContent = customInstructions;
+    } else if (currentTeam && currentTeam.name) {
+        teamInfoEl.textContent = `Félicitations équipe ${currentTeam.name} ! Vous avez relevé tous les défis de votre parcours. Tous les points restent accessibles pour continuer l'exploration.`;
+    } else {
         teamInfoEl.textContent = 'Bravo pour cette belle aventure ! Vous pouvez continuer à explorer.';
     }
     
@@ -4460,7 +4488,8 @@ function startTeamSync() {
                 nouveauxCheckpoints.forEach(cpId => {
                     const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
                     if (cp && cp.type === 'photo') {
-                        showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                        const successMsg = cp.clue?.successMessage || `✅ Photo validée pour "${cp.name}" !`;
+                        showNotification(successMsg, 'success');
                     }
                 });
             }
@@ -4569,7 +4598,8 @@ async function pollTeamData() {
                     nouveauxCheckpoints.forEach(cpId => {
                         const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
                         if (cp && cp.type === 'photo') {
-                            showNotification(`✅ Photo validée pour "${cp.name}" !`, 'success');
+                            const successMsg = cp.clue?.successMessage || `✅ Photo validée pour "${cp.name}" !`;
+                            showNotification(successMsg, 'success');
                             logToAdminConsole('✅ PHOTO', `${cp.name} validée`, 'success');
                         }
                     });
@@ -6023,10 +6053,10 @@ function setupNotificationListeners() {
                             console.error('❌ Erreur save après validation photo:', err);
                         });
                         
-                        // Afficher notification de succès
+                        // Afficher notification de succès avec message personnalisé
                         const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === validation.checkpointId);
-                        const checkpointName = checkpoint ? checkpoint.name : `Checkpoint ${validation.checkpointId}`;
-                        showNotification(`🎉 Photo validée pour "${checkpointName}" !`, 'success');
+                        const successMsg = checkpoint?.clue?.successMessage || `🎉 Photo validée pour "${checkpoint?.name || validation.checkpointId}" !`;
+                        showNotification(successMsg, 'success');
                         
                         // Mettre à jour l'interface
                         updatePlayerRouteProgress();

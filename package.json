@@ -1,0 +1,21 @@
+{
+  "name": "team-building-app",
+  "version": "1.0.0",
+  "description": "Application de jeu de piste géolocalisé pour team building",
+  "scripts": {
+    "build": "node build-config.js",
+    "deploy": "netlify deploy --prod"
+  },
+  "keywords": [
+    "team-building",
+    "geolocation",
+    "firebase",
+    "leaflet"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "netlify-cli": "^17.0.0"
+  }
+}
+

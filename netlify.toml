@@ -1,0 +1,55 @@
+# Configuration Netlify pour l'app Team Building
+[build]
+  # Pas de build nécessaire (app statique)
+  # Si tu veux utiliser les variables d'environnement, décommente la ligne suivante :
+  # command = "node build-config.js"
+  publish = "."
+
+# Headers HTTP pour éviter les problèmes de cache
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Désactiver le cache pour les fichiers HTML
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    # Cache court pour les JS (1 heure)
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    # Cache court pour les CSS (1 heure)
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/firebase-config.js"
+  [headers.values]
+    # JAMAIS cacher la config Firebase
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Redirections
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+# Configuration du service worker
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    # Le service worker ne doit JAMAIS être caché
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Protection des fichiers sensibles
+[[headers]]
+  for = "/*.template.js"
+  [headers.values]
+    X-Robots-Tag = "noindex"
+

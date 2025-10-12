@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===== HELPER FUNCTIONS =====
+    
+    // Vérifier si l'utilisateur est un admin authentifié
+    function isAdmin() {
+      return request.auth != null;
+    }
+    
+    // Vérifier si l'utilisateur est authentifié (équipe ou admin)
+    function isAuthenticated() {
+      return request.auth != null || request.auth.token.email != null;
+    }
+    
+    // ===== COLLECTIONS =====
+    
+    // Collection teams - Lecture publique (pour les équipes), écriture admin uniquement
+    match /teams/{teamId} {
+      // Toutes les équipes peuvent lire toutes les équipes (pour le classement, etc.)
+      allow read: if true;
+      
+      // Seulement les admins peuvent créer/modifier/supprimer des équipes
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // Collection checkpoints - Lecture publique, écriture admin
+    match /checkpoints/{checkpointId} {
+      allow read: if true; // Les équipes doivent pouvoir lire les checkpoints
+      allow write: if isAdmin(); // Seulement admin peut modifier
+    }
+    
+    // Collection routes - Lecture publique, écriture admin
+    match /routes/{routeId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    // Collection users (DEPRECATED mais gardée pour rétrocompatibilité)
+    match /users/{userId} {
+      allow read: if true; // Pour affichage admin et équipes
+      allow create: if true; // Les équipes peuvent créer des utilisateurs
+      allow update: if isAdmin() || resource.data.userId == userId; // Admin ou l'utilisateur lui-même
+      allow delete: if isAdmin();
+    }
+    
+    // Collection validations - Création publique, modification admin
+    match /validations/{validationId} {
+      allow read: if true; // Les équipes doivent voir leurs validations
+      allow create: if true; // Les équipes peuvent créer des demandes de validation
+      allow update, delete: if isAdmin(); // Seulement admin peut résoudre/supprimer
+    }
+    
+    // Collection help_requests - Création publique, modification admin
+    match /help_requests/{helpId} {
+      allow read: if true; // Les équipes doivent voir leurs demandes
+      allow create: if true; // Les équipes peuvent demander de l'aide
+      allow update, delete: if isAdmin(); // Seulement admin peut résoudre
+    }
+    
+    // Collection admin_logs - Lecture publique (pour notifications équipes), écriture admin
+    match /admin_logs/{logId} {
+      allow read: if true; // Les équipes voient les logs qui les concernent
+      allow write: if isAdmin();
+    }
+    
+    // Collection game_sessions - Admin uniquement
+    match /game_sessions/{sessionId} {
+      allow read: if true; // Les équipes peuvent voir la session active
+      allow write: if isAdmin();
+    }
+    
+    // Toutes les autres collections - Admin uniquement par défaut
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
+

@@ -1,21 +1,42 @@
-# Firebase config avec clés sensibles
+# Fichiers de configuration sensibles
 firebase-config.js
-
-# Node modules
-node_modules/
-
-# Logs
-*.log
-
-# Environment variables
 .env
 .env.local
 .env.production
 
-# IDE files
-.vscode/
-.idea/
-
-# OS generated files
+# Dossiers système
 .DS_Store
 Thumbs.db
+
+# Netlify
+.netlify/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Node modules (si tu ajoutes des dépendances plus tard)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -2350,32 +2350,19 @@ function addCheckpointsToMap() {
         });
         
         // Créer le contenu du popup
+        let buttonText = checkpoint.isLobby ? '🧭 GPS vers Lobby' : '🧭 Calculer l\'itinéraire GPS';
+        
         let popupContent = `
             <div>
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>${isFound ? '✅ Découvert !' : checkpoint.isLobby ? '🏠 Lobby' : '🔍 À découvrir'}</p>
                 ${!isFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-        `;
-        
-        // Ajouter le bouton GPS pour tous les points visibles
-        if (userPosition) {
-            let buttonText = '🧭 Calculer l\'itinéraire GPS';
-            let targetId = checkpoint.id;
-            
-            // Tous les points (y compris le lobby) ont un bouton GPS vers eux-mêmes
-            if (checkpoint.isLobby) {
-                buttonText = '🧭 GPS vers Lobby';
-            }
-            
-            popupContent += `
-                <button onclick="calculateRouteFromPopup(${targetId})">
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                     ${buttonText}
                 </button>
-            `;
-        }
-        
-        popupContent += '</div>';
+            </div>
+        `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
@@ -3095,18 +3082,11 @@ function unlockCheckpoint(checkpointId) {
                 <p>🔍 À découvrir</p>
                 <p><em>${checkpoint.hint}</em></p>
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-        `;
-        
-        // Ajouter le bouton GPS
-        if (userPosition) {
-            popupContent += `
                 <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                     🧭 Calculer l'itinéraire GPS
                 </button>
-            `;
-        }
-        
-        popupContent += '</div>';
+            </div>
+        `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
@@ -4286,12 +4266,21 @@ window.forceBrowserRedetection = forceBrowserRedetection;
 // Fonction appelée depuis le popup du marqueur
 function calculateRouteFromPopup(checkpointId) {
     const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
-    if (checkpoint && userPosition) {
-        // Fermer tous les popups ouverts
-        map.closePopup();
-        
-        calculateRoute(userPosition, checkpoint);
+    
+    if (!checkpoint) {
+        showNotification('Checkpoint introuvable', 'error');
+        return;
     }
+    
+    if (!userPosition) {
+        showNotification('📍 Position GPS en cours de détection...', 'info');
+        return;
+    }
+    
+    // Fermer tous les popups ouverts
+    map.closePopup();
+    
+    calculateRoute(userPosition, checkpoint);
 }
 
 // Ouvrir manuellement une épreuve depuis le popup (bypass dismissedModals)
@@ -4672,18 +4661,11 @@ function revealCheckpointOnMap(checkpointId) {
                 <p>🔓 Débloqué par l'admin</p>
                 <p><em>${checkpoint.hint}</em></p>
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-        `;
-        
-        // Ajouter le bouton GPS
-        if (userPosition) {
-            popupContent += `
                 <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                     🧭 Calculer l'itinéraire GPS
                 </button>
-            `;
-        }
-        
-        popupContent += '</div>';
+            </div>
+        `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)

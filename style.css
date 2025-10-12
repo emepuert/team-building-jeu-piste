@@ -446,11 +446,15 @@ main {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(12px);
-    /* Centrage parfait */
-    display: flex;
+    padding: var(--space-lg);
+}
+
+/* Quand la modale est affichée */
+.modal[style*="display: flex"],
+.modal[style*="display: block"] {
+    display: flex !important;
     align-items: center;
     justify-content: center;
-    padding: var(--space-lg);
 }
 
 .modal-content {

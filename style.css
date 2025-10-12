@@ -609,11 +609,11 @@ main {
 }
 
 .close {
-    color: var(--gray-500);
+    color: var(--gray-600);
     position: absolute;
-    top: var(--space-md);
-    right: var(--space-md);
-    font-size: 24px;
+    top: var(--space-lg);
+    right: var(--space-lg);
+    font-size: 28px;
     font-weight: 300;
     cursor: pointer;
     line-height: 1;
@@ -624,14 +624,19 @@ main {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--gray-100);
+    background: transparent;
     z-index: 1;
 }
 
 .close:hover {
     color: var(--gray-900);
+    background: var(--gray-100);
+    transform: rotate(90deg) scale(1.05);
+}
+
+.close:active {
     background: var(--gray-200);
-    transform: rotate(90deg);
+    transform: rotate(90deg) scale(0.95);
 }
 
 #clue-title {
@@ -874,7 +879,9 @@ button:active {
     .close {
         width: 32px;
         height: 32px;
-        font-size: 20px;
+        font-size: 24px;
+        top: var(--space-md);
+        right: var(--space-md);
     }
 }
 
@@ -1831,41 +1838,38 @@ button:active {
         justify-content: center;
         position: fixed;
         bottom: 24px;
-        left: 24px; /* À gauche - plus accessible */
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 16px; /* Carré arrondi, pas cercle */
+        left: 24px;
+        width: 56px;
+        height: 56px;
+        background: var(--white);
+        border: none;
+        border-radius: 50%; /* Cercle parfait épuré */
         box-shadow: 
-            0 8px 24px rgba(93, 45, 230, 0.35),
-            0 4px 8px rgba(0, 0, 0, 0.15),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            0 2px 8px rgba(0, 0, 0, 0.08),
+            0 8px 24px rgba(0, 0, 0, 0.12);
         cursor: pointer;
         z-index: 1000;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        backdrop-filter: blur(10px);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
     .mobile-menu-btn:hover {
         transform: translateY(-2px);
         box-shadow: 
-            0 12px 32px rgba(93, 45, 230, 0.4),
-            0 6px 12px rgba(0, 0, 0, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            0 4px 12px rgba(0, 0, 0, 0.1),
+            0 12px 32px rgba(0, 0, 0, 0.15);
     }
     
     .mobile-menu-btn:active {
-        transform: translateY(0) scale(0.96);
+        transform: translateY(0) scale(0.95);
         box-shadow: 
-            0 4px 16px rgba(93, 45, 230, 0.3),
-            0 2px 4px rgba(0, 0, 0, 0.1),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            0 2px 8px rgba(0, 0, 0, 0.08),
+            0 4px 16px rgba(0, 0, 0, 0.1);
     }
     
     .mobile-menu-btn svg {
-        color: var(--white);
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+        color: var(--gray-900);
+        width: 24px;
+        height: 24px;
     }
     
     /* Badge de notification (optionnel, pour plus tard) */
@@ -1936,19 +1940,27 @@ button:active {
         justify-content: center;
         width: 40px;
         height: 40px;
-        background: var(--gray-100);
+        background: transparent;
         border: none;
         border-radius: 50%;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: all 0.2s;
+    }
+    
+    .mobile-menu-close:hover {
+        background: var(--gray-100);
     }
     
     .mobile-menu-close:active {
         background: var(--gray-200);
+        transform: scale(0.9);
     }
     
     .mobile-menu-close svg {
         color: var(--gray-700);
+        width: 20px;
+        height: 20px;
+        stroke-width: 2.5;
     }
     
     /* Contenu du menu */
@@ -2166,11 +2178,15 @@ button:active {
 /* === RESPONSIVE TRÈS PETITS ÉCRANS (480px et moins) === */
 @media (max-width: 480px) {
     .mobile-menu-btn {
-        width: 56px;
-        height: 56px;
+        width: 52px;
+        height: 52px;
         bottom: 20px;
         left: 20px;
-        border-radius: 14px;
+    }
+    
+    .mobile-menu-btn svg {
+        width: 22px;
+        height: 22px;
     }
     
     .mobile-menu-header {

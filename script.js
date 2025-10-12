@@ -1370,7 +1370,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:55 CHARGÉE - DEBUG ROUTE + REDESSINER CARTE ✅✅✅');
+    console.log('✅✅✅ VERSION 18:00 CHARGÉE - FIX QCM + ÉNIGMES ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -2639,10 +2639,13 @@ function isGPSOperationAllowed() {
 function foundCheckpoint(checkpoint) {
     if (foundCheckpoints.includes(checkpoint.id)) return;
     
-    // Pour les checkpoints photo et audio, ne pas marquer comme trouvé immédiatement
+    // Pour les checkpoints photo, audio, QCM et énigmes, ne pas marquer comme trouvé immédiatement
     // Photo : attendre la validation admin
     // Audio : attendre la réussite de l'épreuve
-    if (checkpoint.type !== 'photo' && checkpoint.type !== 'audio') {
+    // QCM : attendre la bonne réponse
+    // Énigme (riddle) : attendre la bonne réponse
+    const hasRiddle = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
+    if (checkpoint.type !== 'photo' && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddle) {
         foundCheckpoints.push(checkpoint.id);
     }
     
@@ -2652,9 +2655,10 @@ function foundCheckpoint(checkpoint) {
         currentRoute = null;
     }
     
-    // Mettre à jour le marqueur et le cercle (sauf pour les épreuves audio non réussies)
+    // Mettre à jour le marqueur et le cercle (sauf pour les épreuves audio, QCM et énigmes non réussies)
     const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
-    if (markerData && checkpoint.type !== 'audio') {
+    const hasRiddleCheck = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
+    if (markerData && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddleCheck) {
         const newIcon = L.divIcon({
             className: 'checkpoint-marker found',
             html: checkpoint.emoji,
@@ -2702,8 +2706,8 @@ function foundCheckpoint(checkpoint) {
         
         markerData.marker.setPopupContent(popupContent);
         
-        // Mettre à jour le cercle en vert (sauf pour les épreuves audio non réussies)
-        if (checkpoint.type !== 'audio') {
+        // Mettre à jour le cercle en vert (sauf pour les épreuves audio, QCM et énigmes non réussies)
+        if (checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddleCheck) {
             markerData.circle.setStyle({
                 color: '#27ae60',
                 fillColor: '#27ae60'
@@ -2746,7 +2750,8 @@ function foundCheckpoint(checkpoint) {
     // ===== SAUVEGARDE IMMÉDIATE pour checkpoint trouvé =====
     // L'auto-save gère déjà les sauvegardes périodiques, mais on sauve immédiatement 
     // quand un checkpoint est trouvé pour avoir une réactivité maximale
-    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio') {
+    const hasRiddleSave = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
+    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'photo' && !hasRiddleSave) {
         // ===== ANCIEN: GPS Lock check désactivé =====
         // Plus de blocage par GPS lock, l'auto-save gère tout
         // Plus besoin d'utilisateurs - équipe directement
@@ -2781,6 +2786,10 @@ function foundCheckpoint(checkpoint) {
         }, 30000);
     } else if (checkpoint.type === 'audio') {
         console.log('🎤 Checkpoint audio - attente réussite épreuve');
+    } else if (checkpoint.type === 'qcm') {
+        console.log('📋 Checkpoint QCM - attente bonne réponse');
+    } else if (hasRiddleSave) {
+        console.log('🧩 Checkpoint énigme - attente bonne réponse');
     }
     
     // Mettre à jour l'interface
@@ -2954,6 +2963,44 @@ function checkRiddleAnswer() {
         const successMessage = currentCheckpoint.clue.text || '🎉 Correct ! Énigme résolue !';
         feedback.innerHTML = successMessage;
         feedback.className = 'success';
+        
+        console.log('🎉 Énigme réussie !');
+        
+        // Marquer ce checkpoint comme trouvé AVANT de débloquer le suivant
+        if (!foundCheckpoints.includes(currentCheckpoint.id)) {
+            foundCheckpoints.push(currentCheckpoint.id);
+            
+            // Mettre à jour le marqueur et le cercle sur la carte
+            const markerData = checkpointMarkers.find(m => m.id === currentCheckpoint.id);
+            if (markerData) {
+                // Mettre à jour l'icône
+                if (markerData.marker) {
+                    const foundIcon = L.divIcon({
+                        className: 'checkpoint-marker found',
+                        html: currentCheckpoint.emoji,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    });
+                    markerData.marker.setIcon(foundIcon);
+                }
+                
+                // Mettre à jour le cercle en vert
+                if (markerData.circle) {
+                    markerData.circle.setStyle({
+                        color: '#27ae60',
+                        fillColor: '#27ae60'
+                    });
+                }
+            }
+            
+            // Sauvegarder dans Firebase
+            if (firebaseService && currentTeamId) {
+                firebaseService.updateTeamProgress(currentTeamId, {
+                    foundCheckpoints: foundCheckpoints,
+                    updatedAt: new Date()
+                }).catch(error => console.error('❌ Erreur sauvegarde énigme:', error));
+            }
+        }
         
         // Débloquer le prochain point selon l'équipe
         const nextCheckpointId = getNextCheckpointForTeam();
@@ -5176,16 +5223,27 @@ function submitQCMAnswer() {
         if (!foundCheckpoints.includes(currentQCMCheckpoint.id)) {
             foundCheckpoints.push(currentQCMCheckpoint.id);
             
-            // Mettre à jour le marqueur sur la carte
+            // Mettre à jour le marqueur et le cercle sur la carte
             const markerData = checkpointMarkers.find(m => m.id === currentQCMCheckpoint.id);
-            if (markerData && markerData.marker) {
-                const foundIcon = L.divIcon({
-                    className: 'checkpoint-marker found',
-                    html: currentQCMCheckpoint.emoji,
-                    iconSize: [30, 30],
-                    iconAnchor: [15, 15]
-                });
-                markerData.marker.setIcon(foundIcon);
+            if (markerData) {
+                // Mettre à jour l'icône
+                if (markerData.marker) {
+                    const foundIcon = L.divIcon({
+                        className: 'checkpoint-marker found',
+                        html: currentQCMCheckpoint.emoji,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    });
+                    markerData.marker.setIcon(foundIcon);
+                }
+                
+                // Mettre à jour le cercle en vert
+                if (markerData.circle) {
+                    markerData.circle.setStyle({
+                        color: '#27ae60',
+                        fillColor: '#27ae60'
+                    });
+                }
             }
             
             // Sauvegarder dans Firebase

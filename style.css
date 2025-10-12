@@ -1715,31 +1715,69 @@ button:active {
         z-index: 1;
     }
     
-    /* === BOUTON FLOTTANT === */
+    /* === BOUTON FLOTTANT MENU === */
     .mobile-menu-btn {
         display: flex;
         align-items: center;
         justify-content: center;
         position: fixed;
         bottom: 24px;
-        right: 24px; /* À droite (plus pratique pour la main droite) */
-        width: 56px;
-        height: 56px;
-        background: var(--white);
-        border: none;
-        border-radius: 50%;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        left: 24px; /* À gauche - plus accessible */
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 16px; /* Carré arrondi, pas cercle */
+        box-shadow: 
+            0 8px 24px rgba(93, 45, 230, 0.35),
+            0 4px 8px rgba(0, 0, 0, 0.15),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
         cursor: pointer;
         z-index: 1000;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+    }
+    
+    .mobile-menu-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 
+            0 12px 32px rgba(93, 45, 230, 0.4),
+            0 6px 12px rgba(0, 0, 0, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
     }
     
     .mobile-menu-btn:active {
-        transform: scale(0.95);
+        transform: translateY(0) scale(0.96);
+        box-shadow: 
+            0 4px 16px rgba(93, 45, 230, 0.3),
+            0 2px 4px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
     }
     
     .mobile-menu-btn svg {
-        color: var(--gray-900);
+        color: var(--white);
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    }
+    
+    /* Badge de notification (optionnel, pour plus tard) */
+    .mobile-menu-btn::after {
+        content: '';
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        width: 12px;
+        height: 12px;
+        background: #e74c3c;
+        border: 2px solid var(--white);
+        border-radius: 50%;
+        opacity: 0;
+        transform: scale(0);
+        transition: all 0.2s;
+    }
+    
+    .mobile-menu-btn.has-notification::after {
+        opacity: 1;
+        transform: scale(1);
     }
     
     /* === MENU SLIDE-IN === */
@@ -1996,10 +2034,11 @@ button:active {
 /* === RESPONSIVE TRÈS PETITS ÉCRANS (480px et moins) === */
 @media (max-width: 480px) {
     .mobile-menu-btn {
-        width: 52px;
-        height: 52px;
+        width: 56px;
+        height: 56px;
         bottom: 20px;
-        right: 20px;
+        left: 20px;
+        border-radius: 14px;
     }
     
     .mobile-menu-header {
@@ -2009,5 +2048,41 @@ button:active {
     .mobile-menu-content {
         padding: var(--space-md);
         gap: var(--space-md);
+    }
+}
+
+/* === CONTRÔLES LEAFLET (ZOOM + LOCALISATION) === */
+@media (max-width: 768px) {
+    /* Repositionner les contrôles Leaflet sur mobile */
+    .leaflet-top.leaflet-left {
+        top: 16px;
+        left: 16px;
+    }
+    
+    /* S'assurer que le bouton de localisation est bien au-dessus du zoom */
+    .leaflet-control-custom {
+        margin-bottom: 10px !important;
+    }
+    
+    /* Améliorer le style des contrôles Leaflet sur mobile */
+    .leaflet-bar {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        border-radius: 8px !important;
+        overflow: hidden;
+    }
+    
+    .leaflet-bar a {
+        width: 40px !important;
+        height: 40px !important;
+        line-height: 40px !important;
+        font-size: 20px !important;
+    }
+    
+    /* Style du bouton de localisation */
+    .leaflet-control-custom {
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
     }
 }

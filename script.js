@@ -1370,7 +1370,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:00 CHARGÉE - FIX QCM + ÉNIGMES ✅✅✅');
+    console.log('✅✅✅ VERSION 18:25 CHARGÉE - FIX RÉOUVERTURE MODALS ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -3017,6 +3017,12 @@ function checkRiddleAnswer() {
         
         setTimeout(() => {
             document.getElementById('riddle-modal').style.display = 'none';
+            
+            // Marquer comme dismissed pour éviter la réouverture automatique
+            if (currentCheckpoint) {
+                dismissedModals.add(currentCheckpoint.id);
+                console.log(`✅ Énigme résolue pour ${currentCheckpoint.name}, modal marqué comme dismissed`);
+            }
             
             // Zoomer sur le nouveau point débloqué
             if (nextCheckpointId) {
@@ -5260,6 +5266,12 @@ function submitQCMAnswer() {
             document.getElementById('qcm-modal').style.display = 'none';
             activeModals.delete(currentQCMCheckpoint.id); // Nettoyer le modal actif
             
+            // Marquer comme dismissed pour éviter la réouverture automatique
+            if (currentQCMCheckpoint) {
+                dismissedModals.add(currentQCMCheckpoint.id);
+                console.log(`✅ QCM résolu pour ${currentQCMCheckpoint.name}, modal marqué comme dismissed`);
+            }
+            
             // Débloquer le prochain point selon l'équipe
             const nextCheckpointId = getNextCheckpointForTeam();
             if (nextCheckpointId) {
@@ -5514,6 +5526,13 @@ function audioChallengeSucess() {
     // Débloquer le prochain checkpoint après un délai
     setTimeout(() => {
         document.getElementById('audio-modal').style.display = 'none';
+        
+        // Marquer comme dismissed pour éviter la réouverture automatique
+        if (currentAudioCheckpoint) {
+            activeModals.delete(currentAudioCheckpoint.id);
+            dismissedModals.add(currentAudioCheckpoint.id);
+            console.log(`✅ Audio résolu pour ${currentAudioCheckpoint.name}, modal marqué comme dismissed`);
+        }
         
         // Débloquer le prochain point selon l'équipe
         const nextCheckpointId = getNextCheckpointForTeam();

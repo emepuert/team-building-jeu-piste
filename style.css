@@ -2084,27 +2084,31 @@ button:active {
     
     /* Améliorer le style des contrôles Leaflet sur mobile */
     .leaflet-bar {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-        border-radius: 8px !important;
+        border: 2px solid rgba(0,0,0,0.2) !important;
+        border-radius: 4px !important;
         overflow: hidden;
         margin: 0 !important;
+        box-sizing: content-box !important;
     }
     
     .leaflet-bar a {
-        width: 40px !important;
-        height: 40px !important;
-        line-height: 40px !important;
+        width: 30px !important;
+        height: 30px !important;
+        line-height: 30px !important;
         font-size: 20px !important;
+        border: none !important;
     }
     
-    /* Style du bouton de localisation - même largeur que le zoom */
+    /* Style du bouton de localisation - même style que le zoom */
     .leaflet-control-custom {
-        width: 40px !important;
-        height: 40px !important;
-        border-radius: 8px !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        width: 30px !important;
+        height: 30px !important;
+        border: 2px solid rgba(0,0,0,0.2) !important;
+        border-radius: 4px !important;
+        background-clip: padding-box !important;
         display: flex !important;
-        align-items: center;
-        justify-content: center;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: content-box !important;
     }
 }

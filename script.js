@@ -1802,13 +1802,14 @@ function addLocationControl() {
             
             container.style.backgroundColor = 'white';
             container.style.backgroundImage = 'none';
-            container.style.width = '34px';
-            container.style.height = '34px';
+            container.style.width = '30px';
+            container.style.height = '30px';
             container.style.cursor = 'pointer';
             container.style.display = 'flex';
             container.style.alignItems = 'center';
             container.style.justifyContent = 'center';
             container.style.fontSize = '16px';
+            container.style.border = '2px solid rgba(0,0,0,0.2)';
             container.innerHTML = '📍';
             container.title = 'Me localiser';
             

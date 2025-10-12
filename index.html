@@ -71,6 +71,62 @@
         <main>
             <div id="map"></div>
             
+            <!-- Bouton flottant mobile -->
+            <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Ouvrir le menu">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12h18M3 6h18M3 18h18"/>
+                </svg>
+            </button>
+            
+            <!-- Menu mobile slide-in -->
+            <div id="mobile-menu" class="mobile-menu">
+                <div class="mobile-menu-header">
+                    <h2>📊 Menu</h2>
+                    <button id="mobile-menu-close" class="mobile-menu-close" aria-label="Fermer le menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mobile-menu-content">
+                    <!-- Statut connexion -->
+                    <div id="mobile-team-info" class="mobile-section">
+                        <div id="mobile-status">Localisation en cours...</div>
+                        <div id="mobile-team-name"></div>
+                    </div>
+                    
+                    <!-- Progression -->
+                    <div id="mobile-progress" class="mobile-section">
+                        <h3>🎯 Progression</h3>
+                        <div class="mobile-progress-bar">
+                            <div id="mobile-progress-fill" class="mobile-progress-fill"></div>
+                        </div>
+                        <p id="mobile-progress-text">0 / 5 indices trouvés</p>
+                    </div>
+                    
+                    <!-- Parcours -->
+                    <div id="mobile-route" class="mobile-section">
+                        <h3>📋 Votre parcours</h3>
+                        <div id="mobile-route-list"></div>
+                    </div>
+                    
+                    <!-- Prochain objectif -->
+                    <div id="mobile-hint" class="mobile-section">
+                        <h3>🔍 Prochain objectif</h3>
+                        <p id="mobile-hint-text">Trouvez votre position pour commencer l'aventure !</p>
+                        <button id="mobile-gps-route-btn" style="display: none;">🧭 Calculer l'itinéraire GPS</button>
+                    </div>
+                    
+                    <!-- Bouton déconnexion -->
+                    <div class="mobile-section">
+                        <button id="mobile-disconnect-btn" class="mobile-disconnect-btn">
+                            🚪 Déconnexion
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
             <div id="info-panel">
                 
                 <div id="progress">

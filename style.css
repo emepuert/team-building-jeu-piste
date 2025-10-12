@@ -1663,3 +1663,301 @@ button:active {
         text-align: left;
     }
 }
+
+/* ===== REFONTE UI MOBILE ===== */
+
+/* Bouton flottant : caché par défaut (desktop), visible sur mobile */
+.mobile-menu-btn {
+    display: none; /* Caché sur desktop */
+}
+
+/* Menu mobile : caché par défaut */
+.mobile-menu {
+    display: none; /* Caché sur desktop */
+}
+
+/* === RESPONSIVE MOBILE (768px et moins) === */
+@media (max-width: 768px) {
+    
+    /* === CACHER LES ÉLÉMENTS DESKTOP === */
+    header {
+        display: none !important; /* Cacher complètement le header */
+    }
+    
+    #info-panel {
+        display: none !important; /* Cacher complètement l'info panel */
+    }
+    
+    /* === CARTE EN PLEIN ÉCRAN === */
+    body {
+        overflow: hidden; /* Empêcher le scroll */
+    }
+    
+    #app {
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    main {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    
+    #map {
+        height: 100vh !important; /* Plein écran */
+        min-height: 100vh !important;
+        width: 100vw;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+    }
+    
+    /* === BOUTON FLOTTANT === */
+    .mobile-menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        bottom: 24px;
+        right: 24px; /* À droite (plus pratique pour la main droite) */
+        width: 56px;
+        height: 56px;
+        background: var(--white);
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        z-index: 1000;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .mobile-menu-btn:active {
+        transform: scale(0.95);
+    }
+    
+    .mobile-menu-btn svg {
+        color: var(--gray-900);
+    }
+    
+    /* === MENU SLIDE-IN === */
+    .mobile-menu {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100vh;
+        background: var(--white);
+        z-index: 2000;
+        transform: translateX(-100%); /* Commence hors écran à gauche */
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .mobile-menu.open {
+        transform: translateX(0); /* Slide vers la droite */
+    }
+    
+    /* Header du menu */
+    .mobile-menu-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--space-lg);
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--white);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    
+    .mobile-menu-header h2 {
+        font-family: var(--font-heading);
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--gray-950);
+        margin: 0;
+    }
+    
+    .mobile-menu-close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        background: var(--gray-100);
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .mobile-menu-close:active {
+        background: var(--gray-200);
+    }
+    
+    .mobile-menu-close svg {
+        color: var(--gray-700);
+    }
+    
+    /* Contenu du menu */
+    .mobile-menu-content {
+        padding: var(--space-lg);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-lg);
+    }
+    
+    /* Sections du menu */
+    .mobile-section {
+        background: var(--gray-50);
+        padding: var(--space-md);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--gray-200);
+    }
+    
+    .mobile-section h3 {
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin: 0 0 var(--space-sm) 0;
+    }
+    
+    .mobile-section p {
+        margin: var(--space-sm) 0 0 0;
+        color: var(--gray-700);
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+    
+    /* Statut & Team info mobile */
+    #mobile-status {
+        font-size: 0.9rem;
+        color: var(--gray-600);
+        padding: var(--space-sm);
+        background: var(--gray-100);
+        border-radius: var(--radius-md);
+        text-align: center;
+    }
+    
+    #mobile-team-name {
+        font-weight: 600;
+        color: var(--primary);
+        margin-top: var(--space-sm);
+        text-align: center;
+        font-size: 1.1rem;
+    }
+    
+    /* Barre de progression mobile */
+    .mobile-progress-bar {
+        width: 100%;
+        height: 12px;
+        background: var(--gray-200);
+        border-radius: 100px;
+        overflow: hidden;
+        margin: var(--space-sm) 0;
+    }
+    
+    .mobile-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--secondary));
+        border-radius: 100px;
+        transition: width 0.5s ease;
+        width: 0%;
+    }
+    
+    #mobile-progress-text {
+        font-weight: 600;
+        color: var(--gray-900);
+        text-align: center;
+        margin: var(--space-sm) 0 0 0 !important;
+    }
+    
+    /* Liste de parcours mobile */
+    #mobile-route-list {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+        margin-top: var(--space-sm);
+    }
+    
+    /* Bouton GPS mobile */
+    #mobile-gps-route-btn {
+        margin-top: var(--space-md);
+        width: 100%;
+        padding: var(--space-md);
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: var(--white);
+        border: none;
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+    
+    #mobile-gps-route-btn:active {
+        transform: scale(0.98);
+    }
+    
+    /* Bouton déconnexion mobile */
+    .mobile-disconnect-btn {
+        width: 100%;
+        padding: var(--space-md);
+        background: #e74c3c;
+        color: var(--white);
+        border: none;
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .mobile-disconnect-btn:active {
+        background: #c0392b;
+    }
+    
+    /* === OVERLAY POUR FERMER LE MENU === */
+    .mobile-menu-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1999;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .mobile-menu-overlay.active {
+        display: block;
+        opacity: 1;
+    }
+}
+
+/* === RESPONSIVE TRÈS PETITS ÉCRANS (480px et moins) === */
+@media (max-width: 480px) {
+    .mobile-menu-btn {
+        width: 52px;
+        height: 52px;
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .mobile-menu-header {
+        padding: var(--space-md);
+    }
+    
+    .mobile-menu-content {
+        padding: var(--space-md);
+        gap: var(--space-md);
+    }
+}

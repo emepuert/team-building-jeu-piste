@@ -1390,6 +1390,9 @@ async function initializeApp() {
         console.warn('⚠️ Firebase Service non disponible - mode hors ligne');
     }
     
+    // Initialiser le menu mobile
+    initMobileMenu();
+    
     // Vérifier si une équipe est connectée
     checkTeamLogin();
 }
@@ -6858,5 +6861,194 @@ window.forceSave = forceSave;
 window.loadFromFirebase = loadFromFirebase;
 window.showLocalStorageBackup = showLocalStorageBackup;
 window.exportDebugData = exportDebugData;
+
+// ===== MENU MOBILE =====
+
+/**
+ * Synchroniser les données desktop vers mobile
+ * Cette fonction copie toutes les infos affichées dans le header et info-panel 
+ * vers les éléments mobiles correspondants
+ */
+function syncDesktopToMobile() {
+    // Synchroniser le statut
+    const desktopStatus = document.getElementById('status');
+    const mobileStatus = document.getElementById('mobile-status');
+    if (desktopStatus && mobileStatus) {
+        mobileStatus.textContent = desktopStatus.textContent;
+    }
+    
+    // Synchroniser le nom d'équipe
+    const desktopTeamName = document.getElementById('current-team');
+    const mobileTeamName = document.getElementById('mobile-team-name');
+    if (desktopTeamName && mobileTeamName) {
+        mobileTeamName.textContent = desktopTeamName.textContent;
+        // Afficher la section team info mobile si l'équipe est connectée
+        const mobileTeamInfo = document.getElementById('mobile-team-info');
+        if (mobileTeamInfo) {
+            mobileTeamInfo.style.display = desktopTeamName.textContent ? 'block' : 'none';
+        }
+    }
+    
+    // Synchroniser la progression
+    const desktopProgressFill = document.getElementById('progress-fill');
+    const mobileProgressFill = document.getElementById('mobile-progress-fill');
+    if (desktopProgressFill && mobileProgressFill) {
+        const width = desktopProgressFill.style.width || '0%';
+        mobileProgressFill.style.width = width;
+    }
+    
+    const desktopProgressText = document.getElementById('progress-text');
+    const mobileProgressText = document.getElementById('mobile-progress-text');
+    if (desktopProgressText && mobileProgressText) {
+        mobileProgressText.textContent = desktopProgressText.textContent;
+    }
+    
+    // Synchroniser le parcours
+    const desktopRouteList = document.getElementById('player-route-list');
+    const mobileRouteList = document.getElementById('mobile-route-list');
+    if (desktopRouteList && mobileRouteList) {
+        mobileRouteList.innerHTML = desktopRouteList.innerHTML;
+    }
+    
+    // Synchroniser le prochain objectif
+    const desktopHintText = document.getElementById('hint-text');
+    const mobileHintText = document.getElementById('mobile-hint-text');
+    if (desktopHintText && mobileHintText) {
+        mobileHintText.textContent = desktopHintText.textContent;
+    }
+    
+    // Synchroniser le bouton GPS
+    const desktopGpsBtn = document.getElementById('gps-route-btn');
+    const mobileGpsBtn = document.getElementById('mobile-gps-route-btn');
+    if (desktopGpsBtn && mobileGpsBtn) {
+        mobileGpsBtn.style.display = desktopGpsBtn.style.display;
+    }
+}
+
+/**
+ * Ouvrir le menu mobile
+ */
+function openMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu) {
+        // Synchroniser les données avant d'ouvrir
+        syncDesktopToMobile();
+        
+        // Ouvrir le menu avec animation
+        mobileMenu.classList.add('open');
+        
+        // Empêcher le scroll de la carte en arrière-plan
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+/**
+ * Fermer le menu mobile
+ */
+function closeMobileMenu() {
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu) {
+        mobileMenu.classList.remove('open');
+        
+        // Réactiver le scroll
+        document.body.style.overflow = '';
+    }
+}
+
+/**
+ * Initialiser le menu mobile
+ */
+function initMobileMenu() {
+    console.log('📱 Initialisation menu mobile...');
+    
+    // Bouton pour ouvrir le menu
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', openMobileMenu);
+    }
+    
+    // Bouton pour fermer le menu
+    const mobileMenuClose = document.getElementById('mobile-menu-close');
+    if (mobileMenuClose) {
+        mobileMenuClose.addEventListener('click', closeMobileMenu);
+    }
+    
+    // Bouton GPS mobile (rediriger vers la fonction existante)
+    const mobileGpsBtn = document.getElementById('mobile-gps-route-btn');
+    if (mobileGpsBtn) {
+        mobileGpsBtn.addEventListener('click', () => {
+            // Fermer le menu
+            closeMobileMenu();
+            // Déclencher le calcul GPS (même logique que le bouton desktop)
+            const desktopGpsBtn = document.getElementById('gps-route-btn');
+            if (desktopGpsBtn) {
+                desktopGpsBtn.click();
+            }
+        });
+    }
+    
+    // Bouton déconnexion mobile
+    const mobileDisconnectBtn = document.getElementById('mobile-disconnect-btn');
+    if (mobileDisconnectBtn) {
+        mobileDisconnectBtn.addEventListener('click', () => {
+            // Fermer le menu
+            closeMobileMenu();
+            // Déclencher la déconnexion (même logique que le bouton desktop)
+            const desktopDisconnectBtn = document.getElementById('disconnect-btn');
+            if (desktopDisconnectBtn) {
+                desktopDisconnectBtn.click();
+            }
+        });
+    }
+    
+    // Observer les changements dans les éléments desktop pour les synchroniser en temps réel
+    const observeElement = (desktopId, callback) => {
+        const element = document.getElementById(desktopId);
+        if (element) {
+            const observer = new MutationObserver(() => {
+                if (window.innerWidth <= 768) {
+                    syncDesktopToMobile();
+                }
+            });
+            observer.observe(element, { 
+                childList: true, 
+                subtree: true, 
+                characterData: true,
+                attributes: true,
+                attributeFilter: ['style']
+            });
+        }
+    };
+    
+    // Observer les changements pour synchronisation auto
+    observeElement('status');
+    observeElement('current-team');
+    observeElement('progress-fill');
+    observeElement('progress-text');
+    observeElement('player-route-list');
+    observeElement('hint-text');
+    observeElement('gps-route-btn');
+    
+    // Synchroniser initialement
+    syncDesktopToMobile();
+    
+    // Synchroniser à chaque redimensionnement (au cas où)
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            if (window.innerWidth <= 768) {
+                syncDesktopToMobile();
+            }
+        }, 250);
+    });
+    
+    console.log('✅ Menu mobile initialisé');
+}
+
+// Exposer les fonctions mobile
+window.openMobileMenu = openMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+window.syncDesktopToMobile = syncDesktopToMobile;
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

@@ -2281,21 +2281,8 @@ function updateUserMarker() {
     
     const userLatLng = [userPosition.lat, userPosition.lng];
     
-    if (userMarker) {
-        userMarker.setLatLng(userLatLng);
-    } else {
-        // Créer un marqueur personnalisé pour l'utilisateur
-        const userIcon = L.divIcon({
-            className: 'user-marker',
-            html: '📍',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
-        });
-        
-        userMarker = L.marker(userLatLng, { icon: userIcon })
-            .addTo(map)
-            .bindPopup('Votre position actuelle');
-    }
+    // Ne plus afficher de marqueur sur la position de l'utilisateur
+    // (l'utilisateur peut voir sa position via les cercles de proximité autour des checkpoints)
     
     // Centrer la carte sur l'utilisateur (seulement la première fois)
     if (!map.hasUserCentered) {

@@ -435,7 +435,7 @@ main {
     }
 }
 
-/* ===== MODALES ===== */
+/* ===== MODALES MODERNES ===== */
 .modal {
     display: none;
     position: fixed;
@@ -444,21 +444,33 @@ main {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(12px);
+    /* Centrage parfait */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-lg);
 }
 
 .modal-content {
     background: var(--white);
-    margin: 8% auto;
     padding: var(--space-2xl);
-    border-radius: var(--radius-xl);
+    border-radius: 20px;
     width: 90%;
     max-width: 500px;
-    box-shadow: var(--shadow-lg);
-    animation: modalSlideIn 0.3s ease;
+    max-height: 85vh;
+    overflow-y: auto;
+    /* Ombres modernes en couches */
+    box-shadow: 
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        0 10px 40px rgba(0, 0, 0, 0.15),
+        0 20px 60px rgba(93, 45, 230, 0.15);
+    /* Animation fluide */
+    animation: modalAppear 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
     text-align: center;
-    border: 1px solid var(--gray-200);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    position: relative;
 }
 
 /* ===== SYSTÈME DE BOUTONS ===== */
@@ -556,13 +568,14 @@ main {
     font-size: 1rem;
 }
 
-@keyframes modalSlideIn {
+/* Animation modale moderne avec bounce */
+@keyframes modalAppear {
     from {
-        transform: translateY(-30px);
+        transform: scale(0.85) translateY(20px);
         opacity: 0;
     }
     to {
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
         opacity: 1;
     }
 }
@@ -573,24 +586,52 @@ main {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: var(--space-lg);
+    margin-top: 0;
     letter-spacing: -0.025em;
+    /* Gradient subtil sur les titres */
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.modal-content p {
+    color: var(--gray-700);
+    line-height: 1.6;
+    margin: var(--space-md) 0;
+}
+
+/* Boutons dans les modales */
+.modal-content button,
+.modal-content .btn {
+    margin-top: var(--space-md);
+    min-width: 120px;
 }
 
 .close {
-    color: var(--gray-400);
-    float: right;
+    color: var(--gray-500);
+    position: absolute;
+    top: var(--space-md);
+    right: var(--space-md);
     font-size: 24px;
-    font-weight: 600;
+    font-weight: 300;
     cursor: pointer;
     line-height: 1;
-    transition: color 0.2s ease;
-    position: absolute;
-    top: var(--space-lg);
-    right: var(--space-lg);
+    transition: all 0.2s ease;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--gray-100);
+    z-index: 1;
 }
 
 .close:hover {
-    color: var(--gray-700);
+    color: var(--gray-900);
+    background: var(--gray-200);
+    transform: rotate(90deg);
 }
 
 #clue-title {
@@ -642,19 +683,20 @@ button:active {
 
 /* Styles pour la modal d'énigme */
 #riddle-modal .modal-content {
-    max-width: 400px;
+    max-width: 450px;
 }
 
 #riddle-question {
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #2c3e50;
-    margin-bottom: 1.5rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: var(--space-lg);
     text-align: center;
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 10px;
-    border-left: 4px solid #3498db;
+    background: linear-gradient(135deg, rgba(93, 45, 230, 0.05) 0%, rgba(86, 138, 194, 0.05) 100%);
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+    border-left: 4px solid var(--primary);
+    line-height: 1.6;
 }
 
 #riddle-input-container {
@@ -665,17 +707,18 @@ button:active {
 
 #riddle-answer {
     flex: 1;
-    padding: 0.8rem;
-    border: 2px solid #ddd;
-    border-radius: 8px;
+    padding: var(--space-md);
+    border: 2px solid var(--gray-300);
+    border-radius: var(--radius-md);
     font-size: 1rem;
-    transition: border-color 0.3s ease;
+    transition: all 0.3s ease;
+    background: var(--white);
 }
 
 #riddle-answer:focus {
     outline: none;
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(93, 45, 230, 0.1);
 }
 
 #riddle-submit {
@@ -812,10 +855,26 @@ button:active {
         font-size: 1.3rem;
     }
     
+    /* Modales sur mobile */
+    .modal {
+        padding: var(--space-md);
+    }
+    
     .modal-content {
-        margin: 20% auto;
-        padding: 1.5rem;
+        padding: var(--space-xl);
         width: 95%;
+        max-width: 100%;
+        border-radius: 16px;
+    }
+    
+    .modal-content h2 {
+        font-size: 1.25rem;
+    }
+    
+    .close {
+        width: 32px;
+        height: 32px;
+        font-size: 20px;
     }
 }
 
@@ -946,32 +1005,82 @@ button:active {
     }
 }
 
-/* Styles pour les notifications */
-.notification {
+/* === SYSTÈME DE NOTIFICATIONS EMPILÉES === */
+#notification-container {
     position: fixed;
-    top: 100px;
+    top: 80px;
     right: 20px;
-    background: #27ae60;
+    z-index: 3000;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    pointer-events: none;
+}
+
+.notification {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
     color: white;
-    padding: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-    z-index: 1500;
-    animation: slideInRight 0.3s ease;
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-lg);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(39, 174, 96, 0.25);
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-width: 250px;
+    max-width: 400px;
+    transform: translateX(120%);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification.hide {
+    transform: translateX(120%);
+    opacity: 0;
 }
 
 .notification.error {
-    background: #e74c3c;
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(231, 76, 60, 0.25);
 }
 
-@keyframes slideInRight {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
+.notification.warning {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(243, 156, 18, 0.25);
+}
+
+.notification.info {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.15),
+        0 8px 24px rgba(52, 152, 219, 0.25);
+}
+
+/* Responsive notifications sur mobile */
+@media (max-width: 768px) {
+    #notification-container {
+        top: 16px;
+        right: 16px;
+        left: 16px;
+        align-items: stretch;
     }
-    to {
-        transform: translateX(0);
-        opacity: 1;
+    
+    .notification {
+        min-width: auto;
+        max-width: 100%;
+        font-size: 0.85rem;
+        padding: var(--space-sm) var(--space-md);
     }
 }
 

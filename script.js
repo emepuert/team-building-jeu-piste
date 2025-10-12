@@ -3922,15 +3922,40 @@ function restartGame() {
     showNotification('Jeu redémarré ! Bonne chance !');
 }
 
+// Conteneur pour les notifications empilées
+let notificationContainer = null;
+
 function showNotification(message, type = 'success') {
+    // Créer le conteneur s'il n'existe pas
+    if (!notificationContainer) {
+        notificationContainer = document.createElement('div');
+        notificationContainer.id = 'notification-container';
+        document.body.appendChild(notificationContainer);
+    }
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
     
-    document.body.appendChild(notification);
+    // Ajouter au conteneur (s'empile automatiquement)
+    notificationContainer.appendChild(notification);
     
+    // Animation d'entrée
     setTimeout(() => {
-        notification.remove();
+        notification.classList.add('show');
+    }, 10);
+    
+    // Retirer après 3 secondes
+    setTimeout(() => {
+        notification.classList.add('hide');
+        setTimeout(() => {
+            notification.remove();
+            // Nettoyer le conteneur si vide
+            if (notificationContainer.children.length === 0) {
+                notificationContainer.remove();
+                notificationContainer = null;
+            }
+        }, 300);
     }, 3000);
 }
 

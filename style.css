@@ -2064,11 +2064,22 @@ button:active {
     .leaflet-bottom.leaflet-right {
         bottom: 16px;
         right: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
     }
     
     /* S'assurer que le bouton de localisation est bien au-dessus du zoom */
     .leaflet-control-custom {
         margin-bottom: 10px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    
+    /* Forcer l'alignement du contrôle de zoom */
+    .leaflet-control-zoom {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
     /* Améliorer le style des contrôles Leaflet sur mobile */
@@ -2076,6 +2087,7 @@ button:active {
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
         border-radius: 8px !important;
         overflow: hidden;
+        margin: 0 !important;
     }
     
     .leaflet-bar a {
@@ -2085,11 +2097,14 @@ button:active {
         font-size: 20px !important;
     }
     
-    /* Style du bouton de localisation */
+    /* Style du bouton de localisation - même largeur que le zoom */
     .leaflet-control-custom {
         width: 40px !important;
         height: 40px !important;
         border-radius: 8px !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
     }
 }

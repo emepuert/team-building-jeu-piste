@@ -1,0 +1,20 @@
+[33md7f2b1a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix mobile UI: reposition localization button, fix debug tools, auto-close menu on localization
+[33m9fdfd98[m Ajout outils debug complets + gestion intelligente fermeture menu mobile
+[33ma1a6ff4[m Fix race condition: vérification firebaseService avant loadTeamData
+[33me7c79a4[m Refonte bouton menu mobile: carré moderne + position gauche + amélioration contrôles Leaflet
+[33ma554b1d[m Ajout boutons Debug/Health/Admin dans menu mobile
+[33m233a120[m Refonte UI mobile: carte plein écran + menu slide-in
+[33m80aea8a[m Add Netlify config + security files (test deploy)
+[33m36814ea[m Fix: Ajout bouton fermeture pour modal enigme/info
+[33m6c0e8c8[m Fix: Suppression ancien message de version en double + cache v20251012183500
+[33m0724e05[m Fix: Empêcher réouverture automatique des modals QCM/Audio/Énigme après résolution + cache v20251012182500
+[33m5a4122a[m Fix: Correction gestion QCM et énigmes - attente validation avant marquage trouvé + mise à jour cache v20251012180000
+[33m60d317f[m  Uniformisation système dismissedModals pour tous les modaux - Ajout dismissedModals au QCM: vérification ouverture + ajout lors fermeture manuelle - Ajout dismissedModals à l'énigme: vérification ouverture + ajout lors fermeture manuelle - Ajout variable currentRiddleCheckpoint pour tracer checkpoint actuel - Fix passage checkpoint à showRiddle dans showClue et openChallengeFromPopup - Tous les modaux peuvent maintenant être fermés et réouverts via clic sur marker ou bouton popup
+[33m9c022d8[m  Force refresh admin avec cache-busters - Ajout cache-buster v=20251011193000 sur admin-style.css, admin-script.js et firebase-service.js - Force le navigateur à recharger les nouvelles versions - Fix définitif du cache Service Worker
+[33m27b8590[m  Fix erreurs admin + force refresh Service Worker - Suppression référence unlockNextCheckpoint - Déplacement variables globales checkpointsData et currentEditingCheckpointId - Incrémentation version Service Worker v1 vers v2 pour forcer rechargement cache
+[33me2d280f[m  Refonte système admin: boutons Localiser/Valider par checkpoint - Suppression ancien bouton Débloquer suivant - Nouveau système: 2 boutons par checkpoint (Localiser + Valider) - Bouton Localiser désactivé pour lobbys (déjà visibles) - Styles modernes avec gradients et hover effects - Boutons alignés sur le design existant (Oswald, uppercase, box-shadow)
+[33m8077748[m DEBUG route checkpoint + redessiner carte apres deblocage
+[33m3228856[m FIX CRITIQUE Deblocage checkpoint suivant - Update currentTeam instantanement apres validation
+[33me9059b1[m FIX FILTRE MOBILE CONSOLE - Ajout emojis manquants + debug ultra detaille
+[33mc5a8bcb[m FIX CRITIQUE Indentation try-catch validations - le code etait en dehors du try
+[33m095f1ae[m VERSION 18:23 - Log version visible mobile + debug massif validations

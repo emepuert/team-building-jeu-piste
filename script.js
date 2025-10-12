@@ -7026,13 +7026,13 @@ function initMobileMenu() {
         });
     }
     
-    // Bouton Outils Debug mobile (affiche le panel debug avancé)
+    // Bouton Outils Debug mobile (affiche le menu debug unifié complet)
     const mobileDebugPanelBtn = document.getElementById('mobile-debug-panel-btn');
     if (mobileDebugPanelBtn) {
         mobileDebugPanelBtn.addEventListener('click', () => {
-            // NE PAS fermer le menu (on veut voir le panel par dessus)
-            if (window.showDebugPanel) {
-                window.showDebugPanel();
+            // NE PAS fermer le menu (on veut voir le menu debug par dessus)
+            if (window.showUnifiedDebugMenu) {
+                window.showUnifiedDebugMenu();
             }
         });
     }

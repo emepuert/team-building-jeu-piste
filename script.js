@@ -2351,14 +2351,14 @@ function addCheckpointsToMap() {
         
         // Créer le contenu du popup
         let popupContent = `
-            <div style="text-align: center;">
+            <div>
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>${isFound ? '✅ Découvert !' : checkpoint.isLobby ? '🏠 Lobby' : '🔍 À découvrir'}</p>
                 ${!isFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
                 <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
         `;
         
-        // Ajouter le bouton GPS pour tous les points visibles (pas de bouton épreuve, ils sont dans la liste en bas)
+        // Ajouter le bouton GPS pour tous les points visibles
         if (userPosition) {
             let buttonText = '🧭 Calculer l\'itinéraire GPS';
             let targetId = checkpoint.id;
@@ -2369,12 +2369,7 @@ function addCheckpointsToMap() {
             }
             
             popupContent += `
-                <br>
-                <button onclick="calculateRouteFromPopup(${targetId})" 
-                        style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
-                               color: white; border: none; padding: 0.5rem 1rem; 
-                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                               margin-top: 0.5rem;">
+                <button onclick="calculateRouteFromPopup(${targetId})">
                     ${buttonText}
                 </button>
             `;
@@ -2693,33 +2688,23 @@ function foundCheckpoint(checkpoint) {
         let popupContent;
         if (checkpoint.isLobby) {
             popupContent = `
-                <div style="text-align: center;">
+                <div>
                     <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                     <p>✅ Visité !</p>
                     <p><em>${checkpoint.hint}</em></p>
                     <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                    <br>
-                    <button onclick="calculateRouteFromPopup(0)" 
-                            style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
-                                   color: white; border: none; padding: 0.5rem 1rem; 
-                                   border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                                   margin-top: 0.5rem;">
+                    <button onclick="calculateRouteFromPopup(0)">
                         🧭 GPS vers Lobby
                     </button>
                 </div>
             `;
         } else {
             popupContent = `
-                <div style="text-align: center;">
+                <div>
                     <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                     <p>✅ Découvert !</p>
                     <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                    <br>
-                    <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
-                            style="background: linear-gradient(135deg, ${getTeamColor()} 0%, ${getTeamColor()} 100%); 
-                                   color: white; border: none; padding: 0.5rem 1rem; 
-                                   border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                                   margin-top: 0.5rem;">
+                    <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                         🧭 Calculer l'itinéraire GPS
                     </button>
                 </div>
@@ -3105,7 +3090,7 @@ function unlockCheckpoint(checkpointId) {
         
         // Créer le contenu du popup avec bouton GPS
         let popupContent = `
-            <div style="text-align: center;">
+            <div>
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>🔍 À découvrir</p>
                 <p><em>${checkpoint.hint}</em></p>
@@ -3115,12 +3100,7 @@ function unlockCheckpoint(checkpointId) {
         // Ajouter le bouton GPS
         if (userPosition) {
             popupContent += `
-                <br>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
-                        style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); 
-                               color: white; border: none; padding: 0.5rem 1rem; 
-                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                               margin-top: 0.5rem;">
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                     🧭 Calculer l'itinéraire GPS
                 </button>
             `;
@@ -3931,7 +3911,7 @@ function restartGame() {
         });
         markerData.marker.setIcon(newIcon);
         markerData.marker.setPopupContent(`
-            <div style="text-align: center;">
+            <div>
                 <h3>${isLocked ? '🔒' : checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>${isLocked ? '🔒 Verrouillé' : '🔍 À découvrir'}</p>
                 <p><em>${checkpoint.hint}</em></p>
@@ -4687,7 +4667,7 @@ function revealCheckpointOnMap(checkpointId) {
         
         // Créer le contenu du popup
         let popupContent = `
-            <div style="text-align: center;">
+            <div>
                 <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
                 <p>🔓 Débloqué par l'admin</p>
                 <p><em>${checkpoint.hint}</em></p>
@@ -4697,12 +4677,7 @@ function revealCheckpointOnMap(checkpointId) {
         // Ajouter le bouton GPS
         if (userPosition) {
             popupContent += `
-                <br>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})" 
-                        style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
-                               color: white; border: none; padding: 0.5rem 1rem; 
-                               border-radius: 20px; font-size: 0.9rem; cursor: pointer; 
-                               margin-top: 0.5rem;">
+                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
                     🧭 Calculer l'itinéraire GPS
                 </button>
             `;

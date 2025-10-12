@@ -612,15 +612,15 @@ function getRouteProgressDisplay(team) {
         if (!isFound) {
             // Checkpoint pas encore validé
             
-            // Bouton LOCALISER (désactivé pour les lobbys car déjà visibles)
+            // Bouton DÉBLOQUER (rend visible sans valider)
             if (isLobby) {
                 actionsHTML += `<button class="mini-btn" disabled title="Lobby déjà visible">📍 Visible</button>`;
             } else {
-                actionsHTML += `<button class="mini-btn locate-btn" onclick="locateCheckpoint('${team.id}', ${checkpointId})" title="Marquer comme découvert">📍 Localiser</button>`;
+                actionsHTML += `<button class="mini-btn locate-btn" onclick="locateCheckpoint('${team.id}', ${checkpointId})" title="Débloquer le checkpoint (rendre visible)">🔓 Débloquer</button>`;
             }
             
-            // Bouton VALIDER (passe au suivant)
-            actionsHTML += `<button class="mini-btn validate-btn" onclick="validateCheckpoint('${team.id}', ${checkpointId})" title="Valider et débloquer le suivant">✅ Valider</button>`;
+            // Bouton VALIDER (marque trouvé + passe au suivant)
+            actionsHTML += `<button class="mini-btn validate-btn" onclick="validateCheckpoint('${team.id}', ${checkpointId})" title="Valider comme trouvé et débloquer le suivant">✅ Valider</button>`;
         }
         
         progressHTML += `
@@ -700,7 +700,7 @@ function formatDate(timestamp) {
 }
 
 // Actions admin
-// Localiser un checkpoint (ajouter à foundCheckpoints)
+// Localiser un checkpoint (débloquer dans unlockedCheckpoints SANS valider)
 async function locateCheckpoint(teamId, checkpointId) {
     try {
         const team = teamsData.find(t => t.id === teamId);
@@ -709,45 +709,39 @@ async function locateCheckpoint(teamId, checkpointId) {
             return;
         }
         
-        const foundCheckpoints = team.foundCheckpoints || [];
         const unlockedCheckpoints = team.unlockedCheckpoints || [0];
         
-        // Vérifier si déjà trouvé
-        if (foundCheckpoints.includes(checkpointId)) {
-            showNotification('Checkpoint déjà localisé', 'warning');
+        // Vérifier si déjà débloqué
+        if (unlockedCheckpoints.includes(checkpointId)) {
+            showNotification('Checkpoint déjà débloqué', 'warning');
             return;
         }
         
-        // Vérifier si le checkpoint est débloqué
-        if (!unlockedCheckpoints.includes(checkpointId)) {
-            showNotification('⚠️ Checkpoint non débloqué, localisation forcée', 'warning');
-        }
-        
-        // Ajouter aux checkpoints trouvés
-        const updatedFound = [...foundCheckpoints, checkpointId];
+        // Ajouter aux checkpoints débloqués (visible mais pas validé)
+        const updatedUnlocked = [...unlockedCheckpoints, checkpointId];
         
         await firebaseService.updateTeamProgress(teamId, {
-            foundCheckpoints: updatedFound
+            unlockedCheckpoints: updatedUnlocked
         });
         
         // Trouver le nom du checkpoint
         const checkpoint = checkpointsData.find(cp => cp.id === checkpointId);
         const checkpointName = checkpoint ? checkpoint.name : `Point ${checkpointId}`;
         
-        console.log(`📍 Admin localise checkpoint ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
-        showNotification(`📍 "${checkpointName}" localisé pour ${team.name}`, 'success');
+        console.log(`📍 Admin débloque checkpoint ${checkpointId} (${checkpointName}) pour équipe ${team.name}`);
+        showNotification(`📍 "${checkpointName}" débloqué pour ${team.name}`, 'success');
         
         // Logger l'action admin
         await firebaseService.createAdminLog(
-            'checkpoint_located',
-            `📍 Checkpoint localisé: "${checkpointName}"`,
+            'checkpoint_unlocked',
+            `📍 Checkpoint débloqué: "${checkpointName}"`,
             teamId,
             { checkpointId, checkpointName }
         );
         
     } catch (error) {
-        console.error('Erreur localisation checkpoint:', error);
-        showNotification('❌ Erreur lors de la localisation', 'error');
+        console.error('Erreur déblocage checkpoint:', error);
+        showNotification('❌ Erreur lors du déblocage', 'error');
     }
 }
 

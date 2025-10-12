@@ -1,5 +1,4 @@
-// Configuration du jeu de piste - Version Test
-console.log('✅✅✅ SCRIPT.JS VERSION 18:55 - DEBUG ROUTE + REDESSINER CARTE ✅✅✅');
+// Configuration du jeu de piste - Version 18:25 - Fix réouverture modals
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -5234,13 +5233,13 @@ function submitQCMAnswer() {
             if (markerData) {
                 // Mettre à jour l'icône
                 if (markerData.marker) {
-                    const foundIcon = L.divIcon({
-                        className: 'checkpoint-marker found',
-                        html: currentQCMCheckpoint.emoji,
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 15]
-                    });
-                    markerData.marker.setIcon(foundIcon);
+                const foundIcon = L.divIcon({
+                    className: 'checkpoint-marker found',
+                    html: currentQCMCheckpoint.emoji,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                markerData.marker.setIcon(foundIcon);
                 }
                 
                 // Mettre à jour le cercle en vert

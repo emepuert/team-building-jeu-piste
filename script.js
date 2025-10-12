@@ -1510,8 +1510,8 @@ function safeLocalStorage() {
 }
 
 function showTeamLoginModal() {
-    const modal = document.getElementById('user-login-modal'); // On garde le même modal pour l'instant
-    modal.style.display = 'block';
+    const modal = document.getElementById('user-login-modal');
+    modal.style.setProperty('display', 'flex', 'important');
     
     // Configurer les événements de connexion
     setupLoginEvents();
@@ -1569,8 +1569,9 @@ async function handleUserLogin() {
             currentTeamId = team.id;
             safeLocalStorage().setItem('currentTeamId', team.id);
             
-            // Cacher le modal et démarrer le jeu
-            document.getElementById('user-login-modal').style.display = 'none';
+            // Cacher le modal de connexion
+            const loginModal = document.getElementById('user-login-modal');
+            loginModal.style.setProperty('display', 'none', 'important');
             
             // Charger les données de l'équipe
             await loadTeamGameData();

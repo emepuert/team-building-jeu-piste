@@ -572,12 +572,17 @@ main {
     padding: var(--space-lg);
 }
 
-/* Quand la modale est affichée */
-.modal[style*="display: flex"],
-.modal[style*="display: block"] {
+/* Quand la modale est affichée (éviter de matcher display: none) */
+.modal[style*="display: flex"]:not([style*="display: none"]),
+.modal[style*="display: block"]:not([style*="display: none"]) {
     display: flex !important;
     align-items: center;
     justify-content: center;
+}
+
+/* S'assurer que display: none fonctionne toujours */
+.modal[style*="display: none"] {
+    display: none !important;
 }
 
 .modal-content {

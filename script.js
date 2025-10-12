@@ -6887,6 +6887,12 @@ function syncDesktopToMobile() {
         if (mobileTeamInfo) {
             mobileTeamInfo.style.display = desktopTeamName.textContent ? 'block' : 'none';
         }
+        
+        // Afficher les boutons Debug/Health/Admin si l'équipe est connectée
+        const mobileActions = document.querySelector('.mobile-actions');
+        if (mobileActions) {
+            mobileActions.style.display = desktopTeamName.textContent ? 'flex' : 'none';
+        }
     }
     
     // Synchroniser la progression
@@ -6997,6 +7003,28 @@ function initMobileMenu() {
             const desktopDisconnectBtn = document.getElementById('disconnect-btn');
             if (desktopDisconnectBtn) {
                 desktopDisconnectBtn.click();
+            }
+        });
+    }
+    
+    // Bouton Debug mobile
+    const mobileDebugBtn = document.getElementById('mobile-debug-btn');
+    if (mobileDebugBtn) {
+        mobileDebugBtn.addEventListener('click', () => {
+            // Ouvrir le panneau debug
+            if (window.showDebugPanel) {
+                window.showDebugPanel();
+            }
+        });
+    }
+    
+    // Bouton Health Check mobile
+    const mobileHealthBtn = document.getElementById('mobile-health-btn');
+    if (mobileHealthBtn) {
+        mobileHealthBtn.addEventListener('click', () => {
+            // Lancer le health check
+            if (window.healthCheck) {
+                window.healthCheck();
             }
         });
     }

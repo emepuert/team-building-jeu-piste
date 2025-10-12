@@ -1853,6 +1853,56 @@ button:active {
         font-size: 1.1rem;
     }
     
+    /* Actions mobiles (Debug, Health, Admin) */
+    .mobile-actions {
+        display: flex;
+        gap: var(--space-sm);
+        margin-top: var(--space-md);
+        flex-wrap: wrap;
+    }
+    
+    .mobile-action-btn {
+        flex: 1;
+        min-width: calc(50% - var(--space-sm) / 2);
+        padding: var(--space-sm) var(--space-md);
+        background: var(--gray-100);
+        color: var(--gray-900);
+        border: 1px solid var(--gray-300);
+        border-radius: var(--radius-md);
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+    }
+    
+    .mobile-action-btn:active {
+        background: var(--gray-200);
+        transform: scale(0.98);
+    }
+    
+    #mobile-debug-btn {
+        background: #3498db;
+        color: white;
+        border-color: #2980b9;
+    }
+    
+    #mobile-health-btn {
+        background: #27ae60;
+        color: white;
+        border-color: #229954;
+    }
+    
+    .mobile-admin-link {
+        background: var(--gray-700);
+        color: white;
+        border-color: var(--gray-800);
+    }
+    
     /* Barre de progression mobile */
     .mobile-progress-bar {
         width: 100%;

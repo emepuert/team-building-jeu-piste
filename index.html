@@ -114,6 +114,7 @@
         <!-- Modal pour les énigmes -->
         <div id="riddle-modal" class="modal">
             <div class="modal-content">
+                <span class="close">&times;</span>
                 <h2>🧩 Énigme à Résoudre</h2>
                 <div id="riddle-content">
                     <p id="riddle-question"></p>
@@ -238,8 +239,8 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getFirestore } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-        import { firebaseConfig } from './firebase-config.js?v=20251012183500';
-        import FirebaseService from './firebase-service.js?v=20251012183500';
+        import { firebaseConfig } from './firebase-config.js?v=20251012185800';
+        import FirebaseService from './firebase-service.js?v=20251012185800';
         
         // Initialiser Firebase
         const app = initializeApp(firebaseConfig);
@@ -259,6 +260,6 @@
         });
     </script>
     
-    <script src="script.js?v=20251012183500"></script>
+    <script src="script.js?v=20251012185800"></script>
 </body>
 </html>

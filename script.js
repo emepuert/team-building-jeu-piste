@@ -1,4 +1,4 @@
-// Configuration du jeu de piste - Version 18:25 - Fix réouverture modals
+// Configuration du jeu de piste - Version 18:58 - Fix bouton fermeture modal énigme
 const GAME_CONFIG = {
     // Centre de la zone de test
     center: [49.0928, 6.1907],
@@ -1369,7 +1369,7 @@ async function initializeApp() {
     initializeMobileConsoleLogger();
     
     // ✅ LOG DE VERSION - S'affiche dès le démarrage dans les logs mobile
-    console.log('✅✅✅ VERSION 18:25 CHARGÉE - FIX RÉOUVERTURE MODALS ✅✅✅');
+    console.log('✅✅✅ VERSION 18:58 CHARGÉE - FIX BOUTON FERMETURE ÉNIGME ✅✅✅');
     
     // Initialiser la détection du navigateur en premier
     initializeBrowserDetection();
@@ -3771,6 +3771,22 @@ function setupEventListeners() {
     });
     
     document.getElementById('qcm-submit-btn').addEventListener('click', submitQCMAnswer);
+    
+    // Événements pour le modal énigme
+    document.querySelector('#riddle-modal .close').addEventListener('click', () => {
+        document.getElementById('riddle-modal').style.display = 'none';
+        
+        // Ajouter à dismissedModals pour éviter réouverture automatique
+        if (currentRiddleCheckpoint) {
+            dismissedModals.add(currentRiddleCheckpoint.id);
+            console.log(`🚫 Modal énigme fermé manuellement pour ${currentRiddleCheckpoint.name}, ajouté à dismissedModals`);
+        }
+        
+        // Retirer de activeModals
+        if (currentRiddleCheckpoint) {
+            activeModals.delete(currentRiddleCheckpoint.id);
+        }
+    });
     
     document.getElementById('close-success-btn').addEventListener('click', () => {
         document.getElementById('success-modal').style.display = 'none';

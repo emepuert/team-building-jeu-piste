@@ -2465,6 +2465,9 @@ function checkProximityToCheckpoints() {
         }
     });
     
+    // Vérifier les alertes de proximité (100m)
+    checkProximityAlerts();
+    
     // Note: dismissedModals n'est PAS nettoyé automatiquement quand on sort de la zone
     // L'utilisateur doit cliquer manuellement sur "Tenter l'épreuve" dans le popup du checkpoint
 }
@@ -7161,12 +7164,201 @@ function initMobileMenu() {
         }, 250);
     });
     
+    // === WAKE LOCK (Garder l'écran allumé) ===
+    const wakeLockToggle = document.getElementById('wake-lock-toggle');
+    const wakeLockStatus = document.getElementById('wake-lock-status');
+    
+    if (wakeLockToggle && wakeLockStatus) {
+        // Charger la préférence sauvegardée
+        const wakeLockEnabled = localStorage.getItem('wakeLockEnabled') === 'true';
+        wakeLockToggle.checked = wakeLockEnabled;
+        
+        // Activer si déjà enabled
+        if (wakeLockEnabled) {
+            requestWakeLock();
+        }
+        
+        // Event listener sur le toggle
+        wakeLockToggle.addEventListener('change', async (e) => {
+            const enabled = e.target.checked;
+            localStorage.setItem('wakeLockEnabled', enabled);
+            
+            if (enabled) {
+                await requestWakeLock();
+            } else {
+                await releaseWakeLock();
+            }
+        });
+    }
+    
+    // === ALERTES DE PROXIMITÉ ===
+    const proximityAlertsToggle = document.getElementById('proximity-alerts-toggle');
+    const proximityAlertsStatus = document.getElementById('proximity-alerts-status');
+    
+    if (proximityAlertsToggle && proximityAlertsStatus) {
+        // Charger la préférence sauvegardée (activé par défaut)
+        const alertsEnabled = localStorage.getItem('proximityAlertsEnabled') !== 'false';
+        proximityAlertsToggle.checked = alertsEnabled;
+        updateProximityAlertsStatus(alertsEnabled ? '✅ Actif' : '⏸️ Désactivé');
+        
+        // Event listener sur le toggle
+        proximityAlertsToggle.addEventListener('change', (e) => {
+            const enabled = e.target.checked;
+            localStorage.setItem('proximityAlertsEnabled', enabled);
+            updateProximityAlertsStatus(enabled ? '✅ Actif' : '⏸️ Désactivé');
+            
+            if (enabled) {
+                showNotification('🔔 Alertes de proximité activées', 'success');
+            } else {
+                showNotification('🔕 Alertes de proximité désactivées', 'info');
+            }
+        });
+    }
+    
     console.log('✅ Menu mobile initialisé');
+}
+
+// === WAKE LOCK FUNCTIONS ===
+let wakeLock = null;
+
+async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) {
+        console.warn('⚠️ Wake Lock API non supportée');
+        updateWakeLockStatus('❌ Non supporté par votre navigateur');
+        return false;
+    }
+    
+    try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('✅ Wake Lock activé');
+        updateWakeLockStatus('✅ Actif - Écran restera allumé');
+        showNotification('🔋 Écran maintenu allumé', 'success');
+        
+        // Réactiver automatiquement si la page devient visible
+        wakeLock.addEventListener('release', () => {
+            console.log('⚠️ Wake Lock relâché');
+            updateWakeLockStatus('⏸️ Inactif (écran éteint puis rallumé)');
+        });
+        
+        return true;
+    } catch (err) {
+        console.error('❌ Erreur Wake Lock:', err);
+        updateWakeLockStatus(`❌ Erreur: ${err.message}`);
+        showNotification('❌ Impossible de maintenir l\'écran allumé', 'error');
+        return false;
+    }
+}
+
+async function releaseWakeLock() {
+    if (wakeLock !== null) {
+        try {
+            await wakeLock.release();
+            wakeLock = null;
+            console.log('🔓 Wake Lock désactivé');
+            updateWakeLockStatus('⏸️ Désactivé');
+            showNotification('🔋 Verrouillage automatique réactivé', 'info');
+        } catch (err) {
+            console.error('❌ Erreur release Wake Lock:', err);
+        }
+    }
+}
+
+function updateWakeLockStatus(message) {
+    const statusEl = document.getElementById('wake-lock-status');
+    if (statusEl) {
+        statusEl.textContent = message;
+    }
+}
+
+// Réactiver le Wake Lock quand la page redevient visible (après verrouillage)
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLock !== null) {
+        const wakeLockToggle = document.getElementById('wake-lock-toggle');
+        if (wakeLockToggle && wakeLockToggle.checked) {
+            console.log('🔄 Réactivation Wake Lock après visibilité');
+            await requestWakeLock();
+        }
+    }
+});
+
+// === PROXIMITY ALERTS FUNCTIONS ===
+let alertedCheckpoints = new Set(); // Checkpoints qui ont déjà déclenché une alerte
+
+function updateProximityAlertsStatus(message) {
+    const statusEl = document.getElementById('proximity-alerts-status');
+    if (statusEl) {
+        statusEl.textContent = message;
+    }
+}
+
+function checkProximityAlerts() {
+    // Vérifier si les alertes sont activées
+    const alertsEnabled = localStorage.getItem('proximityAlertsEnabled') !== 'false';
+    if (!alertsEnabled || !userPosition) {
+        return;
+    }
+    
+    const ALERT_DISTANCE = 100; // 100 mètres
+    const RESET_DISTANCE = 150; // Distance pour reset l'alerte (si on s'éloigne)
+    
+    // Parcourir tous les checkpoints de l'équipe
+    const teamRoute = currentTeam?.route || [];
+    
+    teamRoute.forEach(checkpointId => {
+        // Ignorer le lobby et les checkpoints déjà trouvés
+        if (checkpointId === 0 || foundCheckpoints.includes(checkpointId)) {
+            return;
+        }
+        
+        // Trouver le checkpoint
+        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
+        if (!checkpoint || !checkpoint.coordinates) {
+            return;
+        }
+        
+        // Calculer la distance
+        const distance = calculateDistance(
+            userPosition.lat,
+            userPosition.lng,
+            checkpoint.coordinates[0],
+            checkpoint.coordinates[1]
+        );
+        
+        // Si on s'éloigne beaucoup, reset l'alerte
+        if (distance > RESET_DISTANCE && alertedCheckpoints.has(checkpointId)) {
+            alertedCheckpoints.delete(checkpointId);
+            console.log(`🔄 Reset alerte pour ${checkpoint.name} (distance: ${distance.toFixed(0)}m)`);
+        }
+        
+        // Si on approche à moins de 100m et pas encore alerté
+        if (distance <= ALERT_DISTANCE && !alertedCheckpoints.has(checkpointId)) {
+            triggerProximityAlert(checkpoint, distance);
+            alertedCheckpoints.add(checkpointId);
+        }
+    });
+}
+
+function triggerProximityAlert(checkpoint, distance) {
+    console.log(`🔔 ALERTE PROXIMITÉ: ${checkpoint.name} à ${distance.toFixed(0)}m`);
+    
+    // Vibration (3 courtes impulsions)
+    if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+    }
+    
+    // Notification visuelle
+    const distanceText = distance < 50 ? 'très proche' : `à ${distance.toFixed(0)}m`;
+    showNotification(`🎯 ${checkpoint.emoji} ${checkpoint.name} ${distanceText} !`, 'info');
+    
+    // Log pour debug
+    console.log(`✅ Alerte déclenchée: ${checkpoint.name} à ${distance.toFixed(0)}m`);
 }
 
 // Exposer les fonctions mobile
 window.openMobileMenu = openMobileMenu;
 window.closeMobileMenu = closeMobileMenu;
 window.syncDesktopToMobile = syncDesktopToMobile;
+window.requestWakeLock = requestWakeLock;
+window.releaseWakeLock = releaseWakeLock;
 
 console.log('✅ Script du jeu de piste chargé avec succès !');

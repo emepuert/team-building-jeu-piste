@@ -139,6 +139,33 @@
                         <button id="mobile-gps-route-btn" style="display: none;">🧭 Calculer l'itinéraire GPS</button>
                     </div>
                     
+                    <!-- Paramètres -->
+                    <div class="mobile-section mobile-settings">
+                        <h3>⚙️ Paramètres</h3>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">🔋 Garder l'écran allumé</span>
+                                <span class="setting-description">Empêche le verrouillage automatique pendant le jeu</span>
+                                <span id="wake-lock-status" class="setting-status"></span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="wake-lock-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <span class="setting-label">🔔 Alertes de proximité</span>
+                                <span class="setting-description">Vibration + notification à 100m d'un checkpoint</span>
+                                <span id="proximity-alerts-status" class="setting-status"></span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="proximity-alerts-toggle" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <!-- Bouton déconnexion -->
                     <div class="mobile-section">
                         <button id="mobile-disconnect-btn" class="mobile-disconnect-btn">

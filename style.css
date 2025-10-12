@@ -2121,11 +2121,9 @@ button:active:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
     /* Contenu du menu */
     .mobile-menu-content {
         padding: var(--space-lg);
-        padding-bottom: 100px; /* Espace suffisant pour scroller jusqu'en bas */
         display: flex;
         flex-direction: column;
         gap: var(--space-lg);
-        min-height: min-content; /* S'assurer que le contenu peut grandir */
     }
     
     /* Sections du menu */
@@ -2354,7 +2352,6 @@ button:active:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
     
     .mobile-menu-content {
         padding: var(--space-md);
-        padding-bottom: 100px; /* Espace suffisant pour scroller jusqu'en bas */
         gap: var(--space-md);
     }
 }

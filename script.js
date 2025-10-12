@@ -6997,7 +6997,7 @@ function initMobileMenu() {
     const mobileGpsBtn = document.getElementById('mobile-gps-route-btn');
     if (mobileGpsBtn) {
         mobileGpsBtn.addEventListener('click', () => {
-            // Fermer le menu
+            // FERMER le menu (action qui lance la navigation)
             closeMobileMenu();
             // Déclencher le calcul GPS (même logique que le bouton desktop)
             const desktopGpsBtn = document.getElementById('gps-route-btn');
@@ -7011,7 +7011,7 @@ function initMobileMenu() {
     const mobileDisconnectBtn = document.getElementById('mobile-disconnect-btn');
     if (mobileDisconnectBtn) {
         mobileDisconnectBtn.addEventListener('click', () => {
-            // Fermer le menu
+            // FERMER le menu (action qui modifie l'état de l'app)
             closeMobileMenu();
             // Déclencher la déconnexion (même logique que le bouton desktop)
             const desktopDisconnectBtn = document.getElementById('disconnect-btn');
@@ -7021,13 +7021,25 @@ function initMobileMenu() {
         });
     }
     
-    // Bouton Debug mobile
-    const mobileDebugBtn = document.getElementById('mobile-debug-btn');
-    if (mobileDebugBtn) {
-        mobileDebugBtn.addEventListener('click', () => {
-            // Ouvrir le panneau debug
-            if (window.showDebugPanel) {
-                window.showDebugPanel();
+    // Bouton Outils Debug mobile (affiche le panel debug avancé)
+    const mobileDebugPanelBtn = document.getElementById('mobile-debug-panel-btn');
+    if (mobileDebugPanelBtn) {
+        mobileDebugPanelBtn.addEventListener('click', () => {
+            // NE PAS fermer le menu (on veut voir le panel par dessus)
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+            }
+        });
+    }
+    
+    // Bouton Métriques mobile
+    const mobileMetricsBtn = document.getElementById('mobile-metrics-btn');
+    if (mobileMetricsBtn) {
+        mobileMetricsBtn.addEventListener('click', () => {
+            // NE PAS fermer le menu (on veut voir les métriques)
+            if (window.showMetrics) {
+                window.showMetrics();
             }
         });
     }
@@ -7036,7 +7048,7 @@ function initMobileMenu() {
     const mobileHealthBtn = document.getElementById('mobile-health-btn');
     if (mobileHealthBtn) {
         mobileHealthBtn.addEventListener('click', () => {
-            // Lancer le health check
+            // NE PAS fermer le menu (on veut voir les résultats)
             if (window.healthCheck) {
                 window.healthCheck();
             }

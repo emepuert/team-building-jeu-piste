@@ -1908,7 +1908,7 @@ button:active {
         border: 1px solid var(--gray-300);
         border-radius: var(--radius-md);
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         cursor: pointer;
         transition: all 0.2s;
         text-decoration: none;
@@ -1923,10 +1923,16 @@ button:active {
         transform: scale(0.98);
     }
     
-    #mobile-debug-btn {
-        background: #3498db;
+    #mobile-debug-panel-btn {
+        background: #e74c3c;
         color: white;
-        border-color: #2980b9;
+        border-color: #c0392b;
+    }
+    
+    #mobile-metrics-btn {
+        background: #e67e22;
+        color: white;
+        border-color: #d35400;
     }
     
     #mobile-health-btn {
@@ -1939,6 +1945,7 @@ button:active {
         background: var(--gray-700);
         color: white;
         border-color: var(--gray-800);
+        width: 100%; /* Admin prend toute la largeur */
     }
     
     /* Barre de progression mobile */

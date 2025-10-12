@@ -1413,6 +1413,13 @@ function checkTeamLogin() {
         return;
     }
     
+    // ⚠️ VÉRIFIER QUE FIREBASE EST PRÊT AVANT DE CHARGER LES DONNÉES
+    if (!firebaseService) {
+        console.warn('⚠️ Firebase Service pas encore prêt, affichage modal de connexion');
+        showTeamLoginModal();
+        return;
+    }
+    
     // Vérifier si une équipe est déjà connectée avec gestion d'erreurs
     const savedTeamId = safeExecute(
         () => localStorage.getItem('currentTeamId'),
@@ -1585,6 +1592,13 @@ async function handleUserLogin() {
 // Charger les données équipe depuis Firebase
 async function loadTeamData(teamId) {
     try {
+        // Double vérification de sécurité
+        if (!firebaseService) {
+            console.error('❌ Firebase Service non disponible dans loadTeamData');
+            showTeamLoginModal();
+            return;
+        }
+        
         const team = await firebaseService.getTeam(teamId);
         if (team) {
             currentTeam = team;

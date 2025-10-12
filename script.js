@@ -1816,7 +1816,7 @@ function addLocationControl() {
             container.onclick = function() {
                 // Fermer le menu mobile si ouvert
                 const mobileMenu = document.getElementById('mobile-menu');
-                if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+                if (mobileMenu && mobileMenu.classList.contains('open')) {
                     closeMobileMenu();
                 }
                 locateUser();
@@ -4842,7 +4842,7 @@ let capturedPhotoBlob = null;
 async function requestLocationHelpFor(checkpointId) {
     // Fermer le menu mobile si ouvert
     const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
         closeMobileMenu();
     }
     
@@ -4878,7 +4878,7 @@ async function requestLocationHelpFor(checkpointId) {
 async function requestPhotoHelpFor(checkpointId) {
     // Fermer le menu mobile si ouvert
     const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
         closeMobileMenu();
     }
     
@@ -4906,7 +4906,7 @@ async function requestPhotoHelpFor(checkpointId) {
 async function requestRiddleHelpFor(checkpointId) {
     // Fermer le menu mobile si ouvert
     const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
         closeMobileMenu();
     }
     
@@ -4942,7 +4942,7 @@ async function requestRiddleHelpFor(checkpointId) {
 async function requestAudioHelpFor(checkpointId) {
     // Fermer le menu mobile si ouvert
     const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
         closeMobileMenu();
     }
     
@@ -4978,7 +4978,7 @@ async function requestAudioHelpFor(checkpointId) {
 async function requestQCMHelpFor(checkpointId) {
     // Fermer le menu mobile si ouvert
     const mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
         closeMobileMenu();
     }
     

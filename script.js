@@ -1775,11 +1775,11 @@ function initializeMap() {
     map = L.map('map').setView(GAME_CONFIG.center, GAME_CONFIG.zoom);
     isMapInitialized = true;
     
-    // Ajouter les tuiles Stadia StamenTerrain (style topographique)
-    L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        minZoom: 0,
-        maxZoom: 18
+    // Ajouter les tuiles CartoDB Voyager (moderne, gratuit, sans clé API)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
     }).addTo(map);
     
     // Personnaliser les contrôles

@@ -1981,6 +1981,22 @@ button:active {
         margin-top: var(--space-sm);
     }
     
+    /* Aide pour les boutons du parcours */
+    .mobile-route-help {
+        background: linear-gradient(135deg, rgba(93, 45, 230, 0.05) 0%, rgba(86, 138, 194, 0.05) 100%);
+        border: 1px solid rgba(93, 45, 230, 0.15);
+        border-radius: var(--radius-md);
+        padding: var(--space-sm);
+        margin-bottom: var(--space-sm);
+    }
+    
+    .mobile-route-help p {
+        margin: 0.25rem 0 !important;
+        font-size: 0.85rem !important;
+        color: var(--gray-700) !important;
+        line-height: 1.4 !important;
+    }
+    
     /* Bouton GPS mobile */
     #mobile-gps-route-btn {
         margin-top: var(--space-md);

@@ -4840,6 +4840,12 @@ let capturedPhotoBlob = null;
 
 // Demander l'aide pour la localisation d'un checkpoint spécifique
 async function requestLocationHelpFor(checkpointId) {
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+        closeMobileMenu();
+    }
+    
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');
         return;
@@ -4870,6 +4876,12 @@ async function requestLocationHelpFor(checkpointId) {
 
 // Demander l'aide pour forcer la validation d'une photo
 async function requestPhotoHelpFor(checkpointId) {
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+        closeMobileMenu();
+    }
+    
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');
         return;
@@ -4892,6 +4904,12 @@ async function requestPhotoHelpFor(checkpointId) {
 
 // Demander l'aide pour résoudre une énigme spécifique
 async function requestRiddleHelpFor(checkpointId) {
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+        closeMobileMenu();
+    }
+    
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');
         return;
@@ -4922,6 +4940,12 @@ async function requestRiddleHelpFor(checkpointId) {
 
 // Demander l'aide pour une épreuve audio spécifique
 async function requestAudioHelpFor(checkpointId) {
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+        closeMobileMenu();
+    }
+    
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');
         return;
@@ -4952,6 +4976,12 @@ async function requestAudioHelpFor(checkpointId) {
 
 // Demander l'aide pour un QCM spécifique
 async function requestQCMHelpFor(checkpointId) {
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+        closeMobileMenu();
+    }
+    
     if (!firebaseService || !currentTeamId) {
         showNotification('Erreur: service non disponible', 'error');
         return;

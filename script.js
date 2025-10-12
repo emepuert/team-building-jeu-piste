@@ -1775,10 +1775,11 @@ function initializeMap() {
     map = L.map('map').setView(GAME_CONFIG.center, GAME_CONFIG.zoom);
     isMapInitialized = true;
     
-    // Ajouter les tuiles OpenStreetMap (gratuit)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
+    // Ajouter les tuiles Stadia StamenTerrain (style topographique)
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a> &copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a> &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        minZoom: 0,
+        maxZoom: 18
     }).addTo(map);
     
     // Personnaliser les contrôles
@@ -2363,7 +2364,7 @@ function addCheckpointsToMap() {
                     ${buttonText}
                 </button>
             </div>
-        `;
+            `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
@@ -3087,7 +3088,7 @@ function unlockCheckpoint(checkpointId) {
                     🧭 Calculer l'itinéraire GPS
                 </button>
             </div>
-        `;
+            `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
@@ -3937,8 +3938,8 @@ function showNotification(message, type = 'success') {
     // Retirer après 3 secondes
     setTimeout(() => {
         notification.classList.add('hide');
-        setTimeout(() => {
-            notification.remove();
+    setTimeout(() => {
+        notification.remove();
             // Nettoyer le conteneur si vide
             if (notificationContainer.children.length === 0) {
                 notificationContainer.remove();
@@ -4278,10 +4279,10 @@ function calculateRouteFromPopup(checkpointId) {
         return;
     }
     
-    // Fermer tous les popups ouverts
-    map.closePopup();
-    
-    calculateRoute(userPosition, checkpoint);
+        // Fermer tous les popups ouverts
+        map.closePopup();
+        
+        calculateRoute(userPosition, checkpoint);
 }
 
 // Ouvrir manuellement une épreuve depuis le popup (bypass dismissedModals)
@@ -4666,7 +4667,7 @@ function revealCheckpointOnMap(checkpointId) {
                     🧭 Calculer l'itinéraire GPS
                 </button>
             </div>
-        `;
+            `;
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)

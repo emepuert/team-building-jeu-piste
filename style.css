@@ -2060,10 +2060,10 @@ button:active {
 
 /* === CONTRÔLES LEAFLET (ZOOM + LOCALISATION) === */
 @media (max-width: 768px) {
-    /* Repositionner les contrôles Leaflet sur mobile */
-    .leaflet-top.leaflet-left {
-        top: 16px;
-        left: 16px;
+    /* Repositionner les contrôles Leaflet (zoom) en bas à droite sur mobile */
+    .leaflet-bottom.leaflet-right {
+        bottom: 16px;
+        right: 16px;
     }
     
     /* S'assurer que le bouton de localisation est bien au-dessus du zoom */

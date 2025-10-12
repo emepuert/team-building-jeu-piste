@@ -1794,7 +1794,7 @@ function addLocationControl() {
     // Créer le contrôle personnalisé
     const LocationControl = L.Control.extend({
         options: {
-            position: 'topleft'
+            position: 'bottomright'
         },
         
         onAdd: function(map) {
@@ -1813,6 +1813,11 @@ function addLocationControl() {
             container.title = 'Me localiser';
             
             container.onclick = function() {
+                // Fermer le menu mobile si ouvert
+                const mobileMenu = document.getElementById('mobile-menu');
+                if (mobileMenu && mobileMenu.classList.contains('mobile-menu-open')) {
+                    closeMobileMenu();
+                }
                 locateUser();
             };
             
@@ -7026,9 +7031,8 @@ function initMobileMenu() {
     if (mobileDebugPanelBtn) {
         mobileDebugPanelBtn.addEventListener('click', () => {
             // NE PAS fermer le menu (on veut voir le panel par dessus)
-            const debugPanel = document.getElementById('debug-panel');
-            if (debugPanel) {
-                debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+            if (window.showDebugPanel) {
+                window.showDebugPanel();
             }
         });
     }

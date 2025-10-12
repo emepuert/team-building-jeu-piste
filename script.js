@@ -2281,8 +2281,36 @@ function updateUserMarker() {
     
     const userLatLng = [userPosition.lat, userPosition.lng];
     
-    // Ne plus afficher de marqueur sur la position de l'utilisateur
-    // (l'utilisateur peut voir sa position via les cercles de proximité autour des checkpoints)
+    if (userMarker) {
+        // Si le marqueur existe, mettre à jour sa position
+        userMarker.setLatLng(userLatLng);
+        // Mettre à jour le cercle de précision si on a l'accuracy
+        if (userPosition.accuracy && userMarker.accuracyCircle) {
+            userMarker.accuracyCircle.setLatLng(userLatLng);
+            userMarker.accuracyCircle.setRadius(userPosition.accuracy);
+        }
+    } else {
+        // Créer un cercle bleu pour la position (pas d'épingle)
+        userMarker = L.circleMarker(userLatLng, {
+            radius: 8,
+            fillColor: '#4285F4',
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map);
+        
+        // Ajouter le cercle de précision GPS
+        if (userPosition.accuracy) {
+            userMarker.accuracyCircle = L.circle(userLatLng, {
+                radius: userPosition.accuracy,
+                color: '#4285F4',
+                fillColor: '#4285F4',
+                fillOpacity: 0.1,
+                weight: 1
+            }).addTo(map);
+        }
+    }
     
     // Centrer la carte sur l'utilisateur (seulement la première fois)
     if (!map.hasUserCentered) {

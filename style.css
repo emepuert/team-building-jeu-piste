@@ -617,30 +617,36 @@ main {
     position: absolute;
     top: var(--space-lg);
     right: var(--space-lg);
-    font-size: 28px;
-    font-weight: 300;
     cursor: pointer;
     line-height: 1;
     transition: all 0.2s ease;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     background: transparent;
+    border: none;
     z-index: 1;
+}
+
+.close svg {
+    width: 28px;
+    height: 28px;
+    stroke: currentColor;
 }
 
 .close:hover {
     color: var(--gray-900);
     background: var(--gray-100);
-    transform: rotate(90deg) scale(1.05);
+    transform: scale(1.05);
 }
 
 .close:active {
     background: var(--gray-200);
-    transform: rotate(90deg) scale(0.95);
+    transform: scale(0.95);
 }
 
 #clue-title {
@@ -681,12 +687,12 @@ button {
     margin-top: 1rem;
 }
 
-button:hover {
+button:hover:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
     background: #f1ff33;
     color: #260806;
 }
 
-button:active {
+button:active:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
     transform: translateY(0);
 }
 
@@ -881,11 +887,15 @@ button:active {
     }
     
     .close {
-        width: 32px;
-        height: 32px;
-        font-size: 24px;
+        width: 30px;
+        height: 30px;
         top: var(--space-md);
         right: var(--space-md);
+    }
+    
+    .close svg {
+        width: 24px;
+        height: 24px;
     }
 }
 
@@ -1863,6 +1873,8 @@ button:active {
     
     .mobile-menu-btn:hover {
         transform: translateY(-2px);
+        background: var(--white) !important;
+        color: var(--gray-900) !important;
         box-shadow: 
             0 4px 12px rgba(0, 0, 0, 0.1),
             0 12px 32px rgba(0, 0, 0, 0.15);
@@ -1870,6 +1882,7 @@ button:active {
     
     .mobile-menu-btn:active {
         transform: translateY(0) scale(0.95);
+        background: var(--white) !important;
         box-shadow: 
             0 2px 8px rgba(0, 0, 0, 0.08),
             0 4px 16px rgba(0, 0, 0, 0.1);
@@ -1968,9 +1981,8 @@ button:active {
     
     .mobile-menu-close svg {
         color: var(--gray-700);
-        width: 20px;
-        height: 20px;
-        stroke-width: 2.5;
+        width: 22px;
+        height: 22px;
     }
     
     /* Contenu du menu */

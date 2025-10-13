@@ -5752,11 +5752,23 @@ async function startAudioChallenge() {
     }
     
     try {
+        console.log('🎤 Démarrage épreuve audio...');
+        
         // Demander l'accès au microphone
         audioStream = await requestMicrophoneBrowser();
+        console.log('✅ Stream audio obtenu');
         
         // Créer le contexte audio
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('🔊 AudioContext créé, état:', audioContext.state);
+        
+        // ✅ FIX: Attendre que l'AudioContext soit actif (résout le bug du premier clic)
+        if (audioContext.state === 'suspended') {
+            console.log('⏸️ AudioContext suspendu, activation...');
+            await audioContext.resume();
+            console.log('▶️ AudioContext activé');
+        }
+        
         const source = audioContext.createMediaStreamSource(audioStream);
         
         // Créer l'analyseur
@@ -5766,6 +5778,12 @@ async function startAudioChallenge() {
         audioDataArray = new Uint8Array(bufferLength);
         
         source.connect(audioAnalyser);
+        console.log('🔗 Analyseur connecté');
+        
+        // ✅ Vérifier que tout est bien connecté avant de démarrer
+        if (!audioStream.active) {
+            throw new Error('Le stream audio n\'est pas actif');
+        }
         
         // Démarrer le défi
         isAudioChallengeActive = true;
@@ -5778,14 +5796,28 @@ async function startAudioChallenge() {
         document.getElementById('start-audio-btn').style.display = 'none';
         document.getElementById('stop-audio-btn').style.display = 'block';
         
+        // ✅ Petit délai pour s'assurer que tout est bien initialisé
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Démarrer l'animation
         updateAudioProgress();
         
-        console.log('🎤 Épreuve audio démarrée');
+        console.log('✅ Épreuve audio démarrée - AudioContext état:', audioContext.state);
         
     } catch (error) {
         console.error('❌ Erreur accès microphone:', error);
+        console.error('📊 Détails:', error.message);
         showAudioFeedback('Impossible d\'accéder au microphone. Vérifiez les permissions.', 'error');
+        
+        // Nettoyer en cas d'erreur
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+            audioStream = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
     }
 }
 

@@ -4137,7 +4137,7 @@ async function loadDebugLogs() {
         console.log(`✅ ${logs.length} sessions de logs récupérées`);
         
         // Afficher les logs
-        let html = `<div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 8px;">
+        let html = `<div class="logs-summary">
             <strong>📊 ${logs.length} session(s) de logging trouvée(s)</strong>
         </div>`;
         
@@ -4147,37 +4147,35 @@ async function loadDebugLogs() {
             const logCount = logSession.logs ? logSession.logs.length : 0;
             
             html += `
-                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #5D2DE6; border-radius: 4px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <div>
-                            <strong style="font-size: 14px;">Session ${index + 1}</strong>
-                            <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                <div class="log-session-card">
+                    <div class="log-session-header">
+                        <div class="log-session-info">
+                            <strong>Session ${index + 1}</strong>
+                            <div class="log-meta">
                                 📅 ${sessionDate}<br>
                                 🆔 ${sessionId.substring(0, 40)}...
                             </div>
                         </div>
-                        <span style="background: #5D2DE6; color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                        <span class="log-session-badge">
                             ${logCount} logs
                         </span>
                     </div>
                     
-                    <div style="max-height: 300px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px;">
+                    <div class="log-console-container">
             `;
             
             if (logSession.logs && logSession.logs.length > 0) {
                 logSession.logs.forEach(log => {
-                    let color = '#ccc';
-                    if (log.type === 'error') color = '#ff6b6b';
-                    else if (log.type === 'warn') color = '#ffd93d';
-                    else if (log.type === 'admin') color = '#a29bfe';
-                    else if (log.type === 'info') color = '#74b9ff';
+                    const logClass = `log-${log.type}`;
                     
-                    html += `<div style="color: ${color}; margin-bottom: 3px; word-break: break-all;">
-                        [${log.timestamp}] [${log.type.toUpperCase()}] ${escapeHtml(log.message)}
+                    html += `<div class="log-entry ${logClass}">
+                        <span class="log-timestamp">[${log.timestamp}]</span>
+                        <span class="log-type ${log.type}">${log.type}</span>
+                        ${escapeHtml(log.message)}
                     </div>`;
                 });
             } else {
-                html += '<div style="color: #666;">Aucun log dans cette session</div>';
+                html += '<div class="log-entry" style="color: rgba(255, 255, 255, 0.5);">Aucun log dans cette session</div>';
             }
             
             html += `

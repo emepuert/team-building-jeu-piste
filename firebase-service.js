@@ -1232,14 +1232,20 @@ class FirebaseService {
      */
     async getDebugLogs(sessionId) {
         try {
+            // Requête simplifiée sans orderBy pour éviter l'erreur d'index
             const q = query(
                 collection(this.db, 'debug_logs'),
-                where('sessionId', '==', sessionId),
-                orderBy('createdAt', 'asc')
+                where('sessionId', '==', sessionId)
             );
             
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.data());
+            
+            // Tri côté client par ordre chronologique
+            const logs = snapshot.docs
+                .map(doc => doc.data())
+                .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            
+            return logs;
         } catch (error) {
             console.error('❌ Erreur récupération logs debug:', error);
             return [];
@@ -1252,15 +1258,21 @@ class FirebaseService {
      */
     async getTeamDebugLogs(teamId) {
         try {
+            // Requête simplifiée sans orderBy pour éviter l'erreur d'index
             const q = query(
                 collection(this.db, 'debug_logs'),
-                where('teamId', '==', teamId),
-                orderBy('createdAt', 'desc'),
-                limit(50)
+                where('teamId', '==', teamId)
             );
             
             const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => doc.data());
+            
+            // Tri côté client et limitation à 50 logs
+            const logs = snapshot.docs
+                .map(doc => doc.data())
+                .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+                .slice(0, 50);
+            
+            return logs;
         } catch (error) {
             console.error('❌ Erreur récupération logs équipe:', error);
             return [];

@@ -583,6 +583,7 @@ main {
 .modal-content {
     background: var(--white);
     padding: var(--space-2xl);
+    padding-right: 60px; /* Espace pour éviter chevauchement avec la croix */
     border-radius: 20px;
     width: 90%;
     max-width: 500px;
@@ -738,38 +739,42 @@ main {
 .close {
     color: var(--gray-600);
     position: absolute;
-    top: var(--space-lg);
-    right: var(--space-lg);
+    top: 12px;
+    right: 12px;
     cursor: pointer;
     line-height: 1;
     transition: all 0.2s ease;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: transparent;
-    border: none;
-    z-index: 1;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 10;
 }
 
 .close svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     stroke: currentColor;
+    stroke-width: 2.5;
 }
 
 .close:hover {
     color: var(--gray-900);
-    background: var(--gray-100);
-    transform: scale(1.05);
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .close:active {
     background: var(--gray-200);
     transform: scale(0.95);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 #clue-title {
@@ -1010,15 +1015,15 @@ button:active:not(.mobile-menu-btn):not(.mobile-menu-close):not(.close) {
     }
     
     .close {
-        width: 30px;
-        height: 30px;
-        top: var(--space-md);
-        right: var(--space-md);
+        width: 32px;
+        height: 32px;
+        top: 8px;
+        right: 8px;
     }
     
     .close svg {
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
     }
 }
 

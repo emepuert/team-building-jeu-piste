@@ -4560,6 +4560,12 @@ function calculateRouteFromPopup(checkpointId) {
 function openChallengeFromPopup(checkpointId) {
     console.log('🎯 [POPUP] Tentative ouverture manuelle checkpoint:', checkpointId);
     
+    // Fermer le menu mobile si ouvert
+    const mobileMenu = document.getElementById('mobile-menu');
+    if (mobileMenu && mobileMenu.classList.contains('open')) {
+        closeMobileMenu();
+    }
+    
     const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
     if (!checkpoint) {
         console.error('❌ [POPUP] Checkpoint non trouvé:', checkpointId);

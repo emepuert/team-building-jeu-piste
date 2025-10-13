@@ -2570,24 +2570,32 @@ function addCheckpointsToMap() {
             iconAnchor: [15, 15]
         });
         
-        // Créer le contenu du popup
-        let buttonText = checkpoint.isLobby ? '🧭 GPS vers Lobby' : '🧭 Calculer l\'itinéraire GPS';
-        
-        let popupContent = `
-            <div>
-                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>${isFound ? '✅ Découvert !' : checkpoint.isLobby ? '🏠 Lobby' : '🔍 À découvrir'}</p>
-                ${!isFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
-                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
-                    ${buttonText}
-                </button>
-            </div>
+        // Créer une fonction pour générer le contenu du popup (dynamique)
+        const generatePopupContent = () => {
+            const currentlyFound = foundCheckpoints.includes(checkpoint.id);
+            let buttonText = checkpoint.isLobby ? '🧭 GPS vers Lobby' : '🧭 Calculer l\'itinéraire GPS';
+            
+            return `
+                <div>
+                    <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                    <p>${currentlyFound ? '✅ Découvert !' : checkpoint.isLobby ? '🏠 Lobby' : '🔍 À découvrir'}</p>
+                    ${!currentlyFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                    <button onclick="calculateRouteFromPopup(${checkpoint.id})">
+                        ${buttonText}
+                    </button>
+                </div>
             `;
+        };
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
-            .bindPopup(popupContent);
+            .bindPopup(generatePopupContent());
+        
+        // Mettre à jour le popup quand il s'ouvre (pour afficher les infos à jour)
+        marker.on('popupopen', function() {
+            this.setPopupContent(generatePopupContent());
+        });
         
         // Ajouter un événement de clic pour rouvrir les épreuves si elles ont été fermées manuellement
         marker.on('click', function() {
@@ -3320,22 +3328,30 @@ function unlockCheckpoint(checkpointId) {
             iconAnchor: [15, 15]
         });
         
-        // Créer le contenu du popup avec bouton GPS
-        let popupContent = `
-            <div>
-                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>🔍 À découvrir</p>
-                <p><em>${checkpoint.hint}</em></p>
-                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
-                    🧭 Calculer l'itinéraire GPS
-                </button>
-            </div>
+        // Créer une fonction pour générer le contenu du popup (dynamique)
+        const generatePopupContent = () => {
+            const currentlyFound = foundCheckpoints.includes(checkpoint.id);
+            return `
+                <div>
+                    <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                    <p>${currentlyFound ? '✅ Découvert !' : '🔍 À découvrir'}</p>
+                    ${!currentlyFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                    <button onclick="calculateRouteFromPopup(${checkpoint.id})">
+                        🧭 Calculer l'itinéraire GPS
+                    </button>
+                </div>
             `;
+        };
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
-            .bindPopup(popupContent);
+            .bindPopup(generatePopupContent());
+        
+        // Mettre à jour le popup quand il s'ouvre
+        marker.on('popupopen', function() {
+            this.setPopupContent(generatePopupContent());
+        });
         
         // Mettre à jour les données du marqueur
         markerData.marker = marker;
@@ -4974,22 +4990,30 @@ function revealCheckpointOnMap(checkpointId) {
             iconAnchor: [15, 15]
         });
         
-        // Créer le contenu du popup
-        let popupContent = `
-            <div>
-                <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
-                <p>🔓 Débloqué par l'admin</p>
-                <p><em>${checkpoint.hint}</em></p>
-                <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
-                <button onclick="calculateRouteFromPopup(${checkpoint.id})">
-                    🧭 Calculer l'itinéraire GPS
-                </button>
-            </div>
+        // Créer une fonction pour générer le contenu du popup (dynamique)
+        const generatePopupContent = () => {
+            const currentlyFound = foundCheckpoints.includes(checkpoint.id);
+            return `
+                <div>
+                    <h3>${checkpoint.emoji} ${checkpoint.name}</h3>
+                    <p>${currentlyFound ? '✅ Découvert !' : '🔓 Débloqué par l\'admin'}</p>
+                    ${!currentlyFound ? `<p><em>${checkpoint.hint}</em></p>` : ''}
+                    <p><small>Zone de déclenchement: ${GAME_CONFIG.proximityThreshold}m</small></p>
+                    <button onclick="calculateRouteFromPopup(${checkpoint.id})">
+                        🧭 Calculer l'itinéraire GPS
+                    </button>
+                </div>
             `;
+        };
         
         const marker = L.marker(checkpoint.coordinates, { icon: markerIcon })
             .addTo(map)
-            .bindPopup(popupContent);
+            .bindPopup(generatePopupContent());
+        
+        // Mettre à jour le popup quand il s'ouvre
+        marker.on('popupopen', function() {
+            this.setPopupContent(generatePopupContent());
+        });
         
         // Ajouter un événement de clic pour rouvrir les épreuves si elles ont été fermées manuellement
         marker.on('click', function() {
@@ -5470,11 +5494,8 @@ function showAudioChallenge(checkpoint) {
         </small>
     `;
     
-    // Réinitialiser l'interface
-    resetAudioInterface();
-    
-    // ✅ FIX RADICAL: Pré-créer l'AudioContext MAINTENANT (dans le contexte d'interaction du clic sur le checkpoint)
-    // pour éviter le problème de contexte suspendu
+    // ✅ FIX RADICAL: Pré-créer l'AudioContext AVANT de réinitialiser l'interface
+    // pour éviter de le détruire immédiatement
     if (!audioContext) {
         try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -5490,6 +5511,9 @@ function showAudioChallenge(checkpoint) {
             console.error('❌ Erreur pré-création AudioContext:', error);
         }
     }
+    
+    // Réinitialiser l'interface visuelle SANS détruire l'AudioContext pré-créé
+    resetAudioInterfaceVisual();
     
     // Afficher le modal
     document.getElementById('audio-modal').style.display = 'flex';
@@ -5754,22 +5778,21 @@ function submitQCMAnswer() {
     }
 }
 
-// Réinitialiser l'interface audio
-function resetAudioInterface() {
-    // Arrêter l'audio si actif
-    if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-    }
+// Réinitialiser seulement l'interface visuelle (SANS détruire l'AudioContext)
+function resetAudioInterfaceVisual() {
+    // Arrêter le stream audio si actif
     if (audioStream) {
         audioStream.getTracks().forEach(track => track.stop());
         audioStream = null;
     }
     
-    // Réinitialiser les éléments
+    // Réinitialiser les éléments visuels
     document.getElementById('audio-status-text').textContent = 'Appuyez sur le bouton pour commencer';
     document.getElementById('audio-progress-container').style.display = 'none';
-    document.getElementById('start-audio-btn').style.display = 'block';
+    const startBtn = document.getElementById('start-audio-btn');
+    startBtn.style.display = 'block';
+    startBtn.disabled = false; // Réactiver le bouton
+    startBtn.textContent = '🎤 Commencer l\'épreuve';
     document.getElementById('stop-audio-btn').style.display = 'none';
     document.getElementById('audio-feedback').innerHTML = '';
     document.getElementById('audio-progress-fill').style.width = '0%';
@@ -5783,6 +5806,18 @@ function resetAudioInterface() {
     audioAnimationId = null;
 }
 
+// Réinitialiser l'interface audio (détruit TOUT y compris l'AudioContext)
+function resetAudioInterface() {
+    // Arrêter l'audio si actif
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+    
+    // Réinitialiser l'interface visuelle
+    resetAudioInterfaceVisual();
+}
+
 // Démarrer l'épreuve audio
 async function startAudioChallenge() {
     const audioConfig = currentAudioCheckpoint?.clue?.audio || currentAudioCheckpoint?.clue?.audioChallenge;
@@ -5793,6 +5828,11 @@ async function startAudioChallenge() {
     
     try {
         console.log('🎤 Démarrage épreuve audio...');
+        
+        // ✅ Désactiver le bouton pour éviter les double-clics
+        const startBtn = document.getElementById('start-audio-btn');
+        startBtn.disabled = true;
+        startBtn.textContent = '⏳ Demande du micro...';
         
         // ✅ Vérifier que l'AudioContext existe (devrait être pré-créé à l'ouverture du modal)
         if (!audioContext) {
@@ -5852,15 +5892,17 @@ async function startAudioChallenge() {
         console.error('📊 Détails:', error.message);
         showAudioFeedback('Impossible d\'accéder au microphone. Vérifiez les permissions.', 'error');
         
+        // Réactiver le bouton en cas d'erreur
+        const startBtn = document.getElementById('start-audio-btn');
+        startBtn.disabled = false;
+        startBtn.textContent = '🎤 Commencer l\'épreuve';
+        
         // Nettoyer en cas d'erreur
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
             audioStream = null;
         }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
+        // NE PAS détruire l'AudioContext ici, on le garde pour le prochain essai
     }
 }
 

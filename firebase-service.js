@@ -1196,6 +1196,78 @@ class FirebaseService {
     }
 
     /**
+     * Sauvegarder les logs de debug dans Firebase
+     * @param {Array} logs - Tableau de logs à sauvegarder
+     * @param {string} teamId - ID de l'équipe
+     * @param {string} sessionId - ID de la session de logging
+     */
+    async saveDebugLogs(logs, teamId, sessionId) {
+        const logId = `debuglog_${sessionId}_${Date.now()}`;
+        const logData = {
+            id: logId,
+            sessionId,
+            teamId,
+            logs: logs.slice(-100), // Garder les 100 derniers logs pour ne pas surcharger
+            timestamp: serverTimestamp(),
+            createdAt: Date.now(),
+            deviceInfo: {
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language
+            }
+        };
+        
+        try {
+            await setDoc(doc(this.db, 'debug_logs', logId), logData);
+            return true;
+        } catch (error) {
+            console.error('❌ Erreur sauvegarde logs debug:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Récupérer les logs de debug d'une session
+     * @param {string} sessionId - ID de la session
+     */
+    async getDebugLogs(sessionId) {
+        try {
+            const q = query(
+                collection(this.db, 'debug_logs'),
+                where('sessionId', '==', sessionId),
+                orderBy('createdAt', 'asc')
+            );
+            
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => doc.data());
+        } catch (error) {
+            console.error('❌ Erreur récupération logs debug:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Récupérer tous les logs de debug d'une équipe
+     * @param {string} teamId - ID de l'équipe
+     */
+    async getTeamDebugLogs(teamId) {
+        try {
+            const q = query(
+                collection(this.db, 'debug_logs'),
+                where('teamId', '==', teamId),
+                orderBy('createdAt', 'desc'),
+                limit(50)
+            );
+            
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => doc.data());
+        } catch (error) {
+            console.error('❌ Erreur récupération logs équipe:', error);
+            return [];
+        }
+    }
+
+    /**
      * Écouter les logs admin pour une équipe spécifique
      * @param {string} teamId - ID de l'équipe
      * @param {Function} callback - Fonction appelée avec les nouveaux logs

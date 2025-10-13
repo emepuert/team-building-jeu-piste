@@ -284,6 +284,10 @@ function setupAdminEvents() {
     document.getElementById('create-route-btn').addEventListener('click', showCreateRouteModal);
     document.getElementById('show-routes-map-btn').addEventListener('click', showRoutesMapModal);
     
+    // Logs de debug
+    document.getElementById('load-logs-btn').addEventListener('click', loadDebugLogs);
+    document.getElementById('download-logs-btn').addEventListener('click', downloadDebugLogsFile);
+    
     // Modals
     setupModalEvents();
 }
@@ -1782,6 +1786,9 @@ async function loadManagementData() {
         // Charger les équipes pour la gestion
         managementTeamsData = await firebaseService.getAllTeams();
         updateTeamsManagementDisplay();
+        
+        // Peupler le select des logs avec les équipes
+        populateTeamsLogsSelect();
         
         // Plus de chargement utilisateurs - 1 équipe = 1 joueur
         
@@ -4075,7 +4082,178 @@ async function handleEditTeam() {
     }
 }
 
+// ===== GESTION DES LOGS DE DEBUG =====
+
+let currentLoadedLogs = null;
+
+// Peupler le select avec les équipes
+function populateTeamsLogsSelect() {
+    const select = document.getElementById('team-logs-select');
+    if (!select) return;
+    
+    // Garder l'option par défaut
+    select.innerHTML = '<option value="">Sélectionner une équipe...</option>';
+    
+    // Ajouter toutes les équipes
+    managementTeamsData.forEach(team => {
+        const option = document.createElement('option');
+        option.value = team.id;
+        option.textContent = `${team.name} (${team.id})`;
+        select.appendChild(option);
+    });
+}
+
+// Charger les logs de debug d'une équipe
+async function loadDebugLogs() {
+    const teamId = document.getElementById('team-logs-select').value;
+    const logsContainer = document.getElementById('debug-logs-list');
+    const downloadBtn = document.getElementById('download-logs-btn');
+    
+    if (!teamId) {
+        showNotification('⚠️ Veuillez sélectionner une équipe', 'warning');
+        return;
+    }
+    
+    if (!firebaseService) {
+        showNotification('❌ Firebase non disponible', 'error');
+        return;
+    }
+    
+    try {
+        logsContainer.innerHTML = '<p style="text-align: center; color: #666;">🔄 Chargement des logs...</p>';
+        downloadBtn.style.display = 'none';
+        
+        console.log(`📥 Chargement logs pour équipe: ${teamId}`);
+        const logs = await firebaseService.getTeamDebugLogs(teamId);
+        
+        currentLoadedLogs = { teamId, logs };
+        
+        if (!logs || logs.length === 0) {
+            logsContainer.innerHTML = '<p class="no-data">Aucun log trouvé pour cette équipe</p>';
+            showNotification('ℹ️ Aucun log trouvé', 'info');
+            return;
+        }
+        
+        console.log(`✅ ${logs.length} sessions de logs récupérées`);
+        
+        // Afficher les logs
+        let html = `<div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-radius: 8px;">
+            <strong>📊 ${logs.length} session(s) de logging trouvée(s)</strong>
+        </div>`;
+        
+        logs.forEach((logSession, index) => {
+            const sessionDate = new Date(logSession.createdAt).toLocaleString('fr-FR');
+            const sessionId = logSession.sessionId || 'N/A';
+            const logCount = logSession.logs ? logSession.logs.length : 0;
+            
+            html += `
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #5D2DE6; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <div>
+                            <strong style="font-size: 14px;">Session ${index + 1}</strong>
+                            <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                                📅 ${sessionDate}<br>
+                                🆔 ${sessionId.substring(0, 40)}...
+                            </div>
+                        </div>
+                        <span style="background: #5D2DE6; color: white; padding: 5px 10px; border-radius: 20px; font-size: 12px;">
+                            ${logCount} logs
+                        </span>
+                    </div>
+                    
+                    <div style="max-height: 300px; overflow-y: auto; background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px;">
+            `;
+            
+            if (logSession.logs && logSession.logs.length > 0) {
+                logSession.logs.forEach(log => {
+                    let color = '#ccc';
+                    if (log.type === 'error') color = '#ff6b6b';
+                    else if (log.type === 'warn') color = '#ffd93d';
+                    else if (log.type === 'admin') color = '#a29bfe';
+                    else if (log.type === 'info') color = '#74b9ff';
+                    
+                    html += `<div style="color: ${color}; margin-bottom: 3px; word-break: break-all;">
+                        [${log.timestamp}] [${log.type.toUpperCase()}] ${escapeHtml(log.message)}
+                    </div>`;
+                });
+            } else {
+                html += '<div style="color: #666;">Aucun log dans cette session</div>';
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        logsContainer.innerHTML = html;
+        downloadBtn.style.display = 'inline-block';
+        showNotification(`✅ ${logs.length} session(s) chargée(s)`, 'success');
+        
+    } catch (error) {
+        console.error('❌ Erreur chargement logs:', error);
+        logsContainer.innerHTML = '<p class="no-data">❌ Erreur lors du chargement des logs</p>';
+        showNotification('❌ Erreur lors du chargement', 'error');
+    }
+}
+
+// Télécharger les logs en fichier texte
+function downloadDebugLogsFile() {
+    if (!currentLoadedLogs || !currentLoadedLogs.logs || currentLoadedLogs.logs.length === 0) {
+        showNotification('❌ Aucun log à télécharger', 'error');
+        return;
+    }
+    
+    const { teamId, logs } = currentLoadedLogs;
+    const team = managementTeamsData.find(t => t.id === teamId);
+    const teamName = team ? team.name : 'Inconnu';
+    
+    // Créer le contenu du fichier
+    let content = `=== LOGS DEBUG - ${teamName} (${teamId}) ===\n`;
+    content += `Date de téléchargement: ${new Date().toLocaleString('fr-FR')}\n`;
+    content += `Nombre de sessions: ${logs.length}\n`;
+    content += `\n${'='.repeat(80)}\n\n`;
+    
+    logs.forEach((logSession, index) => {
+        content += `--- Session ${index + 1} ---\n`;
+        content += `Date: ${new Date(logSession.createdAt).toLocaleString('fr-FR')}\n`;
+        content += `ID: ${logSession.sessionId}\n`;
+        if (logSession.deviceInfo) {
+            content += `Appareil: ${logSession.deviceInfo.platform} - ${logSession.deviceInfo.userAgent}\n`;
+        }
+        content += `\n`;
+        
+        if (logSession.logs && logSession.logs.length > 0) {
+            logSession.logs.forEach(log => {
+                content += `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}\n`;
+            });
+        }
+        
+        content += `\n${'='.repeat(80)}\n\n`;
+    });
+    
+    // Télécharger le fichier
+    const blob = new Blob([content], { type: 'text/plain; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `logs_${teamName}_${Date.now()}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('✅ Logs téléchargés', 'success');
+}
+
+// Fonction utilitaire pour échapper le HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Exposer les nouvelles fonctions globalement
 window.toggleCheckpointSelection = toggleCheckpointSelection;
 window.removeCheckpointFromSelection = removeCheckpointFromSelection;
 window.updateCreateRouteSelection = updateCreateRouteSelection;
+window.loadDebugLogs = loadDebugLogs;
+window.downloadDebugLogsFile = downloadDebugLogsFile;

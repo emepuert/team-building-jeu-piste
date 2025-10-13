@@ -54,6 +54,12 @@ let consoleHistory = [];
 let maxConsoleHistory = 500;
 let consoleFilterEnabled = true; // Filtrage activé par défaut
 
+// ===== FIREBASE LOGGING =====
+let isFirebaseLoggingActive = false; // Si le logging vers Firebase est actif
+let firebaseLoggingSessionId = null; // ID unique de la session de logging
+let firebaseLoggingInterval = null; // Intervalle d'envoi des logs
+const FIREBASE_LOG_INTERVAL = 10000; // Envoyer les logs toutes les 10 secondes
+
 // Variables pour l'épreuve audio
 let currentAudioCheckpoint = null;
 let audioContext = null;
@@ -437,6 +443,204 @@ function toggleConsoleFilter() {
     }
     
     console.log(`🔍 Console mobile: Filtre ${consoleFilterEnabled ? 'activé' : 'désactivé'}`);
+}
+
+// ===== FIREBASE LOGGING FUNCTIONS =====
+
+// Démarrer l'enregistrement des logs vers Firebase
+async function startFirebaseLogging() {
+    if (isFirebaseLoggingActive) {
+        showNotification('⚠️ Logging déjà actif', 'warning');
+        return;
+    }
+    
+    if (!firebaseService) {
+        showNotification('❌ Firebase non disponible', 'error');
+        return;
+    }
+    
+    if (!currentTeamId) {
+        showNotification('❌ Équipe non connectée', 'error');
+        return;
+    }
+    
+    // Générer un ID de session unique
+    firebaseLoggingSessionId = `session_${currentTeamId}_${Date.now()}`;
+    isFirebaseLoggingActive = true;
+    
+    console.log(`📝 🔥 FIREBASE LOGGING DÉMARRÉ - Session: ${firebaseLoggingSessionId}`);
+    showNotification('📝 Logging Firebase activé', 'success');
+    
+    // Sauvegarder immédiatement les logs actuels
+    await saveLogsToFirebase();
+    
+    // Configurer l'envoi périodique
+    firebaseLoggingInterval = setInterval(async () => {
+        if (isFirebaseLoggingActive) {
+            await saveLogsToFirebase();
+        }
+    }, FIREBASE_LOG_INTERVAL);
+    
+    // Mettre à jour les boutons
+    updateFirebaseLoggingButtons();
+}
+
+// Arrêter l'enregistrement des logs vers Firebase
+async function stopFirebaseLogging() {
+    if (!isFirebaseLoggingActive) {
+        showNotification('⚠️ Logging non actif', 'warning');
+        return;
+    }
+    
+    console.log(`📝 🔥 FIREBASE LOGGING ARRÊTÉ - Session: ${firebaseLoggingSessionId}`);
+    
+    // Sauvegarder une dernière fois avant d'arrêter
+    await saveLogsToFirebase();
+    
+    // Arrêter l'intervalle
+    if (firebaseLoggingInterval) {
+        clearInterval(firebaseLoggingInterval);
+        firebaseLoggingInterval = null;
+    }
+    
+    isFirebaseLoggingActive = false;
+    
+    showNotification(`📝 Logging arrêté - Session: ${firebaseLoggingSessionId.substring(0, 20)}...`, 'info');
+    
+    // Afficher où retrouver les logs
+    console.log(`📝 Logs sauvegardés dans Firebase sous l'ID: ${firebaseLoggingSessionId}`);
+    console.log(`📝 Pour les retrouver: Collection 'debug_logs', sessionId: '${firebaseLoggingSessionId}'`);
+    
+    // Mettre à jour les boutons
+    updateFirebaseLoggingButtons();
+}
+
+// Sauvegarder les logs actuels vers Firebase
+async function saveLogsToFirebase() {
+    if (!isFirebaseLoggingActive || !firebaseService || !currentTeamId) {
+        return;
+    }
+    
+    try {
+        const logsToSave = consoleHistory.map(log => ({
+            timestamp: log.timestamp,
+            type: log.type,
+            message: log.message
+        }));
+        
+        const success = await firebaseService.saveDebugLogs(
+            logsToSave,
+            currentTeamId,
+            firebaseLoggingSessionId
+        );
+        
+        if (success) {
+            console.log(`📝 ${logsToSave.length} logs envoyés à Firebase`);
+        } else {
+            console.error('❌ Échec de l\'envoi des logs à Firebase');
+        }
+    } catch (error) {
+        console.error('❌ Erreur lors de la sauvegarde des logs:', error);
+    }
+}
+
+// Mettre à jour l'apparence des boutons de logging
+function updateFirebaseLoggingButtons() {
+    const startBtn = document.getElementById('start-firebase-logging-btn');
+    const stopBtn = document.getElementById('stop-firebase-logging-btn');
+    const statusInfo = document.getElementById('logging-session-info');
+    
+    if (startBtn) {
+        startBtn.disabled = isFirebaseLoggingActive;
+        startBtn.style.opacity = isFirebaseLoggingActive ? '0.5' : '1';
+    }
+    
+    if (stopBtn) {
+        stopBtn.disabled = !isFirebaseLoggingActive;
+        stopBtn.style.opacity = !isFirebaseLoggingActive ? '0.5' : '1';
+    }
+    
+    if (statusInfo) {
+        if (isFirebaseLoggingActive) {
+            statusInfo.innerHTML = `
+                <div style="color: #28a745; font-weight: bold;">
+                    🟢 Logging ACTIF
+                </div>
+                <div style="margin-top: 5px; font-size: 10px;">
+                    Session: ${firebaseLoggingSessionId ? firebaseLoggingSessionId.substring(0, 30) + '...' : 'N/A'}
+                </div>
+                <div style="font-size: 10px;">
+                    ${consoleHistory.length} logs en mémoire
+                </div>
+            `;
+        } else {
+            statusInfo.innerHTML = `
+                <div style="color: #6c757d;">
+                    ⚫ Logging inactif
+                </div>
+                ${firebaseLoggingSessionId ? `
+                <div style="margin-top: 5px; font-size: 10px;">
+                    Dernière session: ${firebaseLoggingSessionId.substring(0, 30)}...
+                </div>
+                ` : ''}
+            `;
+        }
+    }
+}
+
+// Télécharger les logs d'une session depuis Firebase
+async function downloadFirebaseLogs() {
+    if (!firebaseLoggingSessionId) {
+        showNotification('❌ Aucune session de logging active ou récente', 'error');
+        return;
+    }
+    
+    if (!firebaseService) {
+        showNotification('❌ Firebase non disponible', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('📥 Téléchargement des logs...', 'info');
+        
+        const logs = await firebaseService.getDebugLogs(firebaseLoggingSessionId);
+        
+        if (!logs || logs.length === 0) {
+            showNotification('⚠️ Aucun log trouvé pour cette session', 'warning');
+            return;
+        }
+        
+        // Créer un fichier texte avec tous les logs
+        let logText = `=== LOGS DEBUG - Session: ${firebaseLoggingSessionId} ===\n`;
+        logText += `Équipe: ${currentTeam?.name || 'Inconnue'} (${currentTeamId})\n`;
+        logText += `Nombre de snapshots: ${logs.length}\n`;
+        logText += `Date de téléchargement: ${new Date().toLocaleString('fr-FR')}\n`;
+        logText += `\n${'='.repeat(80)}\n\n`;
+        
+        logs.forEach((logSnapshot, index) => {
+            logText += `--- Snapshot ${index + 1} (${new Date(logSnapshot.createdAt).toLocaleString('fr-FR')}) ---\n`;
+            logSnapshot.logs.forEach(log => {
+                logText += `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}\n`;
+            });
+            logText += '\n';
+        });
+        
+        // Télécharger le fichier
+        const blob = new Blob([logText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logs_${firebaseLoggingSessionId}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showNotification('✅ Logs téléchargés', 'success');
+        console.log(`📥 Logs téléchargés: ${logs.length} snapshots`);
+        
+    } catch (error) {
+        console.error('❌ Erreur téléchargement logs:', error);
+        showNotification('❌ Erreur lors du téléchargement', 'error');
+    }
 }
 
 // ===== FONCTIONS DE MONITORING =====
@@ -4060,6 +4264,31 @@ function showUnifiedDebugMenu() {
             </div>
         </div>
         
+        <!-- Section Logging Firebase -->
+        <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 2px solid #ffc107;">
+            <h4 style="margin-bottom: 10px; color: #856404;">📝 Logging Firebase</h4>
+            <p style="font-size: 11px; color: #856404; margin-bottom: 10px; text-align: left;">
+                Enregistre tous les logs dans Firebase. Les logs sont sauvegardés automatiquement toutes les 10 secondes.
+            </p>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;">
+                <button id="start-firebase-logging-btn" onclick="startFirebaseLogging()" 
+                        style="background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-size: 13px; font-weight: bold;">
+                    ▶️ Commencer à Logger
+                </button>
+                <button id="stop-firebase-logging-btn" onclick="stopFirebaseLogging()" 
+                        style="background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 4px; font-size: 13px; font-weight: bold; opacity: 0.5;">
+                    ⏹️ Arrêter de Logger
+                </button>
+            </div>
+            <button onclick="downloadFirebaseLogs()" 
+                    style="background: #17a2b8; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; width: 100%;">
+                📥 Télécharger les Logs
+            </button>
+            <div id="firebase-logging-status" style="margin-top: 10px; font-size: 11px; color: #856404; text-align: center;">
+                <span id="logging-session-info"></span>
+            </div>
+        </div>
+        
         <!-- Section Outils Debug -->
         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <h4 style="margin-bottom: 10px; color: #5D2DE6;">🔧 Outils Debug</h4>
@@ -4113,6 +4342,9 @@ function showUnifiedDebugMenu() {
     
     // Générer les positions rapides dynamiquement
     generateQuickPositions();
+    
+    // Mettre à jour l'état des boutons de logging Firebase
+    updateFirebaseLoggingButtons();
 }
 
 function generateQuickPositions() {

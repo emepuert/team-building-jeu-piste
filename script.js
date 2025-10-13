@@ -2669,9 +2669,6 @@ function checkProximityToCheckpoints() {
         }
     });
     
-    // Vérifier les alertes de proximité (100m)
-    checkProximityAlerts();
-    
     // Note: dismissedModals n'est PAS nettoyé automatiquement quand on sort de la zone
     // L'utilisateur doit cliquer manuellement sur "Tenter l'épreuve" dans le popup du checkpoint
 }
@@ -3178,10 +3175,6 @@ function checkRiddleAnswer() {
     
     if (userAnswer === correctAnswer) {
         // Bonne réponse !
-        const successMessage = currentCheckpoint.clue.text || '🎉 Correct ! Énigme résolue !';
-        feedback.innerHTML = successMessage;
-        feedback.className = 'success';
-        
         console.log('🎉 Énigme réussie !');
         
         // Marquer ce checkpoint comme trouvé AVANT de débloquer le suivant
@@ -3222,41 +3215,62 @@ function checkRiddleAnswer() {
         
         // Débloquer le prochain point selon l'équipe
         const nextCheckpointId = getNextCheckpointForTeam();
+        let feedbackMessage;
         if (nextCheckpointId) {
             unlockCheckpoint(nextCheckpointId);
-            
-            // Message personnalisé selon le prochain checkpoint
             const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
             const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
-            feedback.innerHTML = `🎉 Correct ! "${nextName}" est maintenant débloqué !`;
+            feedbackMessage = `🎉 Correct ! "${nextName}" est maintenant débloqué !`;
         } else {
-            feedback.innerHTML = '🎉 Correct ! Vous avez terminé votre parcours !';
+            feedbackMessage = '🎉 Correct ! Vous avez terminé votre parcours !';
         }
         
+        // Afficher le succès avec bouton
+        feedback.innerHTML = `
+            <div class="success">${feedbackMessage}</div>
+            <button id="riddle-continue-btn" style="margin-top: 1rem; padding: 0.8rem 1.5rem; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;">✅ Continuer l'aventure</button>
+        `;
+        feedback.className = 'success';
+        
+        // Masquer les contrôles de réponse
+        document.getElementById('riddle-input-container').style.display = 'none';
+        
+        // Ajouter le listener sur le bouton
         setTimeout(() => {
-            document.getElementById('riddle-modal').style.display = 'none';
-            
-            // Marquer comme dismissed pour éviter la réouverture automatique
-            if (currentCheckpoint) {
-                dismissedModals.add(currentCheckpoint.id);
-                console.log(`✅ Énigme résolue pour ${currentCheckpoint.name}, modal marqué comme dismissed`);
+            const continueBtn = document.getElementById('riddle-continue-btn');
+            if (continueBtn) {
+                continueBtn.addEventListener('click', () => {
+                    console.log('🔘 Clic sur bouton Continuer Énigme');
+                    
+                    // Fermer le modal
+                    document.getElementById('riddle-modal').style.display = 'none';
+                    
+                    // Marquer comme dismissed
+                    if (currentCheckpoint) {
+                        dismissedModals.add(currentCheckpoint.id);
+                        console.log(`✅ Énigme résolue pour ${currentCheckpoint.name}, modal marqué comme dismissed`);
+                    }
+                    
+                    // Réafficher les contrôles pour la prochaine fois
+                    document.getElementById('riddle-input-container').style.display = 'block';
+                    
+                    // Zoomer sur le nouveau point débloqué
+                    if (nextCheckpointId) {
+                        const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                        if (unlockedCheckpoint) {
+                            console.log('🎯 Zoom vers le checkpoint débloqué:', unlockedCheckpoint.name);
+                            centerMapOnCheckpoint(unlockedCheckpoint);
+                            showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Suivez la carte.`);
+                        } else {
+                            console.warn('⚠️ Checkpoint débloqué non trouvé:', nextCheckpointId);
+                            showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
+                        }
+                    } else {
+                        showNotification('🏆 Parcours terminé ! Félicitations !');
+                    }
+                });
             }
-            
-            // Zoomer sur le nouveau point débloqué
-            if (nextCheckpointId) {
-                const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
-                if (unlockedCheckpoint) {
-                    console.log('🎯 Zoom vers le checkpoint débloqué:', unlockedCheckpoint.name);
-                    centerMapOnCheckpoint(unlockedCheckpoint);
-                    showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Suivez la carte.`);
-                } else {
-                    console.warn('⚠️ Checkpoint débloqué non trouvé:', nextCheckpointId);
-                    showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
-                }
-            } else {
-                showNotification('🏆 Parcours terminé ! Félicitations !');
-            }
-        }, 2000);
+        }, 100);
         
     } else {
         // Mauvaise réponse
@@ -4704,13 +4718,54 @@ function startTeamSync() {
                 longueurDifférente: hasDifferentLength
             });
             
-            // Notifier l'utilisateur des nouveaux checkpoints validés
+            // Notifier l'utilisateur des nouveaux checkpoints validés et fermer les modaux
             if (nouveauxCheckpoints.length > 0) {
                 nouveauxCheckpoints.forEach(cpId => {
                     const cp = GAME_CONFIG.checkpoints.find(c => c.id === cpId);
-                    if (cp && cp.type === 'photo') {
-                        const successMsg = cp.clue?.successMessage || `✅ Photo validée pour "${cp.name}" !`;
+                    if (cp) {
+                        // Afficher notification de succès
+                        const successMsg = cp.clue?.successMessage || `✅ ${cp.name} validé !`;
                         showNotification(successMsg, 'success');
+                        
+                        // Fermer les modaux pour ce checkpoint s'ils sont ouverts
+                        const photoModal = document.getElementById('photo-modal');
+                        const audioModal = document.getElementById('audio-modal');
+                        const qcmModal = document.getElementById('qcm-modal');
+                        const riddleModal = document.getElementById('riddle-modal');
+                        
+                        // Vérifier et fermer le modal photo
+                        if (photoModal && photoModal.style.display !== 'none' && currentPhotoCheckpoint?.id === cpId) {
+                            console.log(`🔴 Fermeture modal photo pour checkpoint ${cpId} validé par admin`);
+                            photoModal.style.display = 'none';
+                            activeModals.delete(`photo-${cpId}`);
+                            dismissedModals.add(cpId);
+                            resetPhotoInterface();
+                        }
+                        
+                        // Vérifier et fermer le modal audio
+                        if (audioModal && audioModal.style.display !== 'none' && currentAudioCheckpoint?.id === cpId) {
+                            console.log(`🔴 Fermeture modal audio pour checkpoint ${cpId} validé par admin`);
+                            audioModal.style.display = 'none';
+                            activeModals.delete(cpId);
+                            dismissedModals.add(cpId);
+                            resetAudioInterface();
+                        }
+                        
+                        // Vérifier et fermer le modal QCM
+                        if (qcmModal && qcmModal.style.display !== 'none' && currentQCMCheckpoint?.id === cpId) {
+                            console.log(`🔴 Fermeture modal QCM pour checkpoint ${cpId} validé par admin`);
+                            qcmModal.style.display = 'none';
+                            activeModals.delete(cpId);
+                            dismissedModals.add(cpId);
+                        }
+                        
+                        // Vérifier et fermer le modal énigme
+                        if (riddleModal && riddleModal.style.display !== 'none' && currentRiddleCheckpoint?.id === cpId) {
+                            console.log(`🔴 Fermeture modal énigme pour checkpoint ${cpId} validé par admin`);
+                            riddleModal.style.display = 'none';
+                            activeModals.delete(cpId);
+                            dismissedModals.add(cpId);
+                        }
                     }
                 });
             }
@@ -5553,6 +5608,7 @@ function submitQCMAnswer() {
         feedback.innerHTML = `
             <div>✅ ${qcmConfig.successMessage || 'Bravo ! Bonne réponse !'}</div>
             ${qcmConfig.explanation ? `<div class="qcm-explanation">💡 ${qcmConfig.explanation}</div>` : ''}
+            <button id="qcm-continue-btn" class="qcm-btn primary" style="margin-top: 1rem;">✅ Continuer l'aventure</button>
         `;
         
         console.log('🎉 QCM réussi !');
@@ -5593,37 +5649,42 @@ function submitQCMAnswer() {
             }
         }
         
-        // Débloquer le prochain checkpoint après un délai
+        // Ajouter le listener sur le bouton "Continuer"
         setTimeout(() => {
-            document.getElementById('qcm-modal').style.display = 'none';
-            activeModals.delete(currentQCMCheckpoint.id); // Nettoyer le modal actif
-            
-            // Marquer comme dismissed pour éviter la réouverture automatique
-            if (currentQCMCheckpoint) {
-                dismissedModals.add(currentQCMCheckpoint.id);
-                console.log(`✅ QCM résolu pour ${currentQCMCheckpoint.name}, modal marqué comme dismissed`);
+            const continueBtn = document.getElementById('qcm-continue-btn');
+            if (continueBtn) {
+                continueBtn.addEventListener('click', () => {
+                    console.log('🔘 Clic sur bouton Continuer QCM');
+                    
+                    // Fermer le modal
+                    document.getElementById('qcm-modal').style.display = 'none';
+                    activeModals.delete(currentQCMCheckpoint.id);
+                    
+                    // Marquer comme dismissed
+                    if (currentQCMCheckpoint) {
+                        dismissedModals.add(currentQCMCheckpoint.id);
+                        console.log(`✅ QCM résolu pour ${currentQCMCheckpoint.name}, modal marqué comme dismissed`);
+                    }
+                    
+                    // Débloquer le prochain point
+                    const nextCheckpointId = getNextCheckpointForTeam();
+                    if (nextCheckpointId) {
+                        unlockCheckpoint(nextCheckpointId);
+                        
+                        const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                        const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                        showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                        
+                        if (nextCheckpoint) {
+                            console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
+                            centerMapOnCheckpoint(nextCheckpoint);
+                        }
+                    } else {
+                        showNotification('🏆 Parcours terminé ! Félicitations !');
+                    }
+                });
             }
-            
-            // Débloquer le prochain point selon l'équipe
-            const nextCheckpointId = getNextCheckpointForTeam();
-            if (nextCheckpointId) {
-                unlockCheckpoint(nextCheckpointId);
-                
-                // Message personnalisé selon le prochain checkpoint
-                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
-                const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
-                showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
-                
-                // Zoomer sur le nouveau point débloqué
-                if (nextCheckpoint) {
-                    console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
-                    centerMapOnCheckpoint(nextCheckpoint);
-                }
-            } else {
-                showNotification('🏆 Parcours terminé ! Félicitations !');
-            }
-            
-        }, 3000);
+        }, 100);
         
     } else {
         feedback.className = 'qcm-feedback error';
@@ -5845,8 +5906,15 @@ function audioChallengeSucess() {
         updateUI();
     }
     
-    // Afficher le succès
-    showAudioFeedback(successMessage, 'success');
+    // Afficher le succès avec bouton de continuation
+    const audioFeedback = document.getElementById('audio-feedback');
+    audioFeedback.innerHTML = `
+        <div class="audio-feedback success" style="margin-bottom: 1rem;">
+            ✅ ${successMessage}
+        </div>
+        <button id="audio-continue-btn" class="audio-btn primary">✅ Continuer l'aventure</button>
+    `;
+    audioFeedback.style.display = 'block';
     
     // Masquer les contrôles
     document.getElementById('start-audio-btn').style.display = 'none';
@@ -5855,40 +5923,45 @@ function audioChallengeSucess() {
     
     console.log('🎉 Épreuve audio réussie !');
     
-    // Débloquer le prochain checkpoint après un délai
+    // Ajouter le listener sur le bouton "Continuer"
     setTimeout(() => {
-        document.getElementById('audio-modal').style.display = 'none';
-        
-        // Marquer comme dismissed pour éviter la réouverture automatique
-        if (currentAudioCheckpoint) {
-            activeModals.delete(currentAudioCheckpoint.id);
-            dismissedModals.add(currentAudioCheckpoint.id);
-            console.log(`✅ Audio résolu pour ${currentAudioCheckpoint.name}, modal marqué comme dismissed`);
+        const continueBtn = document.getElementById('audio-continue-btn');
+        if (continueBtn) {
+            continueBtn.addEventListener('click', () => {
+                console.log('🔘 Clic sur bouton Continuer Audio');
+                
+                // Fermer le modal
+                document.getElementById('audio-modal').style.display = 'none';
+                
+                // Marquer comme dismissed
+                if (currentAudioCheckpoint) {
+                    activeModals.delete(currentAudioCheckpoint.id);
+                    dismissedModals.add(currentAudioCheckpoint.id);
+                    console.log(`✅ Audio résolu pour ${currentAudioCheckpoint.name}, modal marqué comme dismissed`);
+                }
+                
+                // Nettoyer les ressources audio
+                resetAudioInterface();
+                
+                // Débloquer le prochain point
+                const nextCheckpointId = getNextCheckpointForTeam();
+                if (nextCheckpointId) {
+                    unlockCheckpoint(nextCheckpointId);
+                    
+                    const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                    const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
+                    showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                    
+                    if (nextCheckpoint) {
+                        console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
+                        centerMapOnCheckpoint(nextCheckpoint);
+                    }
+                } else {
+                    showNotification('🏆 Parcours terminé ! Félicitations !');
+                }
+            });
         }
-        
-        // Débloquer le prochain point selon l'équipe
-        const nextCheckpointId = getNextCheckpointForTeam();
-        if (nextCheckpointId) {
-            unlockCheckpoint(nextCheckpointId);
-            
-            // Message personnalisé selon le prochain checkpoint
-            const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
-            const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
-            showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
-            
-            // Zoomer sur le nouveau point débloqué
-            if (nextCheckpoint) {
-                console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
-                centerMapOnCheckpoint(nextCheckpoint);
-            }
-        } else {
-            showNotification('🏆 Parcours terminé ! Félicitations !');
-        }
-        
-        // Nettoyer les ressources audio
-        resetAudioInterface();
-        
-    }, 2000);
+    }, 100);
 }
 
 // Afficher un feedback audio
@@ -6266,6 +6339,26 @@ function setupNotificationListeners() {
                         const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === validation.checkpointId);
                         const successMsg = checkpoint?.clue?.successMessage || `🎉 Photo validée pour "${checkpoint?.name || validation.checkpointId}" !`;
                         showNotification(successMsg, 'success');
+                        
+                        // Fermer le modal photo s'il est ouvert
+                        const photoModal = document.getElementById('photo-modal');
+                        if (photoModal && photoModal.style.display !== 'none') {
+                            console.log(`🔴 Fermeture du modal photo suite à validation admin`);
+                            photoModal.style.display = 'none';
+                            activeModals.delete(`photo-${validation.checkpointId}`);
+                            dismissedModals.add(validation.checkpointId);
+                            resetPhotoInterface();
+                        }
+                        
+                        // Fermer le modal audio s'il est ouvert pour ce checkpoint
+                        const audioModal = document.getElementById('audio-modal');
+                        if (audioModal && audioModal.style.display !== 'none' && currentAudioCheckpoint?.id === validation.checkpointId) {
+                            console.log(`🔴 Fermeture du modal audio suite à validation admin`);
+                            audioModal.style.display = 'none';
+                            activeModals.delete(validation.checkpointId);
+                            dismissedModals.add(validation.checkpointId);
+                            resetAudioInterface();
+                        }
                         
                         // Mettre à jour l'interface
                         updatePlayerRouteProgress();
@@ -7423,30 +7516,6 @@ function initMobileMenu() {
         });
     }
     
-    // === ALERTES DE PROXIMITÉ ===
-    const proximityAlertsToggle = document.getElementById('proximity-alerts-toggle');
-    const proximityAlertsStatus = document.getElementById('proximity-alerts-status');
-    
-    if (proximityAlertsToggle && proximityAlertsStatus) {
-        // Charger la préférence sauvegardée (activé par défaut)
-        const alertsEnabled = localStorage.getItem('proximityAlertsEnabled') !== 'false';
-        proximityAlertsToggle.checked = alertsEnabled;
-        updateProximityAlertsStatus(alertsEnabled ? '✅ Actif' : '⏸️ Désactivé');
-        
-        // Event listener sur le toggle
-        proximityAlertsToggle.addEventListener('change', (e) => {
-            const enabled = e.target.checked;
-            localStorage.setItem('proximityAlertsEnabled', enabled);
-            updateProximityAlertsStatus(enabled ? '✅ Actif' : '⏸️ Désactivé');
-            
-            if (enabled) {
-                showNotification('🔔 Alertes de proximité activées', 'success');
-            } else {
-                showNotification('🔕 Alertes de proximité désactivées', 'info');
-            }
-        });
-    }
-    
     console.log('✅ Menu mobile initialisé');
 }
 
@@ -7512,79 +7581,6 @@ document.addEventListener('visibilitychange', async () => {
         }
     }
 });
-
-// === PROXIMITY ALERTS FUNCTIONS ===
-let alertedCheckpoints = new Set(); // Checkpoints qui ont déjà déclenché une alerte
-
-function updateProximityAlertsStatus(message) {
-    const statusEl = document.getElementById('proximity-alerts-status');
-    if (statusEl) {
-        statusEl.textContent = message;
-    }
-}
-
-function checkProximityAlerts() {
-    // Vérifier si les alertes sont activées
-    const alertsEnabled = localStorage.getItem('proximityAlertsEnabled') !== 'false';
-    if (!alertsEnabled || !userPosition) {
-        return;
-    }
-    
-    const ALERT_DISTANCE = 100; // 100 mètres
-    const RESET_DISTANCE = 150; // Distance pour reset l'alerte (si on s'éloigne)
-    
-    // Parcourir tous les checkpoints de l'équipe
-    const teamRoute = currentTeam?.route || [];
-    
-    teamRoute.forEach(checkpointId => {
-        // Ignorer le lobby et les checkpoints déjà trouvés
-        if (checkpointId === 0 || foundCheckpoints.includes(checkpointId)) {
-            return;
-        }
-        
-        // Trouver le checkpoint
-        const checkpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === checkpointId);
-        if (!checkpoint || !checkpoint.coordinates) {
-            return;
-        }
-        
-        // Calculer la distance
-        const distance = calculateDistance(
-            userPosition.lat,
-            userPosition.lng,
-            checkpoint.coordinates[0],
-            checkpoint.coordinates[1]
-        );
-        
-        // Si on s'éloigne beaucoup, reset l'alerte
-        if (distance > RESET_DISTANCE && alertedCheckpoints.has(checkpointId)) {
-            alertedCheckpoints.delete(checkpointId);
-            console.log(`🔄 Reset alerte pour ${checkpoint.name} (distance: ${distance.toFixed(0)}m)`);
-        }
-        
-        // Si on approche à moins de 100m et pas encore alerté
-        if (distance <= ALERT_DISTANCE && !alertedCheckpoints.has(checkpointId)) {
-            triggerProximityAlert(checkpoint, distance);
-            alertedCheckpoints.add(checkpointId);
-        }
-    });
-}
-
-function triggerProximityAlert(checkpoint, distance) {
-    console.log(`🔔 ALERTE PROXIMITÉ: ${checkpoint.name} à ${distance.toFixed(0)}m`);
-    
-    // Vibration (3 courtes impulsions)
-    if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200, 100, 200]);
-    }
-    
-    // Notification visuelle
-    const distanceText = distance < 50 ? 'très proche' : `à ${distance.toFixed(0)}m`;
-    showNotification(`🎯 ${checkpoint.emoji} ${checkpoint.name} ${distanceText} !`, 'info');
-    
-    // Log pour debug
-    console.log(`✅ Alerte déclenchée: ${checkpoint.name} à ${distance.toFixed(0)}m`);
-}
 
 // Exposer les fonctions mobile
 window.openMobileMenu = openMobileMenu;

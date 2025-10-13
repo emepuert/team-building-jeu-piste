@@ -3254,13 +3254,20 @@ function checkRiddleAnswer() {
                     // Réafficher les contrôles pour la prochaine fois
                     document.getElementById('riddle-input-container').style.display = 'block';
                     
-                    // Zoomer sur le nouveau point débloqué
+                    // Zoomer sur le nouveau point débloqué et lancer la navigation GPS
                     if (nextCheckpointId) {
                         const unlockedCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
                         if (unlockedCheckpoint) {
                             console.log('🎯 Zoom vers le checkpoint débloqué:', unlockedCheckpoint.name);
                             centerMapOnCheckpoint(unlockedCheckpoint);
-                            showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Suivez la carte.`);
+                            
+                            // Lancer la navigation GPS automatique
+                            if (userPosition) {
+                                calculateRoute(userPosition, unlockedCheckpoint);
+                                showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Navigation GPS activée.`);
+                            } else {
+                                showNotification(`🎯 "${unlockedCheckpoint.name}" débloqué ! Suivez la carte.`);
+                            }
                         } else {
                             console.warn('⚠️ Checkpoint débloqué non trouvé:', nextCheckpointId);
                             showNotification('🎯 Prochain défi débloqué ! Navigation GPS activée.');
@@ -5460,6 +5467,24 @@ function showAudioChallenge(checkpoint) {
     // Réinitialiser l'interface
     resetAudioInterface();
     
+    // ✅ FIX RADICAL: Pré-créer l'AudioContext MAINTENANT (dans le contexte d'interaction du clic sur le checkpoint)
+    // pour éviter le problème de contexte suspendu
+    if (!audioContext) {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('🔊 AudioContext pré-créé à l\'ouverture du modal, état:', audioContext.state);
+            
+            // Activer immédiatement si suspendu
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('▶️ AudioContext pré-activé à l\'ouverture du modal');
+                });
+            }
+        } catch (error) {
+            console.error('❌ Erreur pré-création AudioContext:', error);
+        }
+    }
+    
     // Afficher le modal
     document.getElementById('audio-modal').style.display = 'flex';
     
@@ -5666,18 +5691,27 @@ function submitQCMAnswer() {
                         console.log(`✅ QCM résolu pour ${currentQCMCheckpoint.name}, modal marqué comme dismissed`);
                     }
                     
-                    // Débloquer le prochain point
+                    // Débloquer le prochain point et lancer la navigation GPS
                     const nextCheckpointId = getNextCheckpointForTeam();
                     if (nextCheckpointId) {
                         unlockCheckpoint(nextCheckpointId);
                         
                         const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
                         const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
-                        showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
                         
                         if (nextCheckpoint) {
                             console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
                             centerMapOnCheckpoint(nextCheckpoint);
+                            
+                            // Lancer la navigation GPS automatique
+                            if (userPosition) {
+                                calculateRoute(userPosition, nextCheckpoint);
+                                showNotification(`🎯 "${nextName}" débloqué ! Navigation GPS activée.`);
+                            } else {
+                                showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                            }
+                        } else {
+                            showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
                         }
                     } else {
                         showNotification('🏆 Parcours terminé ! Félicitations !');
@@ -5754,21 +5788,21 @@ async function startAudioChallenge() {
     try {
         console.log('🎤 Démarrage épreuve audio...');
         
-        // ✅ FIX CRITIQUE: Créer l'AudioContext AVANT de demander le micro
-        // pour conserver le contexte d'interaction utilisateur (clic)
+        // ✅ Vérifier que l'AudioContext existe (devrait être pré-créé à l'ouverture du modal)
         if (!audioContext) {
+            console.warn('⚠️ AudioContext non pré-créé, création maintenant...');
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('🔊 AudioContext créé, état:', audioContext.state);
         }
         
-        // ✅ Activer immédiatement l'AudioContext dans le contexte du clic
+        // ✅ Activer l'AudioContext dans le contexte du clic
         if (audioContext.state === 'suspended') {
             console.log('⏸️ AudioContext suspendu, activation...');
             await audioContext.resume();
             console.log('▶️ AudioContext activé:', audioContext.state);
         }
         
-        // Maintenant demander l'accès au microphone (peut prendre du temps)
+        // Maintenant demander l'accès au microphone
+        console.log('🎤 Demande d\'accès au microphone...');
         audioStream = await requestMicrophoneBrowser();
         console.log('✅ Stream audio obtenu');
         
@@ -5978,18 +6012,27 @@ function audioChallengeSucess() {
                 // Nettoyer les ressources audio
                 resetAudioInterface();
                 
-                // Débloquer le prochain point
+                // Débloquer le prochain point et lancer la navigation GPS
                 const nextCheckpointId = getNextCheckpointForTeam();
                 if (nextCheckpointId) {
                     unlockCheckpoint(nextCheckpointId);
                     
                     const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
                     const nextName = nextCheckpoint ? nextCheckpoint.name : 'prochain point';
-                    showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
                     
                     if (nextCheckpoint) {
                         console.log('🎯 Zoom vers le checkpoint débloqué:', nextCheckpoint.name);
                         centerMapOnCheckpoint(nextCheckpoint);
+                        
+                        // Lancer la navigation GPS automatique
+                        if (userPosition) {
+                            calculateRoute(userPosition, nextCheckpoint);
+                            showNotification(`🎯 "${nextName}" débloqué ! Navigation GPS activée.`);
+                        } else {
+                            showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
+                        }
+                    } else {
+                        showNotification(`🎉 "${nextName}" est maintenant débloqué !`);
                     }
                 } else {
                     showNotification('🏆 Parcours terminé ! Félicitations !');

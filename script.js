@@ -5754,20 +5754,23 @@ async function startAudioChallenge() {
     try {
         console.log('🎤 Démarrage épreuve audio...');
         
-        // Demander l'accès au microphone
-        audioStream = await requestMicrophoneBrowser();
-        console.log('✅ Stream audio obtenu');
+        // ✅ FIX CRITIQUE: Créer l'AudioContext AVANT de demander le micro
+        // pour conserver le contexte d'interaction utilisateur (clic)
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('🔊 AudioContext créé, état:', audioContext.state);
+        }
         
-        // Créer le contexte audio
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        console.log('🔊 AudioContext créé, état:', audioContext.state);
-        
-        // ✅ FIX: Attendre que l'AudioContext soit actif (résout le bug du premier clic)
+        // ✅ Activer immédiatement l'AudioContext dans le contexte du clic
         if (audioContext.state === 'suspended') {
             console.log('⏸️ AudioContext suspendu, activation...');
             await audioContext.resume();
-            console.log('▶️ AudioContext activé');
+            console.log('▶️ AudioContext activé:', audioContext.state);
         }
+        
+        // Maintenant demander l'accès au microphone (peut prendre du temps)
+        audioStream = await requestMicrophoneBrowser();
+        console.log('✅ Stream audio obtenu');
         
         const source = audioContext.createMediaStreamSource(audioStream);
         

@@ -1280,6 +1280,56 @@ class FirebaseService {
     }
 
     /**
+     * Supprimer tous les logs d'une équipe
+     * @param {string} teamId - ID de l'équipe
+     */
+    async deleteTeamDebugLogs(teamId) {
+        try {
+            const q = query(
+                collection(this.db, 'debug_logs'),
+                where('teamId', '==', teamId)
+            );
+            
+            const snapshot = await getDocs(q);
+            
+            // Supprimer tous les documents
+            const deletePromises = snapshot.docs.map(doc => 
+                deleteDoc(doc.ref)
+            );
+            
+            await Promise.all(deletePromises);
+            
+            console.log(`✅ ${snapshot.docs.length} logs supprimés pour équipe ${teamId}`);
+            return snapshot.docs.length;
+        } catch (error) {
+            console.error('❌ Erreur suppression logs équipe:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Supprimer tous les logs (nettoyage complet)
+     */
+    async deleteAllDebugLogs() {
+        try {
+            const snapshot = await getDocs(collection(this.db, 'debug_logs'));
+            
+            // Supprimer tous les documents
+            const deletePromises = snapshot.docs.map(doc => 
+                deleteDoc(doc.ref)
+            );
+            
+            await Promise.all(deletePromises);
+            
+            console.log(`✅ ${snapshot.docs.length} logs supprimés au total`);
+            return snapshot.docs.length;
+        } catch (error) {
+            console.error('❌ Erreur suppression tous les logs:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Écouter les logs admin pour une équipe spécifique
      * @param {string} teamId - ID de l'équipe
      * @param {Function} callback - Fonction appelée avec les nouveaux logs

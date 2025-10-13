@@ -287,6 +287,8 @@ function setupAdminEvents() {
     // Logs de debug
     document.getElementById('load-logs-btn').addEventListener('click', loadDebugLogs);
     document.getElementById('download-logs-btn').addEventListener('click', downloadDebugLogsFile);
+    document.getElementById('delete-team-logs-btn').addEventListener('click', deleteTeamLogs);
+    document.getElementById('delete-all-logs-btn').addEventListener('click', deleteAllLogs);
     
     // Modals
     setupModalEvents();
@@ -4186,6 +4188,13 @@ async function loadDebugLogs() {
         
         logsContainer.innerHTML = html;
         downloadBtn.style.display = 'inline-block';
+        
+        // Afficher aussi le bouton de suppression si des logs ont été chargés
+        const deleteBtn = document.getElementById('delete-team-logs-btn');
+        if (deleteBtn) {
+            deleteBtn.style.display = 'inline-block';
+        }
+        
         showNotification(`✅ ${logs.length} session(s) chargée(s)`, 'success');
         
     } catch (error) {
@@ -4249,9 +4258,90 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Supprimer les logs d'une équipe
+async function deleteTeamLogs() {
+    const teamId = document.getElementById('team-logs-select').value;
+    
+    if (!teamId) {
+        showNotification('⚠️ Veuillez sélectionner une équipe', 'warning');
+        return;
+    }
+    
+    const team = managementTeamsData.find(t => t.id === teamId);
+    const teamName = team ? team.name : 'cette équipe';
+    
+    if (!confirm(`🗑️ Êtes-vous sûr de vouloir supprimer TOUS les logs de l'équipe "${teamName}" ?\n\nCette action est irréversible !`)) {
+        return;
+    }
+    
+    if (!firebaseService) {
+        showNotification('❌ Firebase non disponible', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('🗑️ Suppression en cours...', 'info');
+        
+        const count = await firebaseService.deleteTeamDebugLogs(teamId);
+        
+        showNotification(`✅ ${count} log(s) supprimé(s) pour ${teamName}`, 'success');
+        
+        // Recharger les logs (affichera "Aucun log")
+        loadDebugLogs();
+        
+    } catch (error) {
+        console.error('❌ Erreur suppression logs équipe:', error);
+        showNotification('❌ Erreur lors de la suppression', 'error');
+    }
+}
+
+// Supprimer TOUS les logs de debug
+async function deleteAllLogs() {
+    if (!confirm(`🚨 ATTENTION ! Vous allez supprimer TOUS les logs de TOUTES les équipes !\n\nCette action est IRRÉVERSIBLE !\n\nVoulez-vous vraiment continuer ?`)) {
+        return;
+    }
+    
+    if (!confirm(`⚠️ Dernière confirmation : Supprimer TOUS les logs de debug ?`)) {
+        return;
+    }
+    
+    if (!firebaseService) {
+        showNotification('❌ Firebase non disponible', 'error');
+        return;
+    }
+    
+    try {
+        showNotification('🗑️ Suppression de tous les logs...', 'info');
+        
+        const count = await firebaseService.deleteAllDebugLogs();
+        
+        showNotification(`✅ ${count} log(s) supprimé(s) au total`, 'success');
+        
+        // Réinitialiser l'affichage
+        const logsContainer = document.getElementById('debug-logs-list');
+        const downloadBtn = document.getElementById('download-logs-btn');
+        const deleteBtn = document.getElementById('delete-team-logs-btn');
+        
+        if (logsContainer) {
+            logsContainer.innerHTML = '<p class="no-data">Tous les logs ont été supprimés</p>';
+        }
+        
+        if (downloadBtn) downloadBtn.style.display = 'none';
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        
+        currentLoadedLogs = null;
+        
+    } catch (error) {
+        console.error('❌ Erreur suppression tous les logs:', error);
+        showNotification('❌ Erreur lors de la suppression', 'error');
+    }
+}
+
 // Exposer les nouvelles fonctions globalement
 window.toggleCheckpointSelection = toggleCheckpointSelection;
 window.removeCheckpointFromSelection = removeCheckpointFromSelection;
 window.updateCreateRouteSelection = updateCreateRouteSelection;
 window.loadDebugLogs = loadDebugLogs;
 window.downloadDebugLogsFile = downloadDebugLogsFile;
+window.deleteTeamLogs = deleteTeamLogs;
+window.deleteAllLogs = deleteAllLogs;

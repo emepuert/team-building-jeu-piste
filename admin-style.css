@@ -2157,7 +2157,9 @@ section h2 {
 }
 
 .debug-logs-section #load-logs-btn,
-.debug-logs-section #download-logs-btn {
+.debug-logs-section #download-logs-btn,
+.debug-logs-section #delete-team-logs-btn,
+.debug-logs-section #delete-all-logs-btn {
     padding: 0.75rem 1.5rem;
     font-weight: 600;
     font-size: 0.95rem;
@@ -2186,6 +2188,28 @@ section h2 {
 .debug-logs-section #download-logs-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 184, 148, 0.4);
+}
+
+.debug-logs-section #delete-team-logs-btn {
+    background: linear-gradient(135deg, #ff7675 0%, #d63031 100%);
+    color: var(--white);
+}
+
+.debug-logs-section #delete-team-logs-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 118, 117, 0.4);
+}
+
+.debug-logs-section #delete-all-logs-btn {
+    background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+    color: var(--white);
+    border: 2px solid #ff7675;
+}
+
+.debug-logs-section #delete-all-logs-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 118, 117, 0.6);
+    background: linear-gradient(135deg, #d63031 0%, #c0392b 100%);
 }
 
 #debug-logs-list {

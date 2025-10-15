@@ -4508,7 +4508,10 @@ function updateTrackingMap() {
     // Supprimer les anciens markers des équipes qui n'existent plus
     Object.keys(trackingTeamMarkers).forEach(teamId => {
         if (!teamsWithPosition.find(t => t.id === teamId)) {
-            trackingMap.removeLayer(trackingTeamMarkers[teamId]);
+            trackingMap.removeLayer(trackingTeamMarkers[teamId].marker);
+            if (trackingTeamMarkers[teamId].accuracyCircle) {
+                trackingMap.removeLayer(trackingTeamMarkers[teamId].accuracyCircle);
+            }
             delete trackingTeamMarkers[teamId];
         }
     });
@@ -4534,8 +4537,8 @@ function updateTrackingMap() {
         
         if (trackingTeamMarkers[team.id]) {
             // Mettre à jour la position existante
-            trackingTeamMarkers[team.id].setLatLng(position);
-            trackingTeamMarkers[team.id].setPopupContent(`
+            trackingTeamMarkers[team.id].marker.setLatLng(position);
+            trackingTeamMarkers[team.id].marker.setPopupContent(`
                 <div style="min-width: 200px;">
                     <h3 style="color: ${color}; margin: 0 0 10px 0;">${team.name}</h3>
                     <div style="margin: 5px 0;">
@@ -4550,6 +4553,22 @@ function updateTrackingMap() {
                     ${team.lastPosition.accuracy ? `<div style="margin: 5px 0; color: #7f8c8d;"><small>Précision GPS: ±${Math.round(team.lastPosition.accuracy)}m</small></div>` : ''}
                 </div>
             `);
+            
+            // Mettre à jour le cercle de précision GPS
+            if (team.lastPosition.accuracy && trackingTeamMarkers[team.id].accuracyCircle) {
+                trackingTeamMarkers[team.id].accuracyCircle.setLatLng(position);
+                trackingTeamMarkers[team.id].accuracyCircle.setRadius(team.lastPosition.accuracy);
+            } else if (team.lastPosition.accuracy && !trackingTeamMarkers[team.id].accuracyCircle) {
+                // Créer le cercle s'il n'existe pas
+                trackingTeamMarkers[team.id].accuracyCircle = L.circle(position, {
+                    radius: team.lastPosition.accuracy,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.1,
+                    weight: 1,
+                    opacity: 0.4
+                }).addTo(trackingMap);
+            }
         } else {
             // Créer un nouveau marker
             const marker = L.marker(position, {
@@ -4594,7 +4613,23 @@ function updateTrackingMap() {
                 </div>
             `);
             
-            trackingTeamMarkers[team.id] = marker;
+            // Créer le cercle de précision GPS
+            let accuracyCircle = null;
+            if (team.lastPosition.accuracy) {
+                accuracyCircle = L.circle(position, {
+                    radius: team.lastPosition.accuracy,
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.1,
+                    weight: 1,
+                    opacity: 0.4
+                }).addTo(trackingMap);
+            }
+            
+            trackingTeamMarkers[team.id] = {
+                marker: marker,
+                accuracyCircle: accuracyCircle
+            };
         }
     });
     
@@ -4657,8 +4692,8 @@ function centerOnTeam(teamId) {
         trackingMap.setView([team.lastPosition.lat, team.lastPosition.lng], 16);
         
         // Ouvrir le popup du marker
-        if (trackingTeamMarkers[teamId]) {
-            trackingTeamMarkers[teamId].openPopup();
+        if (trackingTeamMarkers[teamId] && trackingTeamMarkers[teamId].marker) {
+            trackingTeamMarkers[teamId].marker.openPopup();
         }
     }
 }

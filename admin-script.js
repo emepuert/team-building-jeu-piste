@@ -283,6 +283,7 @@ function setupAdminEvents() {
     document.getElementById('create-checkpoint-btn').addEventListener('click', showCreateCheckpointModal);
     document.getElementById('create-route-btn').addEventListener('click', showCreateRouteModal);
     document.getElementById('show-routes-map-btn').addEventListener('click', showRoutesMapModal);
+    document.getElementById('show-tracking-map-btn').addEventListener('click', showTrackingMapModal);
     
     // Logs de debug
     document.getElementById('load-logs-btn').addEventListener('click', loadDebugLogs);
@@ -4400,6 +4401,311 @@ async function deleteAllLogs() {
     }
 }
 
+// ===== CARTE DE TRACKING EN TEMPS RÉEL =====
+let trackingMap = null;
+let trackingTeamMarkers = {};
+let trackingCheckpointMarkers = {};
+let trackingUpdateInterval = null;
+
+// Couleurs pour différencier les équipes
+const teamColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e', '#95a5a6', '#c0392b'];
+
+async function showTrackingMapModal() {
+    document.getElementById('tracking-map-modal').style.display = 'block';
+    document.body.classList.add('modal-open');
+    
+    // Initialiser la carte après un court délai
+    setTimeout(() => {
+        initializeTrackingMap();
+    }, 100);
+    
+    // Démarrer les mises à jour automatiques toutes les 5 secondes
+    if (trackingUpdateInterval) {
+        clearInterval(trackingUpdateInterval);
+    }
+    trackingUpdateInterval = setInterval(() => {
+        updateTrackingMap();
+    }, 5000);
+}
+
+function hideTrackingMapModal() {
+    document.getElementById('tracking-map-modal').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    
+    // Arrêter les mises à jour automatiques
+    if (trackingUpdateInterval) {
+        clearInterval(trackingUpdateInterval);
+        trackingUpdateInterval = null;
+    }
+    
+    // Nettoyer la carte
+    if (trackingMap) {
+        trackingMap.remove();
+        trackingMap = null;
+        trackingTeamMarkers = {};
+        trackingCheckpointMarkers = {};
+    }
+}
+
+async function initializeTrackingMap() {
+    try {
+        // Vérifier que les données sont chargées
+        if (!checkpointsData || checkpointsData.length === 0) {
+            await loadCheckpoints();
+        }
+        
+        if (checkpointsData.length === 0) {
+            showNotification('⚠️ Aucun checkpoint créé', 'warning');
+            return;
+        }
+        
+        // Calculer le centre par défaut (moyenne des checkpoints)
+        const avgLat = checkpointsData.reduce((sum, cp) => sum + cp.coordinates[0], 0) / checkpointsData.length;
+        const avgLng = checkpointsData.reduce((sum, cp) => sum + cp.coordinates[1], 0) / checkpointsData.length;
+        
+        // Créer la carte
+        trackingMap = L.map('tracking-live-map').setView([avgLat, avgLng], 14);
+        
+        // Ajouter les tuiles OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(trackingMap);
+        
+        // Ajouter tous les checkpoints (en gris/transparents)
+        checkpointsData.forEach(checkpoint => {
+            const marker = L.marker(checkpoint.coordinates, {
+                icon: L.divIcon({
+                    className: 'tracking-checkpoint-marker',
+                    html: `<div style="font-size: 20px; opacity: 0.5;">${checkpoint.emoji}</div>`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                })
+            }).addTo(trackingMap);
+            
+            marker.bindPopup(`
+                <strong>${checkpoint.emoji} ${checkpoint.name}</strong><br>
+                <small>Type: ${checkpoint.type}</small>
+            `);
+            
+            trackingCheckpointMarkers[checkpoint.id] = marker;
+        });
+        
+        // Ajouter les marqueurs des équipes
+        updateTrackingMap();
+        
+        // Forcer le redimensionnement de la carte
+        setTimeout(() => {
+            trackingMap.invalidateSize();
+        }, 200);
+        
+        console.log('✅ Carte de tracking initialisée');
+        
+    } catch (error) {
+        console.error('❌ Erreur initialisation carte tracking:', error);
+        showNotification('Erreur lors de l\'initialisation de la carte', 'error');
+    }
+}
+
+function updateTrackingMap() {
+    if (!trackingMap) return;
+    
+    // Filtrer les équipes qui ont une position GPS
+    const teamsWithPosition = teamsData.filter(team => 
+        team.lastPosition && 
+        team.lastPosition.lat && 
+        team.lastPosition.lng
+    );
+    
+    // Mettre à jour le compteur
+    document.getElementById('tracking-teams-count').textContent = `${teamsWithPosition.length} équipe(s) en jeu`;
+    document.getElementById('tracking-last-update').textContent = `Dernière mise à jour : ${new Date().toLocaleTimeString()}`;
+    
+    // Supprimer les anciens markers des équipes qui n'existent plus
+    Object.keys(trackingTeamMarkers).forEach(teamId => {
+        if (!teamsWithPosition.find(t => t.id === teamId)) {
+            trackingMap.removeLayer(trackingTeamMarkers[teamId]);
+            delete trackingTeamMarkers[teamId];
+        }
+    });
+    
+    // Mettre à jour ou créer les markers des équipes
+    teamsWithPosition.forEach((team, index) => {
+        const position = [team.lastPosition.lat, team.lastPosition.lng];
+        const color = teamColors[index % teamColors.length];
+        
+        // Calculer la progression
+        const progress = getTeamProgress(team);
+        const foundCount = team.foundCheckpoints.filter(id => {
+            const cp = checkpointsData.find(c => c.id === id);
+            return cp && !cp.isLobby;
+        }).length;
+        const totalCount = team.route.filter(id => {
+            const cp = checkpointsData.find(c => c.id === id);
+            return cp && !cp.isLobby;
+        }).length;
+        
+        // Trouver le prochain checkpoint
+        const nextCheckpoint = getNextUnlockedCheckpoint(team);
+        
+        if (trackingTeamMarkers[team.id]) {
+            // Mettre à jour la position existante
+            trackingTeamMarkers[team.id].setLatLng(position);
+            trackingTeamMarkers[team.id].setPopupContent(`
+                <div style="min-width: 200px;">
+                    <h3 style="color: ${color}; margin: 0 0 10px 0;">${team.name}</h3>
+                    <div style="margin: 5px 0;">
+                        <strong>📊 Progression:</strong> ${foundCount}/${totalCount} (${progress}%)
+                    </div>
+                    <div style="margin: 5px 0;">
+                        <strong>📍 Prochain objectif:</strong><br>${nextCheckpoint}
+                    </div>
+                    <div style="margin: 5px 0;">
+                        <strong>🕐 Position mise à jour:</strong><br>${new Date(team.updatedAt?.seconds * 1000 || Date.now()).toLocaleTimeString()}
+                    </div>
+                    ${team.lastPosition.accuracy ? `<div style="margin: 5px 0; color: #7f8c8d;"><small>Précision GPS: ±${Math.round(team.lastPosition.accuracy)}m</small></div>` : ''}
+                </div>
+            `);
+        } else {
+            // Créer un nouveau marker
+            const marker = L.marker(position, {
+                icon: L.divIcon({
+                    className: 'tracking-team-marker',
+                    html: `
+                        <div style="
+                            background-color: ${color};
+                            width: 32px;
+                            height: 32px;
+                            border-radius: 50%;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                            color: white;
+                            font-size: 14px;
+                        ">
+                            ${team.name.substring(0, 2).toUpperCase()}
+                        </div>
+                    `,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                })
+            }).addTo(trackingMap);
+            
+            marker.bindPopup(`
+                <div style="min-width: 200px;">
+                    <h3 style="color: ${color}; margin: 0 0 10px 0;">${team.name}</h3>
+                    <div style="margin: 5px 0;">
+                        <strong>📊 Progression:</strong> ${foundCount}/${totalCount} (${progress}%)
+                    </div>
+                    <div style="margin: 5px 0;">
+                        <strong>📍 Prochain objectif:</strong><br>${nextCheckpoint}
+                    </div>
+                    <div style="margin: 5px 0;">
+                        <strong>🕐 Position mise à jour:</strong><br>${new Date(team.updatedAt?.seconds * 1000 || Date.now()).toLocaleTimeString()}
+                    </div>
+                    ${team.lastPosition.accuracy ? `<div style="margin: 5px 0; color: #7f8c8d;"><small>Précision GPS: ±${Math.round(team.lastPosition.accuracy)}m</small></div>` : ''}
+                </div>
+            `);
+            
+            trackingTeamMarkers[team.id] = marker;
+        }
+    });
+    
+    // Mettre à jour la liste des équipes dans la légende
+    updateTrackingLegend(teamsWithPosition);
+}
+
+function updateTrackingLegend(teams) {
+    const legendList = document.getElementById('tracking-teams-list');
+    
+    if (teams.length === 0) {
+        legendList.innerHTML = '<p>Aucune équipe avec position GPS</p>';
+        return;
+    }
+    
+    legendList.innerHTML = teams.map((team, index) => {
+        const color = teamColors[index % teamColors.length];
+        const progress = getTeamProgress(team);
+        const foundCount = team.foundCheckpoints.filter(id => {
+            const cp = checkpointsData.find(c => c.id === id);
+            return cp && !cp.isLobby;
+        }).length;
+        const totalCount = team.route.filter(id => {
+            const cp = checkpointsData.find(c => c.id === id);
+            return cp && !cp.isLobby;
+        }).length;
+        
+        return `
+            <div class="tracking-team-item" onclick="centerOnTeam('${team.id}')" style="cursor: pointer; padding: 10px; margin: 5px 0; border-left: 4px solid ${color}; background: #f8f9fa; border-radius: 4px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="
+                        background-color: ${color};
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 50%;
+                        border: 2px solid white;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        color: white;
+                        font-size: 11px;
+                        flex-shrink: 0;
+                    ">${team.name.substring(0, 2).toUpperCase()}</div>
+                    <div style="flex: 1;">
+                        <strong>${team.name}</strong>
+                        <div style="font-size: 12px; color: #666;">
+                            ${foundCount}/${totalCount} checkpoints (${progress}%)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function centerOnTeam(teamId) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (team && team.lastPosition && trackingMap) {
+        trackingMap.setView([team.lastPosition.lat, team.lastPosition.lng], 16);
+        
+        // Ouvrir le popup du marker
+        if (trackingTeamMarkers[teamId]) {
+            trackingTeamMarkers[teamId].openPopup();
+        }
+    }
+}
+
+function centerOnAllTeams() {
+    if (!trackingMap) return;
+    
+    const teamsWithPosition = teamsData.filter(team => 
+        team.lastPosition && 
+        team.lastPosition.lat && 
+        team.lastPosition.lng
+    );
+    
+    if (teamsWithPosition.length === 0) {
+        showNotification('⚠️ Aucune équipe avec position GPS', 'warning');
+        return;
+    }
+    
+    // Créer un groupe de toutes les positions
+    const bounds = L.latLngBounds(
+        teamsWithPosition.map(team => [team.lastPosition.lat, team.lastPosition.lng])
+    );
+    
+    // Centrer la carte sur toutes les équipes
+    trackingMap.fitBounds(bounds, { padding: [50, 50] });
+}
+
+// Event listeners pour le modal de tracking
+document.getElementById('close-tracking-map-btn')?.addEventListener('click', hideTrackingMapModal);
+document.getElementById('tracking-center-all-btn')?.addEventListener('click', centerOnAllTeams);
+
 // Exposer les nouvelles fonctions globalement
 window.toggleCheckpointSelection = toggleCheckpointSelection;
 window.removeCheckpointFromSelection = removeCheckpointFromSelection;
@@ -4408,3 +4714,4 @@ window.loadDebugLogs = loadDebugLogs;
 window.downloadDebugLogsFile = downloadDebugLogsFile;
 window.deleteTeamLogs = deleteTeamLogs;
 window.deleteAllLogs = deleteAllLogs;
+window.centerOnTeam = centerOnTeam;

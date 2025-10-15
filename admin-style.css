@@ -1193,6 +1193,132 @@ section h2 {
         flex: none;
         max-height: 200px;
     }
+}
+
+/* ===== MODAL TRACKING EN TEMPS RÉEL ===== */
+.tracking-map-modal {
+    max-width: 1600px !important;
+    width: 95vw !important;
+    max-height: 95vh !important;
+    overflow-y: auto;
+    align-self: flex-start;
+    margin-top: 2rem;
+}
+
+.tracking-info-bar {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.tracking-info-bar span {
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.tracking-info-bar .info-btn-small {
+    margin-left: auto;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tracking-info-bar .info-btn-small:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.tracking-map-container {
+    display: flex;
+    gap: 2rem;
+    height: 75vh;
+    max-height: 800px;
+}
+
+.tracking-legend {
+    flex: 0 0 320px;
+    background: linear-gradient(135deg, rgba(246, 248, 249, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+    border-radius: 15px;
+    padding: 1.5rem;
+    overflow-y: auto;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.tracking-legend h3 {
+    margin: 0 0 1rem 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 0.5rem;
+}
+
+.tracking-map-section {
+    flex: 1;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+#tracking-live-map {
+    width: 100%;
+    height: 100%;
+    border-radius: 15px;
+}
+
+.tracking-team-item {
+    transition: all 0.2s ease;
+}
+
+.tracking-team-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tracking-checkpoint-marker {
+    pointer-events: auto;
+}
+
+.tracking-team-marker {
+    pointer-events: auto;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Responsive pour le tracking */
+@media (max-width: 1200px) {
+    .tracking-map-container {
+        flex-direction: column;
+        height: auto;
+        max-height: none;
+    }
+    
+    .tracking-legend {
+        flex: none;
+        max-height: 250px;
+    }
+    
+    #tracking-live-map {
+        height: 500px;
+    }
     
     .routes-map-section {
         height: 500px;

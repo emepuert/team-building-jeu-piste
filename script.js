@@ -5452,56 +5452,87 @@ function showInstructionChallenge(checkpoint) {
 
 // Gérer le bouton "J'ai compris"
 function handleInstructionUnderstood() {
-    if (!currentInstructionCheckpoint) {
-        console.error('❌ Aucun checkpoint instruction actif');
-        return;
-    }
-    
-    const checkpoint = currentInstructionCheckpoint;
-    console.log(`✅ Instructions comprises pour: ${checkpoint.name}`);
-    
-    // Fermer le modal
-    const instructionModal = document.getElementById('instruction-modal');
-    instructionModal.style.display = 'none';
-    
-    // ✅ Retirer du Set des modals actifs
-    activeModals.delete(`instruction-${checkpoint.id}`);
-    
-    // Marquer comme trouvé et débloquer le suivant
-    if (!foundCheckpoints.includes(checkpoint.id)) {
-        foundCheckpoints.push(checkpoint.id);
-        console.log(`🎯 Checkpoint ${checkpoint.name} validé par instructions`);
-    }
-    
-    // Débloquer le checkpoint suivant selon la route de l'équipe
-    if (currentTeam && currentTeam.route) {
-        const currentRouteIndex = currentTeam.route.indexOf(checkpoint.id);
-        if (currentRouteIndex !== -1 && currentRouteIndex < currentTeam.route.length - 1) {
-            const nextCheckpointId = currentTeam.route[currentRouteIndex + 1];
-            if (!unlockedCheckpoints.includes(nextCheckpointId)) {
-                unlockedCheckpoints.push(nextCheckpointId);
-                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
-                if (nextCheckpoint) {
-                    console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpoint.name}`);
-                    showNotification(`🎯 ${nextCheckpoint.name} débloqué !`, 'success');
+    try {
+        if (!currentInstructionCheckpoint) {
+            console.error('❌ Aucun checkpoint instruction actif');
+            return;
+        }
+        
+        const checkpoint = currentInstructionCheckpoint;
+        console.log(`✅ Instructions comprises pour: ${checkpoint.name}`);
+        
+        // Fermer le modal
+        const instructionModal = document.getElementById('instruction-modal');
+        instructionModal.style.display = 'none';
+        
+        // ✅ Retirer du Set des modals actifs
+        activeModals.delete(`instruction-${checkpoint.id}`);
+        
+        // Marquer comme trouvé et débloquer le suivant
+        if (!foundCheckpoints.includes(checkpoint.id)) {
+            foundCheckpoints.push(checkpoint.id);
+            console.log(`🎯 Checkpoint ${checkpoint.name} validé par instructions`);
+        }
+        
+        // Débloquer le checkpoint suivant selon la route de l'équipe
+        if (currentTeam && currentTeam.route) {
+            const currentRouteIndex = currentTeam.route.indexOf(checkpoint.id);
+            if (currentRouteIndex !== -1 && currentRouteIndex < currentTeam.route.length - 1) {
+                const nextCheckpointId = currentTeam.route[currentRouteIndex + 1];
+                if (!unlockedCheckpoints.includes(nextCheckpointId)) {
+                    // Utiliser unlockCheckpoint() pour révéler le checkpoint sur la carte
+                    unlockCheckpoint(nextCheckpointId);
+                    
+                    const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                    if (nextCheckpoint) {
+                        console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpoint.name}`);
+                        showNotification(`🎯 ${nextCheckpoint.name} débloqué !`, 'success');
+                    }
                 }
             }
         }
+        
+        // Mettre à jour le marker du checkpoint actuel (passer au vert)
+        const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
+        if (markerData && markerData.marker) {
+            // Changer la couleur du marker et du cercle
+            if (markerData.marker) {
+                const greenIcon = L.divIcon({
+                    className: 'checkpoint-marker-found',
+                    html: `✅`,
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+                markerData.marker.setIcon(greenIcon);
+            }
+            if (markerData.circle) {
+                markerData.circle.setStyle({
+                    color: '#27ae60',
+                    fillColor: '#27ae60'
+                });
+            }
+        }
+        
+        // Sauvegarder la progression
+        if (firebaseService && currentTeam && currentTeamId) {
+            try {
+                forceSave('instruction_completed');
+            } catch (saveError) {
+                console.error('❌ Erreur forceSave:', saveError);
+                logError(saveError, 'handleInstructionUnderstood > forceSave', false);
+            }
+        }
+        
+        // Afficher un message de succès
+        const successMessage = checkpoint.clue?.successMessage || `✅ Instructions comprises pour "${checkpoint.name}" !`;
+        showNotification(successMessage, 'success');
+        
+        currentInstructionCheckpoint = null;
+    } catch (error) {
+        console.error('❌ Erreur dans handleInstructionUnderstood:', error);
+        logError(error, 'handleInstructionUnderstood', true);
+        showNotification('⚠️ Erreur lors de la validation des instructions', 'error');
     }
-    
-    // Mettre à jour la carte
-    updateMapMarkers();
-    
-    // Sauvegarder la progression
-    if (firebaseService && currentTeam && currentTeamId) {
-        forceSave('instruction_completed');
-    }
-    
-    // Afficher un message de succès
-    const successMessage = checkpoint.clue?.successMessage || `✅ Instructions comprises pour "${checkpoint.name}" !`;
-    showNotification(successMessage, 'success');
-    
-    currentInstructionCheckpoint = null;
 }
 
 // ===== FONCTIONS PHOTOS =====

@@ -2541,6 +2541,24 @@ function updateDynamicContent() {
             `;
             break;
             
+        case 'instruction':
+            content += `
+                <div>
+                    <label class="field-label">Instructions à afficher :</label>
+                    <textarea id="instruction-text" placeholder="Rendez-vous à la fontaine et observez les statues..." rows="4" required></textarea>
+                </div>
+                <div class="info-box">
+                    <p><strong>📄 Instructions simples :</strong></p>
+                    <ul>
+                        <li>📋 Affiche un texte d'instructions aux joueurs</li>
+                        <li>✅ Bouton "J'ai compris" pour valider et passer au suivant</li>
+                        <li>🔄 Possibilité de relire les instructions depuis le menu</li>
+                        <li>🎯 Parfait pour des consignes, directions ou explications</li>
+                    </ul>
+                </div>
+            `;
+            break;
+            
         case 'info':
             content += `
                 <div>
@@ -2705,6 +2723,20 @@ async function createCheckpoint() {
                     correctAnswers: correctAnswers,
                     explanation: qcmExplanation,
                     successMessage: qcmSuccess
+                };
+                break;
+                
+            case 'instruction':
+                const instructionText = document.getElementById('instruction-text')?.value.trim();
+                
+                if (!instructionText) {
+                    showNotification('Veuillez remplir le texte des instructions', 'error');
+                    return;
+                }
+                
+                clueData.text = instructionText;
+                clueData.instruction = {
+                    text: instructionText
                 };
                 break;
                 
@@ -3207,6 +3239,23 @@ function updateEditDynamicContent(checkpoint = null) {
             `;
             break;
             
+        case 'instruction':
+            content = `
+                <div>
+                    <label class="field-label">Instructions à afficher :</label>
+                    <textarea id="edit-instruction-text" placeholder="Rendez-vous à la fontaine et observez les statues..." rows="4" required>${checkpoint?.clue?.instruction?.text || checkpoint?.clue?.text || ''}</textarea>
+                </div>
+                <div class="info-box">
+                    <p><strong>📄 Instructions simples :</strong></p>
+                    <ul>
+                        <li>📋 Affiche un texte d'instructions aux joueurs</li>
+                        <li>✅ Bouton "J'ai compris" pour valider et passer au suivant</li>
+                        <li>🔄 Possibilité de relire les instructions depuis le menu</li>
+                    </ul>
+                </div>
+            `;
+            break;
+            
         case 'info':
             content = `
                 <div>
@@ -3365,6 +3414,20 @@ async function updateCheckpoint() {
                     correctAnswers: correctAnswers,
                     explanation: qcmExplanation,
                     successMessage: qcmSuccess
+                };
+                break;
+                
+            case 'instruction':
+                const editInstructionText = document.getElementById('edit-instruction-text')?.value.trim();
+                
+                if (!editInstructionText) {
+                    showNotification('Veuillez remplir le texte des instructions', 'error');
+                    return;
+                }
+                
+                clueData.text = editInstructionText;
+                clueData.instruction = {
+                    text: editInstructionText
                 };
                 break;
                 

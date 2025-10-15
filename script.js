@@ -2877,8 +2877,9 @@ function foundCheckpoint(checkpoint) {
     // Audio : attendre la réussite de l'épreuve
     // QCM : attendre la bonne réponse
     // Énigme (riddle) : attendre la bonne réponse
+    // Instruction : attendre le clic sur "J'ai compris"
     const hasRiddle = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
-    if (checkpoint.type !== 'photo' && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddle) {
+    if (checkpoint.type !== 'photo' && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'instruction' && !hasRiddle) {
         foundCheckpoints.push(checkpoint.id);
     }
     
@@ -2891,7 +2892,7 @@ function foundCheckpoint(checkpoint) {
     // Mettre à jour le marqueur et le cercle (sauf pour les épreuves audio, QCM et énigmes non réussies)
     const markerData = checkpointMarkers.find(m => m.id === checkpoint.id);
     const hasRiddleCheck = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
-    if (markerData && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddleCheck) {
+    if (markerData && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'instruction' && !hasRiddleCheck) {
         const newIcon = L.divIcon({
             className: 'checkpoint-marker found',
             html: checkpoint.emoji,
@@ -2929,8 +2930,8 @@ function foundCheckpoint(checkpoint) {
         
         markerData.marker.setPopupContent(popupContent);
         
-        // Mettre à jour le cercle en vert (sauf pour les épreuves audio, QCM et énigmes non réussies)
-        if (checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && !hasRiddleCheck) {
+        // Mettre à jour le cercle en vert (sauf pour les épreuves audio, QCM, instructions et énigmes non réussies)
+        if (checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'instruction' && !hasRiddleCheck) {
             markerData.circle.setStyle({
                 color: '#27ae60',
                 fillColor: '#27ae60'
@@ -2974,7 +2975,7 @@ function foundCheckpoint(checkpoint) {
     // L'auto-save gère déjà les sauvegardes périodiques, mais on sauve immédiatement 
     // quand un checkpoint est trouvé pour avoir une réactivité maximale
     const hasRiddleSave = checkpoint.clue?.riddle || checkpoint.clue?.enigma || checkpoint.clue?.puzzle;
-    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'photo' && !hasRiddleSave) {
+    if (firebaseService && currentTeam && currentTeamId && checkpoint.type !== 'audio' && checkpoint.type !== 'qcm' && checkpoint.type !== 'photo' && checkpoint.type !== 'instruction' && !hasRiddleSave) {
         // ===== ANCIEN: GPS Lock check désactivé =====
         // Plus de blocage par GPS lock, l'auto-save gère tout
         // Plus besoin d'utilisateurs - équipe directement
@@ -3011,6 +3012,8 @@ function foundCheckpoint(checkpoint) {
         console.log('🎤 Checkpoint audio - attente réussite épreuve');
     } else if (checkpoint.type === 'qcm') {
         console.log('📋 Checkpoint QCM - attente bonne réponse');
+    } else if (checkpoint.type === 'instruction') {
+        console.log('📄 Checkpoint instruction - attente validation "J\'ai compris"');
     } else if (hasRiddleSave) {
         console.log('🧩 Checkpoint énigme - attente bonne réponse');
     }
@@ -3085,6 +3088,18 @@ function showClue(clue, checkpoint = null) {
             return;
         }
         showQCMChallenge(checkpoint);
+        return;
+    }
+    
+    // Si c'est un checkpoint instruction, afficher le modal instructions
+    if (checkpoint && checkpoint.type === 'instruction') {
+        // Vérifier si le modal instructions est déjà ouvert
+        const instructionModal = document.getElementById('instruction-modal');
+        if (instructionModal && instructionModal.style.display === 'flex') {
+            console.log(`🚫 Modal instructions déjà ouvert pour ${checkpoint.name}, ignoré`);
+            return;
+        }
+        showInstructionChallenge(checkpoint);
         return;
     }
     
@@ -3702,6 +3717,7 @@ function updatePlayerRouteProgress() {
                 const typeEmoji = checkpoint?.type === 'photo' ? '📸' : 
                                  checkpoint?.type === 'audio' ? '🎤' : 
                                  checkpoint?.type === 'qcm' ? '📝' : 
+                                 checkpoint?.type === 'instruction' ? '📄' : 
                                  checkpoint?.clue?.riddle ? '🧩' : '🎯';
                 statusIcon = typeEmoji;
                 statusText = 'dans la zone - épreuve disponible';
@@ -3766,6 +3782,12 @@ function updatePlayerRouteProgress() {
                 helpButtons = `
                     ${challengeButton}
                     <button class="help-btn-small help-resolution" onclick="requestQCMHelpFor(${checkpointId})" title="Demander l'aide pour le QCM">🆘</button>
+                `;
+            } else if (checkpoint?.type === 'instruction') {
+                // Épreuve instruction → bouton relire seulement si dans la zone
+                const challengeButton = isInRange ? `<button class="help-btn-small photo-location" onclick="openChallengeFromPopup(${checkpointId})" title="Relire les instructions">📄</button>` : '';
+                helpButtons = `
+                    ${challengeButton}
                 `;
             } else if (checkpoint?.clue?.riddle) {
                 // Avec énigme → bouton afficher seulement si dans la zone
@@ -4043,6 +4065,24 @@ function setupEventListeners() {
     });
     
     document.getElementById('qcm-submit-btn').addEventListener('click', submitQCMAnswer);
+    
+    // Événements pour le modal instructions
+    document.querySelector('#instruction-modal .close').addEventListener('click', () => {
+        document.getElementById('instruction-modal').style.display = 'none';
+        
+        // Ajouter à dismissedModals pour éviter réouverture automatique
+        if (currentInstructionCheckpoint) {
+            dismissedModals.add(currentInstructionCheckpoint.id);
+            console.log(`🚫 Modal instructions fermé manuellement pour ${currentInstructionCheckpoint.name}, ajouté à dismissedModals`);
+        }
+        
+        // Retirer de activeModals
+        if (currentInstructionCheckpoint) {
+            activeModals.delete(`instruction-${currentInstructionCheckpoint.id}`);
+        }
+    });
+    
+    document.getElementById('instruction-understood-btn').addEventListener('click', handleInstructionUnderstood);
     
     // Événements pour le modal énigme
     document.querySelector('#riddle-modal .close').addEventListener('click', () => {
@@ -4631,6 +4671,8 @@ function openChallengeFromPopup(checkpointId) {
         showAudioChallenge(checkpoint);
     } else if (checkpoint.type === 'qcm') {
         showQCMChallenge(checkpoint);
+    } else if (checkpoint.type === 'instruction') {
+        showInstructionChallenge(checkpoint);
     } else if (checkpoint.clue?.riddle) {
         // Checkpoint avec énigme
         showRiddle(checkpoint.clue, checkpoint);
@@ -5364,6 +5406,97 @@ async function requestQCMHelpFor(checkpointId) {
         console.error('❌ Erreur demande d\'aide QCM:', error);
         showNotification('Erreur lors de l\'envoi de la demande', 'error');
     }
+}
+
+// ===== FONCTIONS INSTRUCTIONS =====
+
+// Variable pour suivre le checkpoint instruction actuel
+let currentInstructionCheckpoint = null;
+
+// Afficher le modal instructions pour un checkpoint
+function showInstructionChallenge(checkpoint) {
+    console.log(`📄 [showInstructionChallenge] Ouverture pour ${checkpoint?.name}, ID: ${checkpoint?.id}`);
+    
+    if (!checkpoint || checkpoint.type !== 'instruction') {
+        console.error('❌ Checkpoint invalide pour instructions:', checkpoint);
+        return;
+    }
+    
+    // Vérifier si l'utilisateur a fermé manuellement ce modal
+    if (dismissedModals.has(checkpoint.id)) {
+        console.log(`🚫 Modal instructions fermé manuellement pour ${checkpoint.name}, ignoré`);
+        return;
+    }
+    
+    // Vérifier si le modal est déjà ouvert pour ce checkpoint
+    const instructionModal = document.getElementById('instruction-modal');
+    if (instructionModal && instructionModal.style.display === 'flex' && currentInstructionCheckpoint?.id === checkpoint.id) {
+        console.log(`🚫 Modal instructions déjà ouvert pour ${checkpoint.name}, ignoré`);
+        return;
+    }
+    
+    currentInstructionCheckpoint = checkpoint;
+    
+    // Récupérer le texte des instructions
+    const instructionText = checkpoint.clue?.instruction?.text || checkpoint.clue?.text || 'Instructions non disponibles';
+    
+    // Afficher le modal
+    document.getElementById('instruction-text').textContent = instructionText;
+    instructionModal.style.display = 'flex';
+    
+    // ✅ Marquer comme actif dans le Set
+    activeModals.add(`instruction-${checkpoint.id}`);
+    
+    console.log(`📄 Modal instructions ouvert pour: ${checkpoint.name}`);
+}
+
+// Gérer le bouton "J'ai compris"
+function handleInstructionUnderstood() {
+    if (!currentInstructionCheckpoint) {
+        console.error('❌ Aucun checkpoint instruction actif');
+        return;
+    }
+    
+    const checkpoint = currentInstructionCheckpoint;
+    console.log(`✅ Instructions comprises pour: ${checkpoint.name}`);
+    
+    // Fermer le modal
+    const instructionModal = document.getElementById('instruction-modal');
+    instructionModal.style.display = 'none';
+    
+    // ✅ Retirer du Set des modals actifs
+    activeModals.delete(`instruction-${checkpoint.id}`);
+    
+    // Marquer comme trouvé et débloquer le suivant
+    if (!foundCheckpoints.includes(checkpoint.id)) {
+        foundCheckpoints.push(checkpoint.id);
+        console.log(`🎯 Checkpoint ${checkpoint.name} validé par instructions`);
+    }
+    
+    // Débloquer le checkpoint suivant
+    const nextIndex = GAME_CONFIG.checkpoints.findIndex(cp => cp.id === checkpoint.id) + 1;
+    if (nextIndex < GAME_CONFIG.checkpoints.length) {
+        const nextCheckpoint = GAME_CONFIG.checkpoints[nextIndex];
+        if (!unlockedCheckpoints.includes(nextCheckpoint.id)) {
+            unlockedCheckpoints.push(nextCheckpoint.id);
+            console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpoint.name}`);
+            showNotification(`🎯 ${nextCheckpoint.name} débloqué !`, 'success');
+        }
+    }
+    
+    // Mettre à jour la carte
+    updateMapMarkers();
+    
+    // Sauvegarder la progression
+    if (firebaseService && currentTeam && currentTeamId) {
+        forceSave('instruction_completed');
+    }
+    
+    // Afficher un message de succès
+    const successMessage = checkpoint.clue?.successMessage || `✅ Instructions comprises pour "${checkpoint.name}" !`;
+    showNotification(successMessage, 'success');
+    
+    currentInstructionCheckpoint = null;
 }
 
 // ===== FONCTIONS PHOTOS =====

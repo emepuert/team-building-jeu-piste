@@ -104,6 +104,13 @@ function showAdminInterface() {
     // Charger les données de gestion
     loadManagementData();
     
+    // Initialiser la carte de tracking
+    setTimeout(() => {
+        initializeTrackingMap();
+        // Démarrer les mises à jour automatiques
+        startTrackingUpdates();
+    }, 500);
+    
     showNotification('✅ Connexion admin réussie', 'success');
 }
 
@@ -283,7 +290,6 @@ function setupAdminEvents() {
     document.getElementById('create-checkpoint-btn').addEventListener('click', showCreateCheckpointModal);
     document.getElementById('create-route-btn').addEventListener('click', showCreateRouteModal);
     document.getElementById('show-routes-map-btn').addEventListener('click', showRoutesMapModal);
-    document.getElementById('show-tracking-map-btn').addEventListener('click', showTrackingMapModal);
     
     // Logs de debug
     document.getElementById('load-logs-btn').addEventListener('click', loadDebugLogs);
@@ -315,6 +321,11 @@ function startRealtimeSync() {
         
         // Mettre à jour l'heure de dernière mise à jour
         updateLastUpdateTime();
+        
+        // Mettre à jour la carte de tracking si elle est initialisée
+        if (trackingMap) {
+            updateTrackingMap();
+        }
     });
     
     // Plus de synchronisation utilisateurs - 1 équipe = 1 joueur
@@ -4410,15 +4421,7 @@ let trackingUpdateInterval = null;
 // Couleurs pour différencier les équipes
 const teamColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e', '#95a5a6', '#c0392b'];
 
-async function showTrackingMapModal() {
-    document.getElementById('tracking-map-modal').style.display = 'block';
-    document.body.classList.add('modal-open');
-    
-    // Initialiser la carte après un court délai
-    setTimeout(() => {
-        initializeTrackingMap();
-    }, 100);
-    
+function startTrackingUpdates() {
     // Démarrer les mises à jour automatiques toutes les 5 secondes
     if (trackingUpdateInterval) {
         clearInterval(trackingUpdateInterval);
@@ -4426,25 +4429,6 @@ async function showTrackingMapModal() {
     trackingUpdateInterval = setInterval(() => {
         updateTrackingMap();
     }, 5000);
-}
-
-function hideTrackingMapModal() {
-    document.getElementById('tracking-map-modal').style.display = 'none';
-    document.body.classList.remove('modal-open');
-    
-    // Arrêter les mises à jour automatiques
-    if (trackingUpdateInterval) {
-        clearInterval(trackingUpdateInterval);
-        trackingUpdateInterval = null;
-    }
-    
-    // Nettoyer la carte
-    if (trackingMap) {
-        trackingMap.remove();
-        trackingMap = null;
-        trackingTeamMarkers = {};
-        trackingCheckpointMarkers = {};
-    }
 }
 
 async function initializeTrackingMap() {
@@ -4702,8 +4686,7 @@ function centerOnAllTeams() {
     trackingMap.fitBounds(bounds, { padding: [50, 50] });
 }
 
-// Event listeners pour le modal de tracking
-document.getElementById('close-tracking-map-btn')?.addEventListener('click', hideTrackingMapModal);
+// Event listener pour le bouton de centrage
 document.getElementById('tracking-center-all-btn')?.addEventListener('click', centerOnAllTeams);
 
 // Exposer les nouvelles fonctions globalement

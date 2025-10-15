@@ -1195,14 +1195,22 @@ section h2 {
     }
 }
 
-/* ===== MODAL TRACKING EN TEMPS RÉEL ===== */
-.tracking-map-modal {
-    max-width: 1600px !important;
-    width: 95vw !important;
-    max-height: 95vh !important;
-    overflow-y: auto;
-    align-self: flex-start;
-    margin-top: 2rem;
+/* ===== SECTION TRACKING EN TEMPS RÉEL ===== */
+.tracking-section {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(246, 248, 249, 0.9) 100%);
+    backdrop-filter: blur(10px);
+    border-radius: 25px;
+    padding: 2rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.tracking-section h2 {
+    margin: 0 0 1.5rem 0;
+    color: #2c3e50;
+    font-size: 1.8rem;
+    font-weight: 700;
 }
 
 .tracking-info-bar {
@@ -1242,8 +1250,8 @@ section h2 {
 .tracking-map-container {
     display: flex;
     gap: 2rem;
-    height: 75vh;
-    max-height: 800px;
+    height: 600px;
+    min-height: 500px;
 }
 
 .tracking-legend {
@@ -1305,23 +1313,42 @@ section h2 {
 
 /* Responsive pour le tracking */
 @media (max-width: 1200px) {
+    .tracking-section {
+        padding: 1.5rem;
+    }
+    
+    .tracking-info-bar {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .tracking-info-bar .info-btn-small {
+        margin-left: 0;
+        width: 100%;
+    }
+    
     .tracking-map-container {
         flex-direction: column;
         height: auto;
-        max-height: none;
     }
     
     .tracking-legend {
         flex: none;
-        max-height: 250px;
+        max-height: 200px;
     }
     
     #tracking-live-map {
-        height: 500px;
+        height: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    .tracking-section h2 {
+        font-size: 1.4rem;
     }
     
-    .routes-map-section {
-        height: 500px;
+    .tracking-info-bar span {
+        font-size: 0.85rem;
     }
 }
 

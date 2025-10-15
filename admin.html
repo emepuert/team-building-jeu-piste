@@ -85,11 +85,31 @@
                     <h2>👥 Équipes et Progression</h2>
                     <div class="section-controls">
                         <button id="refresh-teams-btn" class="info-btn">🔄 Actualiser</button>
-                        <button id="show-tracking-map-btn" class="success-btn">🗺️ Carte de tracking en direct</button>
                         <span id="last-update" class="last-update">Dernière mise à jour : jamais</span>
                     </div>
                     <div id="teams-list">
                         <p class="no-data">Aucune équipe active</p>
+                    </div>
+                </section>
+
+                <!-- Carte de tracking en temps réel -->
+                <section class="tracking-section">
+                    <h2>🗺️ Tracking GPS en Temps Réel</h2>
+                    <div class="tracking-info-bar">
+                        <span id="tracking-teams-count">0 équipe(s) en jeu</span>
+                        <span id="tracking-last-update">Dernière mise à jour : -</span>
+                        <button id="tracking-center-all-btn" class="info-btn-small">🎯 Centrer sur toutes les équipes</button>
+                    </div>
+                    <div class="tracking-map-container">
+                        <div class="tracking-legend">
+                            <h3>Équipes :</h3>
+                            <div id="tracking-teams-list">
+                                <p>Aucune équipe avec position GPS</p>
+                            </div>
+                        </div>
+                        <div class="tracking-map-section">
+                            <div id="tracking-live-map"></div>
+                        </div>
                     </div>
                 </section>
 
@@ -385,31 +405,6 @@
             </div>
         </div>
 
-        <!-- Modal carte de tracking en temps réel -->
-        <div id="tracking-map-modal" class="modal" style="display: none;">
-            <div class="modal-content tracking-map-modal">
-                <h2>🗺️ Tracking des Équipes en Temps Réel</h2>
-                <div class="tracking-info-bar">
-                    <span id="tracking-teams-count">0 équipe(s) en jeu</span>
-                    <span id="tracking-last-update">Dernière mise à jour : -</span>
-                    <button id="tracking-center-all-btn" class="info-btn-small">🎯 Centrer sur toutes les équipes</button>
-                </div>
-                <div class="tracking-map-container">
-                    <div class="tracking-legend">
-                        <h3>Équipes :</h3>
-                        <div id="tracking-teams-list">
-                            <p>Aucune équipe avec position GPS</p>
-                        </div>
-                    </div>
-                    <div class="tracking-map-section">
-                        <div id="tracking-live-map"></div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" id="close-tracking-map-btn" class="cancel-btn">Fermer</button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Modal d'édition de checkpoint -->

@@ -5473,14 +5473,19 @@ function handleInstructionUnderstood() {
         console.log(`🎯 Checkpoint ${checkpoint.name} validé par instructions`);
     }
     
-    // Débloquer le checkpoint suivant
-    const nextIndex = GAME_CONFIG.checkpoints.findIndex(cp => cp.id === checkpoint.id) + 1;
-    if (nextIndex < GAME_CONFIG.checkpoints.length) {
-        const nextCheckpoint = GAME_CONFIG.checkpoints[nextIndex];
-        if (!unlockedCheckpoints.includes(nextCheckpoint.id)) {
-            unlockedCheckpoints.push(nextCheckpoint.id);
-            console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpoint.name}`);
-            showNotification(`🎯 ${nextCheckpoint.name} débloqué !`, 'success');
+    // Débloquer le checkpoint suivant selon la route de l'équipe
+    if (currentTeam && currentTeam.route) {
+        const currentRouteIndex = currentTeam.route.indexOf(checkpoint.id);
+        if (currentRouteIndex !== -1 && currentRouteIndex < currentTeam.route.length - 1) {
+            const nextCheckpointId = currentTeam.route[currentRouteIndex + 1];
+            if (!unlockedCheckpoints.includes(nextCheckpointId)) {
+                unlockedCheckpoints.push(nextCheckpointId);
+                const nextCheckpoint = GAME_CONFIG.checkpoints.find(cp => cp.id === nextCheckpointId);
+                if (nextCheckpoint) {
+                    console.log(`🔓 Checkpoint suivant débloqué: ${nextCheckpoint.name}`);
+                    showNotification(`🎯 ${nextCheckpoint.name} débloqué !`, 'success');
+                }
+            }
         }
     }
     

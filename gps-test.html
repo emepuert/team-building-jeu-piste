@@ -76,6 +76,7 @@
         function locate() {
             document.getElementById('info').textContent = '🔄 Localisation en cours...';
             
+            // Tentative 1 : Haute précision avec timeout plus long pour Android
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude;
@@ -111,18 +112,72 @@
                     map.setView([lat, lng], 16);
                 },
                 (error) => {
-                    const messages = {
-                        1: 'Permission refusée',
-                        2: 'Position indisponible',
-                        3: 'Timeout'
-                    };
-                    document.getElementById('info').textContent = 
-                        `❌ Erreur: ${messages[error.code] || 'Inconnue'}`;
+                    // Si timeout avec haute précision, réessayer en mode rapide
+                    if (error.code === 3) {
+                        document.getElementById('info').textContent = '🔄 Nouvelle tentative (mode rapide)...';
+                        
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const lat = position.coords.latitude;
+                                const lng = position.coords.longitude;
+                                const accuracy = Math.round(position.coords.accuracy);
+                                
+                                document.getElementById('info').textContent = 
+                                    `✅ Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)} | Précision: ${accuracy}m (mode rapide)`;
+                                
+                                if (userMarker) {
+                                    userMarker.setLatLng([lat, lng]);
+                                    accuracyCircle.setLatLng([lat, lng]);
+                                    accuracyCircle.setRadius(accuracy);
+                                } else {
+                                    userMarker = L.circleMarker([lat, lng], {
+                                        radius: 8,
+                                        fillColor: '#4285F4',
+                                        color: '#fff',
+                                        weight: 2,
+                                        fillOpacity: 0.8
+                                    }).addTo(map);
+                                    
+                                    accuracyCircle = L.circle([lat, lng], {
+                                        radius: accuracy,
+                                        color: '#4285F4',
+                                        fillColor: '#4285F4',
+                                        fillOpacity: 0.1,
+                                        weight: 1
+                                    }).addTo(map);
+                                }
+                                
+                                map.setView([lat, lng], 16);
+                            },
+                            (error2) => {
+                                const messages = {
+                                    1: 'Permission refusée',
+                                    2: 'Position indisponible',
+                                    3: 'Timeout (même en mode rapide)'
+                                };
+                                document.getElementById('info').textContent = 
+                                    `❌ Erreur: ${messages[error2.code] || 'Inconnue'}`;
+                            },
+                            {
+                                enableHighAccuracy: false, // Mode rapide
+                                timeout: 5000,
+                                maximumAge: 10000 // Accepter position en cache
+                            }
+                        );
+                    } else {
+                        const messages = {
+                            1: 'Permission refusée',
+                            2: 'Position indisponible',
+                            3: 'Timeout'
+                        };
+                        document.getElementById('info').textContent = 
+                            `❌ Erreur: ${messages[error.code] || 'Inconnue'}`;
+                    }
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
+                    timeout: 20000, // 20 secondes pour Android
+                    maximumAge: 5000 // Accepter position de moins de 5s
                 }
             );
         }
